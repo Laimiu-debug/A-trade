@@ -1,0 +1,215 @@
+/* Keep the page continuous; only bounded content needs a visible scroll control. */
+:root {
+  --scroll-thumb:color-mix(in srgb,var(--primary) 18%,#aab7ca);
+  --scroll-thumb-active:color-mix(in srgb,var(--primary) 36%,#94a6bf);
+  --range-track:color-mix(in srgb,var(--primary) 12%,var(--surface));
+}
+
+* {
+  scrollbar-width:thin;
+  scrollbar-color:var(--scroll-thumb) transparent;
+}
+::-webkit-scrollbar {
+  width:8px;
+  height:8px;
+  background:transparent;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background:transparent;
+}
+::-webkit-scrollbar-thumb {
+  min-height:32px;
+  min-width:32px;
+  border:2px solid transparent;
+  border-radius:999px;
+  background:var(--scroll-thumb);
+  background-clip:padding-box;
+}
+::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:active,
+:is(.sidebar nav,.nav-flyout-items,.modal-body,.table-wrap,textarea):is(:hover,:focus-within)::-webkit-scrollbar-thumb {
+  background-color:var(--scroll-thumb-active);
+}
+::-webkit-scrollbar-button {
+  display:none;
+  width:0;
+  height:0;
+}
+/* Chromium's standard scrollbar properties otherwise override its rounded thumb. */
+@supports selector(::-webkit-scrollbar) {
+  * { scrollbar-width:auto; scrollbar-color:auto; }
+  .sidebar nav,
+  .nav-flyout-items,
+  .milestone-drawer .modal-body { scrollbar-width:auto; }
+}
+html,
+body {
+  scrollbar-width:none;
+  scrollbar-gutter:auto;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.pass-viewport::-webkit-scrollbar {
+  display:none;
+  width:0;
+  height:0;
+}
+.pass-viewport { scrollbar-width:none; }
+
+/* The navigation can scroll in short windows without shrinking its footer. */
+.sidebar nav,
+.nav-flyout-items {
+  min-height:0;
+  overscroll-behavior-y:contain;
+}
+.sidebar > .brand,
+.sidebar-bottom { flex-shrink:0; }
+
+/* Let navigation and research settings participate in the main page flow. */
+.tabs,
+.local-tabs,
+.context-nav,
+.workspace-tabs {
+  flex-wrap:wrap;
+  overflow:visible;
+  row-gap:4px;
+}
+.workspace-tab { min-width:0; max-width:100%; }
+.workspace-tabs .workspace-tab > button[data-workspace] {
+  min-width:0;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  text-align:left;
+}
+.workspace-tabs .workspace-tab > .task-delete { flex-shrink:0; }
+.research-config {
+  max-height:none;
+  overflow:visible;
+}
+.table-wrap {
+  max-width:100%;
+  overscroll-behavior-x:contain;
+}
+
+/* One scrollable body per dialog keeps the title and actions in view. */
+.modal {
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  max-height:85dvh;
+}
+.modal > .modal-head,
+.modal > .modal-footer {
+  position:relative;
+  flex:0 0 auto;
+  min-width:0;
+}
+.modal > .modal-body {
+  flex:1 1 auto;
+  min-height:0;
+  min-width:0;
+  overflow:auto;
+  overscroll-behavior:contain;
+}
+.modal > .modal-footer { flex-wrap:wrap; }
+
+/* Text grows with the note, sharing the page or dialog's existing scroll area. */
+@supports (field-sizing:content) {
+  textarea,
+  .field textarea,
+  .note-editor,
+  .milestone-event-form textarea {
+    field-sizing:content;
+    resize:none;
+  }
+  .modal textarea[data-note] { min-height:10lh; }
+}
+
+/* Preserve control outlines and data dividers, remove decorative card frames. */
+:is(.panel,.metric,.tool-card,.strategy-card,.sector-card,.valuation-result,.modal,.fx-live-sample),
+.fx-glass :is(.panel,.metric,.tool-card,.strategy-card,.sector-card,.modal,.fx-live-sample) {
+  border-color:transparent;
+}
+.fx-glass .modal { box-shadow:0 16px 60px #17233320; }
+.fx-live-sample { box-shadow:none; }
+.fx-glow .fx-live-sample {
+  box-shadow:0 12px 36px rgb(var(--fx-a-rgb)/calc(var(--fx-glow)*.24));
+}
+
+/* A single range-control treatment across settings and future parameter inputs. */
+input[type=range],
+.field input[type=range],
+.fx-range input[type=range] {
+  appearance:none;
+  -webkit-appearance:none;
+  display:block;
+  width:100%;
+  min-width:0;
+  height:28px;
+  margin:0;
+  padding:0;
+  border:0;
+  border-radius:7px;
+  background:transparent;
+  cursor:pointer;
+  accent-color:var(--primary);
+}
+input[type=range]::-webkit-slider-runnable-track {
+  height:4px;
+  border:0;
+  border-radius:999px;
+  background:linear-gradient(to right,var(--primary) var(--range-fill,0%),var(--range-track) var(--range-fill,0%));
+}
+input[type=range]::-webkit-slider-thumb,
+.fx-range input[type=range]::-webkit-slider-thumb {
+  appearance:none;
+  -webkit-appearance:none;
+  box-sizing:border-box;
+  width:16px;
+  height:16px;
+  margin-top:-6px;
+  border:3px solid var(--surface);
+  border-radius:50%;
+  background:var(--primary);
+  box-shadow:0 1px 5px color-mix(in srgb,var(--primary) 26%,transparent);
+  transition:box-shadow 120ms ease;
+}
+input[type=range]:is(:hover,:focus-visible)::-webkit-slider-thumb {
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--primary) 10%,transparent);
+}
+input[type=range]::-moz-range-track {
+  height:4px;
+  border:0;
+  border-radius:999px;
+  background:var(--range-track);
+}
+input[type=range]::-moz-range-progress {
+  height:4px;
+  border-radius:999px;
+  background:var(--primary);
+}
+input[type=range]::-moz-range-thumb,
+.fx-range input[type=range]::-moz-range-thumb {
+  box-sizing:border-box;
+  width:16px;
+  height:16px;
+  border:3px solid var(--surface);
+  border-radius:50%;
+  background:var(--primary);
+  box-shadow:0 1px 5px color-mix(in srgb,var(--primary) 26%,transparent);
+}
+input[type=range]:focus-visible,
+.fx-range input[type=range]:focus-visible {
+  outline:2px solid var(--primary);
+  outline-offset:2px;
+}
+input[type=range]:disabled { cursor:not-allowed; }
+@media (pointer:coarse) {
+  input[type=range],
+  .field input[type=range],
+  .fx-range input[type=range] { height:40px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  input[type=range]::-webkit-slider-thumb { transition:none; }
+}

@@ -1,0 +1,59 @@
+/* JavaScript resolves the saved preference and the default compact breakpoint. */
+body.nav-collapsed { --sidebar:72px; }
+
+.sidebar-toggle-row {
+  display:flex;
+  justify-content:flex-end;
+  flex-shrink:0;
+  padding:0 12px 6px;
+}
+.sidebar-toggle {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  height:32px;
+  padding:0 10px;
+  border-radius:7px;
+  color:var(--muted);
+  font-size:11px;
+  white-space:nowrap;
+}
+.sidebar-toggle:hover {
+  color:var(--primary);
+  background:var(--hover);
+}
+.sidebar-toggle .icon { width:17px; height:17px; }
+
+body.nav-collapsed .sidebar > .brand {
+  height:75px;
+  padding:0;
+  justify-content:center;
+}
+body.nav-collapsed .sidebar > .brand > span:last-child,
+body.nav-collapsed .sidebar .nav-main > span,
+body.nav-collapsed .sidebar .nav-main > .icon:last-child,
+body.nav-collapsed .sidebar .nav-children,
+body.nav-collapsed .sidebar-toggle > span:last-child,
+body.nav-collapsed .sidebar .queue-shortcut > span:not(.queue-symbol),
+body.nav-collapsed .sidebar .queue-shortcut > .icon,
+body.nav-collapsed .sidebar .local-identity { display:none; }
+body.nav-collapsed .sidebar-toggle-row {
+  justify-content:center;
+  padding:0 10px 6px;
+}
+body.nav-collapsed .sidebar-toggle { width:40px; padding:0; }
+body.nav-collapsed .sidebar nav { padding:10px; }
+body.nav-collapsed .sidebar .nav-main {
+  justify-content:center;
+  height:46px;
+  padding:0;
+}
+body.nav-collapsed .sidebar .nav-main > .icon:first-child { width:22px; height:22px; }
+body.nav-collapsed .sidebar-bottom { padding:8px 10px; }
+body.nav-collapsed .sidebar .queue-shortcut {
+  justify-content:center;
+  padding:8px;
+  border:0;
+  background:transparent;
+}

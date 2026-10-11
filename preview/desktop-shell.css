@@ -1,0 +1,74 @@
+/* Window chrome shares the existing toolbar, without a second title strip. */
+.desktop-shell .topbar {
+  display:grid;
+  grid-template-columns:minmax(64px,1fr) auto auto;
+  padding-right:12px;
+  gap:16px;
+  -webkit-app-region:drag;
+  user-select:none;
+}
+.desktop-shell .topbar :is(button,a,input,select,textarea,[role="button"],.window-controls) {
+  -webkit-app-region:no-drag;
+}
+.desktop-shell .breadcrumb {
+  overflow:hidden;
+  text-overflow:ellipsis;
+  min-width:0;
+}
+.desktop-shell .top-actions { min-width:0; }
+.window-controls {
+  display:flex;
+  align-items:center;
+  gap:3px;
+  flex-shrink:0;
+}
+.window-control {
+  display:grid;
+  place-items:center;
+  width:32px;
+  height:32px;
+  padding:7px;
+  border:0;
+  border-radius:7px;
+  color:var(--secondary);
+  background:transparent;
+  transition:background .14s ease,color .14s ease;
+}
+.window-control svg {
+  width:17px;
+  height:17px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.35;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  pointer-events:none;
+}
+.window-control:hover { color:var(--primary); background:var(--hover); }
+.window-control:active { background:var(--selected); }
+.window-control[data-window-action="close"]:hover { color:#b9474b; background:#fff0f1; }
+.window-control:focus-visible { outline-offset:1px; }
+.desktop-window-status {
+  position:absolute;
+  width:1px;
+  height:1px;
+  padding:0;
+  overflow:hidden;
+  clip-path:inset(50%);
+  white-space:nowrap;
+}
+/* A dialog never covers the window controls or consumes the title drag area. */
+.desktop-shell .overlay { top:58px; }
+.desktop-shell .modal { max-height:min(85vh,calc(100dvh - 82px)); }
+.desktop-shell .modal.drawer { max-height:100%; }
+@media(max-width:1120px) {
+  .desktop-shell .topbar { gap:12px; }
+  .desktop-shell .top-actions { gap:10px; }
+  .desktop-shell .global-search { width:32px; height:32px; padding:7px; justify-content:center; }
+  .desktop-shell .global-search span,.desktop-shell .global-search kbd { display:none; }
+  .desktop-shell .global-search > span:first-child { display:inline-flex; }
+  .desktop-shell .global-search .icon { display:block; }
+}
+@media(max-width:940px) {
+  .desktop-shell .demo-label { display:none; }
+}

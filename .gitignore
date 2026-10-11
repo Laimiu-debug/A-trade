@@ -11,3 +11,9 @@
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Desktop dependencies and generated artifacts
+node_modules/
+dist/
+artifacts/
+*.tsbuildinfo

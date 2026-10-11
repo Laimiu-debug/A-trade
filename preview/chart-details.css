@@ -1,0 +1,27 @@
+.chart-drill-hint{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:2px 24px 13px;color:var(--secondary);font-size:11px;line-height:1.6}
+.chart-drill-hint span{color:var(--primary)}
+.line-chart,.candle-chart,[data-spark]{cursor:crosshair}
+.line-chart:focus-visible,.candle-chart:focus-visible,[data-spark]:focus-visible{outline:2px solid var(--primary);outline-offset:-2px;border-radius:6px}
+.modal.drawer.day-drawer{width:600px;display:flex;flex-direction:column;overflow:hidden;background:var(--surface)}
+.day-drawer .modal-head,.day-drawer .modal-footer{flex-shrink:0}
+.day-drawer .modal-body{overflow-y:auto;overscroll-behavior:contain;min-height:0;padding:0 26px 26px}
+.day-date-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:2;padding:16px 0;background:var(--surface);border-bottom:1px solid var(--border)}
+.day-date-controls input{border:1px solid var(--border);border-radius:7px;padding:7px 10px;background:var(--surface);color:var(--text);font:inherit;max-width:170px}
+.day-date-controls button{display:flex;gap:4px;align-items:center;font-size:12px;white-space:nowrap}
+.day-date-controls button:disabled{opacity:.35;cursor:default}
+.day-context{padding:22px 0 12px}.day-context .eyebrow{font-size:12px;line-height:1.7;overflow-wrap:anywhere;color:var(--primary)}
+.day-context h3{font-size:26px;margin-top:8px;letter-spacing:-.5px;font-variant-numeric:tabular-nums}.day-context h3 span{font-size:12px;font-weight:400;letter-spacing:0;color:var(--secondary);margin-left:10px}
+.day-demo-note{padding:10px 12px;border-radius:7px;background:var(--subtle);font-size:11px;line-height:1.8;color:var(--secondary);margin-bottom:16px}
+.day-section{padding:18px 0 0}.day-section h3{font-size:14px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.day-section h3>span{font-size:11px;color:var(--secondary);font-weight:400}
+.day-section-note,.day-context-note{font-size:11px;line-height:1.8;color:var(--secondary);margin-bottom:12px}
+.day-trade{padding:15px 0;border-bottom:1px solid var(--border)}.day-trade:first-of-type{padding-top:0}.day-trade header{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.day-time{font-size:10px;color:var(--secondary);margin-left:auto}
+.day-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px 14px;margin:16px 0}.day-facts dt{font-size:11px;color:var(--secondary);margin-bottom:6px}.day-facts dd{font-size:13px;color:var(--text);font-variant-numeric:tabular-nums;margin:0}
+.day-reason{font-size:12px;line-height:1.8;color:var(--secondary)}.day-empty{font-size:12px;color:var(--secondary);display:flex;gap:8px;align-items:center;padding:13px 0;line-height:1.8}.day-empty .icon{width:15px;flex-shrink:0}
+.day-event{border-left:2px solid color-mix(in srgb,var(--primary) 24%,transparent);padding:0 0 0 14px;margin:16px 0}.day-event>span{font-size:10px;color:var(--secondary)}.day-event h4{font-size:13px;margin:7px 0}.day-event p{font-size:12px;line-height:1.8;color:var(--secondary)}
+.day-cash{display:flex;justify-content:space-between;font-size:12px;padding:12px 0}.day-cash strong{color:var(--up)}
+.day-parameters{display:flex;flex-wrap:wrap;gap:8px 20px;padding:12px 0;font-size:12px;color:var(--secondary)}.day-parameters b{margin-left:5px;color:var(--text)}
+.day-strategies>div{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:12px}.day-strategies span{color:var(--secondary)}
+.day-signal{margin-top:15px;padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--subtle)}.day-signal h4{margin:12px 0 8px;font-size:14px}.day-signal p,.day-signal small{font-size:11px;line-height:1.8;color:var(--secondary);display:block;margin-top:9px}
+.day-stock-title{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:22px}.day-stock-title>strong{font-size:26px;font-variant-numeric:tabular-nums}.day-stock-title small{font-size:12px}
+.intraday-chart{display:block;width:100%;height:auto}.intraday-chart text{fill:var(--secondary);font-size:10px;font-variant-numeric:tabular-nums}.day-data-version{font-size:10px;color:var(--secondary);margin-top:28px}
+@media(max-width:600px){.modal.drawer.day-drawer{width:100%;max-width:100%;border-radius:0}.day-drawer .modal-body{padding:0 18px 20px}.day-facts{grid-template-columns:repeat(2,minmax(0,1fr))}.day-date-controls{gap:8px}.day-date-controls input{max-width:142px}.day-stock-title>strong{font-size:21px}}

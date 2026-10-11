@@ -1,0 +1,28 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+// One bounded startup read lets the existing deferred scripts load in order.
+// File writes remain asynchronous. Never expose ipcRenderer or arbitrary paths.
+const bootstrap = ipcRenderer.sendSync('atrade:bootstrap');
+const windowActions = new Set(['minimize', 'toggle-maximize', 'close']);
+const publicWindowState = state => state && typeof state.maximized === 'boolean' &&
+  typeof state.fullscreen === 'boolean' && Number.isSafeInteger(state.revision)
+  ? { maximized: state.maximized, fullscreen: state.fullscreen, revision: state.revision }
+  : null;
+contextBridge.exposeInMainWorld('atradeDesktop', {
+  bootstrap,
+  saveState: state => ipcRenderer.invoke('atrade:save-state', state),
+  openDataFolder: () => ipcRenderer.invoke('atrade:open-data-folder'),
+  windowAction: action => windowActions.has(action)
+    ? ipcRenderer.invoke('atrade:window-action', action)
+    : Promise.resolve({ ok: false }),
+  getWindowState: async () => publicWindowState(await ipcRenderer.invoke('atrade:get-window-state')),
+  onWindowState: listener => {
+    if (typeof listener !== 'function') throw new TypeError('Window state listener must be a function');
+    const receive = (_event, state) => {
+      const value = publicWindowState(state);
+      if (value) listener(value);
+    };
+    ipcRenderer.on('atrade:window-state', receive);
+    return () => ipcRenderer.removeListener('atrade:window-state', receive);
+  },
+});

@@ -1,0 +1,20 @@
+{
+  "name": "a-trade",
+  "productName": "A-trade",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A-trade Windows desktop research workspace",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "node scripts/start-desktop.cjs",
+    "preview": "node preview/serve.cjs",
+    "test": "node --test tests/*.test.cjs",
+    "test:desktop": "node scripts/smoke-desktop.cjs"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "devDependencies": {
+    "electron": "44.7.0"
+  }
+}

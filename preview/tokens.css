@@ -1,0 +1,14 @@
+/* Exact semantic colors from docs/design-tokens.md. Ambient effects are separate. */
+:root {
+  --color-canvas:#F5F7FB; --color-surface:#FFFFFF; --color-subtle:#F0F3F8;
+  --color-text:#172333; --color-secondary:#59677A; --color-disabled:#6B7280;
+  --color-border:#DCE3ED; --color-control-border:#7C8BA1;
+  --color-primary:#2457E5; --color-primary-hover:#1D46BE; --color-primary-pressed:#173A9C;
+  --color-hover:#EEF3FF; --color-selected:#E8EFFF;
+  --color-up:#C7383F; --color-up-bg:#FFF2F2;
+  --color-down:#15803D; --color-down-bg:#EDF9F0;
+  --color-warning:#A16207; --color-warning-bg:#FFFBEB;
+  --color-error:#B91C1C; --color-error-bg:#FFF1F2;
+  --color-compare-1:#7C3AED; --color-compare-2:#0F766E; --color-compare-3:#A16207;
+  --color-axis:#59677A; --color-zero:#7C8BA1; --color-grid:#E8EDF4;
+}

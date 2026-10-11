@@ -1,0 +1,33 @@
+const { app, dialog, protocol } = require('electron');
+const path = require('node:path');
+
+app.setName('A-trade');
+app.setPath('userData', path.join(app.getPath('appData'), 'A-trade'));
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'atrade', privileges: { standard: true, secure: true, supportFetchAPI: true } },
+]);
+
+let mainWindow;
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  });
+  app.whenReady().then(async () => {
+    app.setAppUserModelId('local.atrade.desktop');
+    const { createDesktop } = require('./runtime.cjs');
+    mainWindow = await createDesktop({
+      dataDirectory: path.join(app.getPath('userData'), 'workspace'),
+    });
+  }).catch(() => {
+    dialog.showErrorBox('A-trade 启动失败',
+      '无法安全读取本地工作区。原数据已保留，请检查文件格式、目录权限或磁盘空间。\n' +
+      `数据位置：${path.join(app.getPath('userData'), 'workspace')}`);
+    app.exit(1);
+  });
+  app.on('window-all-closed', () => app.quit());
+}
