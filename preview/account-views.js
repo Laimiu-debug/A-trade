@@ -58,7 +58,7 @@
     if(['R03','R04','R05','R06','R07'].includes(page))links=[['R03','回测工作区'],['R05','收益平原'],['R07','研究对比']];
     if(['T02','T03'].includes(page))links=[['T02','个股估值'],['T03','跨行业筛选']];
     if(['T04','T08'].includes(page))links=[['T04','趋势龙头'],['T08','连板梯队']];
-    if(['T06','T07'].includes(page))links=[['T06','异动追踪'],['T07','断板再涨停']];
+    if(['T06','T07'].includes(page))links=[['T06','异动监管'],['T07','断板再涨停']];
     if(page.startsWith('C'))links=AT.groups.find(g=>g.id==='C').pages.map(p=>[p.id,p.title]);
     if(links.length)html=html.replace('</section>','</section>'+`<nav class="context-nav" aria-label="相关功能">${links.map(([id,title])=>`<button type="button" data-nav="${id}" ${page===id?'aria-current="page"':''}>${I(AT.pages[id].icon)}${title}</button>`).join('')}</nav>`);
     return html;

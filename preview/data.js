@@ -3,14 +3,14 @@
     ['A','账户与复盘','account','A02', [['A01','每日工作台','daily'],['A02','账户总览','account'],['A03','账户管理','account'],['A04','交易流水','ledger'],['A05','导入与对账','import'],['A06','资金流水','cash'],['A07','资产快照','snapshot'],['A08','每日复盘','calendar'],['A09','周期复盘','calendar'],['A10','统计分析','chart'],['A11','分享卡片','share'],['A12','灵感闪记','note'],['A13','次日交易计划','calendar'],['A14','执行对照','compare'],['A15','通行证历程','route']]],
     ['M','市场与行情','market','M01',[['M01','市场总览','market'],['M02','板块行情','boards'],['M03','板块详情','boards'],['M04','个股行情','market'],['M05','资讯中心','report']]],
     ['R','策略与回测','strategy','R03',[['R01','策略库','folder'],['R02','策略详情','strategy'],['R03','回测工作区','strategy'],['R04','回测结果','chart'],['R05','收益平原','plateau'],['R06','操作路径','route'],['R07','研究对比','compare'],['R08','报告库','folder'],['R09','报告详情','report']]],
-    ['T','分析工具','tools','T01',[['T01','工具首页','tools'],['T02','情绪估值','gauge'],['T03','跨行业估值筛选','filter'],['T04','趋势龙头','crown'],['T05','板块资金动向','boards'],['T06','异动追踪','pulse'],['T07','断板再涨停','market'],['T08','每日连板高度','chart'],['T09','统一跟踪池','eye']]],
-    ['C','设置','settings','C01',[['C01','数据源','database'],['C02','账户费率','cash'],['C03','交易与仓位规则','shield'],['C04','备份与恢复','backup'],['C05','显示与交互','settings'],['C06','应用与诊断','info']]],
+    ['T','分析工具','tools','T01',[['T01','工具首页','tools'],['T02','情绪估值','gauge'],['T03','跨行业估值筛选','filter'],['T04','趋势龙头','crown'],['T05','板块资金动向','boards'],['T06','异动追踪','pulse'],['T07','断板再涨停','market'],['T08','连板龙头','crown'],['T09','统一跟踪池','eye']]],
+    ['C','设置','settings','C01',[['C01','数据源','database'],['C02','账户费率','cash'],['C03','交易与仓位规则','shield'],['C04','备份与恢复','backup'],['C05','显示与交互','settings'],['C07','AI 模型','tools'],['C06','应用与诊断','info']]],
     ['G','全局工作区','tasks','G02',[['G01','个股日线与分析','market'],['G02','任务中心','tasks'],['G03','任务详情','tasks'],['G04','数据状态与质量','shield'],['G05','首次使用引导','account'],['G06','全局搜索','search']]]
   ];
   AT.groups = groups.map(([id,label,icon,home,pages])=>({id,label,icon,home,pages:pages.map(([id,title,icon])=>({id,title,icon,group:id[0]}))}));
   AT.pages = Object.fromEntries(AT.groups.flatMap(g=>g.pages.map(p=>[p.id,p])));
   // Navigation follows the business workspaces in final-trade; detail routes stay contextual.
-  Object.entries({A04:'交易管理',A08:'复盘统计',A11:'复盘分享',A15:'里程碑历程',R01:'策略中心',T08:'连板梯队'}).forEach(([id,title])=>AT.pages[id].title=title);
+  Object.entries({A04:'交易管理',A08:'复盘统计',A11:'复盘分享',A15:'里程碑历程',R01:'策略中心',T06:'异动监管',T08:'连板龙头'}).forEach(([id,title])=>AT.pages[id].title=title);
   AT.accountEntries={
     A01:{page:'A08'},A03:{page:'A02',dialog:'account-settings'},A05:{page:'A04',dialog:'import-records'},
     A06:{page:'A04',ledger:'cash'},A07:{page:'A02',dialog:'asset-snapshots'},A09:{page:'A08',note:'A09',section:'review-notes'},
@@ -21,8 +21,8 @@
     A:[['A02','A03','A07','A15'],['A04','A05','A06','A13'],['A08','A01','A09','A10','A12','A14'],['A11']],
     M:[['M01'],['M02','M03'],['M04'],['M05']],
     R:[['R01','R02'],['R03','R04','R05','R06','R07'],['R08','R09']],
-    T:[['T02','T03'],['T04','T08'],['T05'],['T06','T07'],['T09']],
-    C:[['C01','C02','C03','C04','C05','C06']]
+    T:[['T02','T03'],['T04'],['T08'],['T05'],['T06','T07'],['T09']],
+    C:[['C01','C02','C03','C04','C05','C07','C06']]
   };
   AT.navPages=group=>groupedNavigation[group.id]?.map(pages=>({...AT.pages[pages[0]],title:group.id==='C'?'系统设置':AT.pages[pages[0]].title,pages}))||group.pages;
   AT.pageParentFor=page=>AT.navPages(AT.groups.find(g=>g.id===page[0])).find(p=>p.pages?.includes(page)||p.id===page);
@@ -86,11 +86,12 @@
   AT.statusTag = status => `<span class="tag ${status==='running'?'blue':status==='complete'?'green':status==='stopped'?'red':''}">${AT.icon({running:'play',queued:'clock',paused:'pause',stopped:'stop',complete:'check'}[status])}${AT.statusNames[status]}</span>`;
   const saveStatus=(text,state)=>{const el=document.getElementById('save-status');if(el){el.textContent=text;el.dataset.saveState=state}};
   let saveQueue=Promise.resolve(),saveSequence=0;
-  AT.persist = () => {
-    if(!AT.isDesktop){try{localStorage.setItem('atrade.preview.v1',JSON.stringify(AT.state));saveStatus('预览状态已保存至浏览器','saved');return true}catch{saveStatus('浏览器未允许保存，当前会话仍可使用','error');return false}}
+  AT.persist = (value=AT.state) => {
+    if(value===AT.state&&(AT.ui?.restoringBackup||AT.ui?.committingSettings))return AT.isDesktop?Promise.resolve(false):false;
+    if(!AT.isDesktop){try{localStorage.setItem('atrade.preview.v1',JSON.stringify(value));saveStatus('预览状态已保存至浏览器','saved');return true}catch{saveStatus('浏览器未允许保存，当前会话仍可使用','error');return false}}
     const sequence=++saveSequence;
     let snapshot;
-    try{snapshot=structuredClone(AT.state)}catch{saveStatus('保存失败，当前更改尚未写入本机','error');return Promise.resolve(false)}
+    try{snapshot=structuredClone(value)}catch{saveStatus('保存失败，当前更改尚未写入本机','error');return Promise.resolve(false)}
     saveStatus('正在保存到本机…','saving');
     // Snapshot each request now and serialize writes, so an older response cannot overwrite newer edits.
     const pending=saveQueue.then(async()=>{

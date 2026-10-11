@@ -1,0 +1,9 @@
+.market-watch-button{display:inline-flex;align-items:center;padding:4px 8px;border-radius:6px;background:#edf3ff;color:var(--primary);font-size:10px;line-height:1.5;white-space:nowrap}
+.market-watch-button:hover{background:#dce8ff}
+.market-explorer-col-name .market-watch-button{margin-top:4px}
+.market-watch-current{display:flex;flex-direction:column;gap:6px;font-size:12px;line-height:1.7;color:var(--secondary);padding-bottom:15px}
+.market-watch-current strong{color:var(--text);font-weight:550}
+.market-watch-current details p{white-space:pre-wrap;max-height:150px;overflow:auto;padding:8px 0}
+.market-watch-current summary{cursor:pointer;color:var(--primary)}
+.market-watch-error{color:var(--color-down,#be4848);font-size:12px;line-height:1.8;white-space:pre-wrap}
+.market-watch-form textarea{width:100%;resize:vertical;min-height:100px}

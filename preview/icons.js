@@ -11,6 +11,8 @@ AT.icons = {
   chevronRight:'<path d="m9 5 7 7-7 7"/>', chevronDown:'<path d="m5 9 7 7 7-7"/>', close:'<path d="m6 6 12 12M6 18 18 6"/>',
   panelCollapse:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16m7-11-3 3 3 3"/>',
   panelExpand:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16m4-11 3 3-3 3"/>',
+  collapseNav:'<path d="m11 7-5 5 5 5m7-10-5 5 5 5"/>',
+  expandNav:'<path d="m6 7 5 5-5 5m7-10 5 5-5 5"/>',
   play:'<path d="m7 4 14 8-14 8z"/>', pause:'<path d="M8 5v14M16 5v14"/>', stop:'<rect x="5" y="5" width="14" height="14" rx="1"/>', resume:'<path d="M3 4v16M8 4l13 8-13 8z"/>',
   retry:'<path d="M4 9a8 8 0 1 1 0 7M4 3v6h6"/>', refresh:'<path d="M4 8a8 8 0 0 1 14-2l2 3M20 3v6h-6M20 16a8 8 0 0 1-14 2l-2-3M4 21v-6h6"/>',
   check:'<path d="m5 12 4 4L20 5"/>', clock:'<circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/>', info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v.1"/>',

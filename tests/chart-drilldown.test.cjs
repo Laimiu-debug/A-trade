@@ -5,9 +5,9 @@ const path=require('node:path');
 const vm=require('node:vm');
 
 function fixture(){
-  const context=vm.createContext({localStorage:{getItem:()=>null},structuredClone,Intl,console,document:{addEventListener(){}},matchMedia:()=>({matches:false,addEventListener(){}})});
+  const context=vm.createContext({localStorage:{getItem:()=>null},structuredClone,TextEncoder,Intl,console,document:{addEventListener(){}},matchMedia:()=>({matches:false,addEventListener(){}})});
   context.window=context;
-  for(const file of ['icons','data','milestones','effects','chart-data','charts','views','account-views','chart-details'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../preview',file+'.js'),'utf8'),context,{filename:file+'.js'});
+  for(const file of ['icons','market-preferences','settings-state','data','milestones','effects','chart-data','charts','views','account-views','chart-details','settings-page'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../preview',file+'.js'),'utf8'),context,{filename:file+'.js'});
   context.AT.ui.taskSelection=new Set();
   context.AT.ui.researchParams={take:15,stop:6,reduce:50};
   context.AT.ui.activeTask=null;

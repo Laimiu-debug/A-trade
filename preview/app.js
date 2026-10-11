@@ -1,6 +1,6 @@
 (() => {
   const $ = (s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)], E=AT.escape, I=AT.icon, B=AT.button;
-  const main=$('#main'); let toastTimer,modalReturnFocus,resizeTimer,noteTimer,renderFrame;
+  const main=$('#main'),workspaceRoot=$('#workspace-root'); let toastTimer,modalReturnFocus,resizeTimer,noteTimer,renderFrame,workspaceSession;
   const chartStateKeys=['activeTask','researchParams','strategyIds','stockPool','researchMode','heat','plateauRatio','plateauStrategies','resultTab','chartZoom','pathContext'];
   const scrollRegions=['#navigation','.local-tabs','.context-nav','.pass-viewport','.workspace-tabs','.table-wrap','.research-config','.modal','.modal-body'];
   const compactNavigation=()=>typeof AT.state.sidebarCollapsed==='boolean'?AT.state.sidebarCollapsed:matchMedia('(max-width:1080px)').matches;
@@ -19,7 +19,7 @@
     window.scrollTo({left:position.x||0,top:position.y||0,behavior:'instant'});
   }
   function captureFocus(){
-    const el=document.activeElement,scope=el?.closest('#main,#navigation,#overlay-root');if(!scope)return null;
+    const el=document.activeElement,scope=el?.closest('#main,#workspace-root,#navigation,#overlay-root');if(!scope)return null;
     const attrs=[...el.attributes].filter(a=>a.name==='id'||a.name==='name'||a.name==='aria-label'||a.name.startsWith('data-'));
     if(!attrs.length)return null;
     const selector=el.localName+attrs.map(a=>`[${a.name}="${CSS.escape(a.value)}"]`).join('');
@@ -42,8 +42,8 @@
     document.body.classList.toggle('nav-collapsed',compact);
     const toggle=$('[data-action="toggle-sidebar"]'),toggleLabel=compact?'展开导航栏':'收起导航栏';
     toggle.setAttribute('aria-expanded',String(!compact));toggle.setAttribute('aria-label',toggleLabel);toggle.title=toggleLabel;
-    toggle.innerHTML=I(compact?'panelExpand':'panelCollapse')+`<span>${compact?'展开导航':'收起导航'}</span>`;
-    $('#breadcrumb').innerHTML=`${group.label}<b>/</b><button class="page-menu-trigger" data-action="page-menu" aria-label="打开${group.label}页面菜单">${parent?.title||page.title}${I('chevronDown')}</button>${parent&&parent.id!==page.id?`<b>/</b><span>${page.title}</span>`:''}`;
+    $('.sidebar-toggle-glyph',toggle).innerHTML=I(compact?'expandNav':'collapseNav');
+    $('#breadcrumb').innerHTML=`${group.label}<b>/</b><span>${parent?.title||page.title}</span>${parent&&parent.id!==page.id?`<b>/</b><span>${page.title}</span>`:''}`;
     $('#sidebar-tasks').textContent=`${running} 项运行 · ${queued} 项排队`;
     $('#top-task-count').textContent=`运行 ${running} · 排队 ${queued}`;
     if(AT.ui.navGroup===undefined)AT.ui.navGroup=compact?null:navigationGroup(page.id);
@@ -54,6 +54,11 @@
     nav.scrollTop=scroll;
     positionSubnav();
     document.title=`${page.title} · A-trade ${AT.isDesktop?'桌面开发版':'HTML 预览'}`;
+    AT.businessUI?.updateShell(page.id);
+    AT.marketUI?.updateShell(page.id);
+    AT.marketNews?.updateShell(page.id);
+    AT.analysisTools?.updateShell(page.id);
+    window.ResearchModule?.updateShell();
   }
   function snapshot(){return {page:AT.state.page,stock:AT.state.stock,scroll:window.scrollY,viewport:capturePosition(),chartState:structuredClone(Object.fromEntries(chartStateKeys.map(key=>[key,AT.ui[key]]))),ledgerMode:AT.ui.ledgerMode,reviewNote:AT.ui.reviewNote,query:AT.ui.query,board:AT.ui.board,range:AT.ui.range,metric:AT.ui.metric,selected:[...AT.ui.selected],dayDetail:$('.day-drawer')?{payload:structuredClone(AT.ui.dayDetail),scroll:$('.day-drawer .modal-body').scrollTop}:null,milestone:$('#milestone-detail')?{stage:AT.ui.milestoneNumber,filter:AT.ui.milestoneFilter,scroll:$('.milestone-drawer .modal-body').scrollTop}:null,pass:$('.pass-viewport')?.scrollLeft??AT.ui.passPosition}}
   function resolveEntry(page){
@@ -68,18 +73,23 @@
     // In-page actions use the live position, never the last navigation snapshot.
     const viewport=position||capturePosition(),focus=position?null:captureFocus();
     cancelAnimationFrame(renderFrame);main.style.minHeight=main.getBoundingClientRect().height+'px';
-    applyPrefs();updateShell();main.innerHTML=AT.view(AT.state.page);AT.hydrateIcons();AT.effects.mount();
+    applyPrefs();updateShell();main.innerHTML=window.ResearchModule?.handles(AT.state.page)?window.ResearchModule.render(AT.state.page):AT.view(AT.state.page);AT.hydrateIcons();AT.effects.mount();
+    // A second data response can cancel this frame; keep focus available to its render now.
+    restoreFocus(focus);
     renderFrame=requestAnimationFrame(()=>{
+      const mountedFocus=captureFocus();
       AT.drawCharts();AT.drawCandles();wirePass();initView();main.style.minHeight='';
-      restoreFocus(focus);restorePosition(viewport);
+      restoreFocus(mountedFocus);restorePosition(viewport);
       const entry=AT.ui.pendingEntry;AT.ui.pendingEntry=null;
       if(entry?.section)scrollToSection(entry.section);
-      if(entry?.dialog)actions[entry.dialog]?.();
+      if(entry?.dialog&&!AT.businessUI?.handleAction(entry.dialog))actions[entry.dialog]?.();
     });
   }
   AT.render=render;
   function go(page,stock,backState=null,fromHistory=false){
     if(!AT.pages[page])return;
+    cancelSearch();
+    closeModal();closeBusinessWorkspace();
     const entryPage=page;page=AT.accountEntries[page]?.page||page;
     const samePage=page===AT.state.page&&(!stock||stock===AT.state.stock),position=samePage?capturePosition():null;
     if(!fromHistory&&!backState&&(page!==AT.state.page||stock&&stock!==AT.state.stock)){savePosition();AT.ui.history.push(snapshot())}
@@ -87,28 +97,60 @@
     if(backState?.chartState)Object.assign(AT.ui,structuredClone(backState.chartState));
     if(backState){Object.assign(AT.ui,{ledgerMode:backState.ledgerMode??AT.ui.ledgerMode,reviewNote:backState.reviewNote??AT.ui.reviewNote,query:backState.query,board:backState.board,range:backState.range,metric:backState.metric,selected:new Set(backState.selected||[]),passPosition:backState.pass});AT.ui.positions[page]=backState}else if(page!==AT.state.page){AT.ui.query='';AT.ui.board='全部';AT.ui.selected.clear()}
     if(page==='G01'&&AT.state.page!=='G01')AT.ui.stockOrigin=AT.state.page[0]==='G'?'M04':AT.state.page;
-    AT.state.page=page;AT.ui.navGroup=compactNavigation()?null:navigationGroup(page);if(stock)AT.state.stock=stock;AT.persist();closeModal();
+    AT.state.page=page;AT.ui.navGroup=compactNavigation()?null:navigationGroup(page);if(stock)AT.state.stock=stock;AT.persist();
     if(!fromHistory){try{history[backState?'replaceState':'pushState']({},'',`#${page}${page==='G01'?'?stock='+AT.state.stock:''}`)}catch{}}
     render(backState?(backState.viewport||{y:backState.scroll}):position||{x:0,y:0});if(backState?.milestone)requestAnimationFrame(()=>{AT.ui.milestoneFilter=backState.milestone.filter;milestoneDetail(backState.milestone.stage);$('.milestone-drawer .modal-body').scrollTop=backState.milestone.scroll});
     if(backState?.dayDetail)requestAnimationFrame(()=>{AT.openDayDetail(backState.dayDetail.payload);$('.day-drawer .modal-body').scrollTop=backState.dayDetail.scroll});
   }
-  function back(){const prev=AT.ui.history.pop();if(prev)go(prev.page,prev.stock,prev);else go('M04')}
-  function readRoute(){const [raw,params]=(location.hash.slice(1)||(AT.isDesktop&&AT.pages[AT.state.page]?AT.state.page:'A02')).split('?'),stock=new URLSearchParams(params||'').get('stock');if(AT.pages[raw]){const page=resolveEntry(raw);if(page!==AT.state.page)AT.ui.navGroup=compactNavigation()?null:navigationGroup(page);AT.state.page=page;if(page!==raw)history.replaceState({},'',`#${page}`);if(AT.stocks.some(s=>s.code===stock))AT.state.stock=stock}}
+  function back(){if(workspaceSession){closeModal();closeBusinessWorkspace();return}const prev=AT.ui.history.pop();if(prev)go(prev.page,prev.stock,prev);else go('M04')}
+  function readRoute(){const [raw,params]=(location.hash.slice(1)||(AT.isDesktop&&AT.pages[AT.state.page]?AT.state.page:'A02')).split('?'),stock=new URLSearchParams(params||'').get('stock')?.toLowerCase();if(AT.pages[raw]){const page=resolveEntry(raw);if(page!==AT.state.page)AT.ui.navGroup=compactNavigation()?null:navigationGroup(page);AT.state.page=page;if(page!==raw)history.replaceState({},'',`#${page}`);if(AT.stocks.some(s=>s.code===stock)||AT.isDesktop&&/^(?:(?:sh|sz|bj))?\d{6}$/.test(stock||''))AT.state.stock=stock}}
   history.scrollRestoration='manual';
   function restoreRoute(){
     const [page,query]=(location.hash.slice(1)||'A02').split('?'),stock=new URLSearchParams(query||'').get('stock');
     if(!AT.pages[page]||(page===AT.state.page&&(!stock||stock===AT.state.stock)))return;
+    closeModal();closeBusinessWorkspace();
     savePosition();readRoute();
     const saved=AT.accountEntries[page]?null:AT.ui.positions[AT.state.page];
     go(AT.state.page,AT.state.stock,saved||{page:AT.state.page,query:'',board:'全部',range:AT.ui.range,metric:AT.ui.metric,scroll:0,selected:[]},true);
   }
   window.addEventListener('popstate',restoreRoute);
   window.addEventListener('hashchange',restoreRoute);
-  function openModal(title,body,{wide=false,drawer=false,className='',footer=''}={}){
+  function openBusinessWorkspace(title,body,{wide=false,className='',footer=''}={}){
+    const key=title+'|'+className,same=workspaceSession?.key===key;
+    const position=same?capturePosition():{x:0,y:0},focus=same?captureFocus():null;
+    if($('.overlay'))closeOverlay();
+    if(!workspaceSession)workspaceSession={position:capturePosition(),focus:captureFocus()};
+    workspaceSession.key=key;
+    workspaceRoot.innerHTML=`<section class="page-workspace ${wide?'wide':''} ${E(className)}"><header class="workspace-head"><button type="button" class="workspace-back" data-action="close-workspace" aria-label="返回${E(AT.pages[AT.state.page]?.title||'上一页')}" title="返回${E(AT.pages[AT.state.page]?.title||'上一页')}">${I('back')}</button><h1 id="workspace-title">${E(title)}</h1></header><div class="workspace-content modal-body">${body}</div>${footer?`<footer class="workspace-footer modal-footer">${footer}</footer>`:''}</section>`;
+    main.hidden=true;workspaceRoot.hidden=false;document.body.classList.add('workspace-open');
+    $('.skip-link').href='#workspace-root';AT.hydrateIcons();
+    restorePosition(position);
+    if(same)restoreFocus(focus);
+    else workspaceRoot.focus({preventScroll:true});
+  }
+  function closeBusinessWorkspace(){
+    if(!workspaceSession)return;
+    cancelSearch(false);
+    AT.businessUI?.captureDraft();
+    const saved=workspaceSession;workspaceSession=null;
+    workspaceRoot.replaceChildren();workspaceRoot.hidden=true;main.hidden=false;
+    document.body.classList.remove('workspace-open');$('.skip-link').href='#main';
+    restorePosition(saved.position);restoreFocus(saved.focus);
+    if(saved.focus?.original.isConnected)saved.focus.original.focus({preventScroll:true});
+    requestAnimationFrame(()=>{AT.drawCharts();AT.drawCandles();});
+  }
+  function openModal(title,body,{wide=false,drawer=false,confirmation=false,className='',footer=''}={}){
+    if(!drawer&&!confirmation){AT.businessUI?.captureDraft();openBusinessWorkspace(title,body,{wide,className,footer});return}
     if(!$('.overlay'))modalReturnFocus=document.activeElement;$('#overlay-root').innerHTML=`<div class="overlay"><section class="modal ${wide?'wide':''} ${drawer?'drawer':''} ${E(className)}" role="dialog" aria-modal="true" aria-labelledby="modal-title"><header class="modal-head"><h2 id="modal-title">${E(title)}</h2><button class="icon-button" data-action="close-modal" aria-label="关闭弹窗">${I('close')}</button></header><div class="modal-body">${body}</div>${footer?`<footer class="modal-footer">${footer}</footer>`:''}</section></div>`;
     document.body.style.overflow='hidden';requestAnimationFrame(()=>{($$('.modal input:not([type=checkbox]):not([readonly]),.modal textarea,.modal select').find(el=>!el.disabled&&el.getClientRects().length)||$('.modal button'))?.focus({preventScroll:true})});
   }
-  function closeModal(){const had=!!$('.overlay');$('#overlay-root').innerHTML='';document.body.style.overflow='';if(had&&modalReturnFocus?.isConnected)modalReturnFocus.focus({preventScroll:true})}
+  function closeOverlay(){const had=!!$('.overlay');$('#overlay-root').innerHTML='';document.body.style.overflow='';if(had&&modalReturnFocus?.isConnected)modalReturnFocus.focus({preventScroll:true})}
+  function closeModal(){if($('.overlay'))closeOverlay();else closeBusinessWorkspace()}
+  AT.openBusinessWorkspace=openBusinessWorkspace;
+  AT.closeBusinessWorkspace=closeBusinessWorkspace;
+  AT.openBusinessModal=(title,body,options={})=>openModal(title,body,{...options,confirmation:true});
+  AT.closeBusinessModal=closeModal;
+  AT.navigate=go;
   AT.openDayDetail=payload=>{
     if(!payload.points[payload.index])return;
     const updating=!!$('.day-drawer'),focus=updating?captureFocus():null;
@@ -139,6 +181,8 @@
     el.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();el.scrollLeft+=e.key==='ArrowRight'?156:-156;AT.ui.passPosition=el.scrollLeft}if(e.key==='Home'){e.preventDefault();el.scrollLeft=0}if(e.key==='End'){e.preventDefault();el.scrollLeft=el.scrollWidth}});
   }
   function initView(){
+    AT.settingsPage?.mount();
+    if(window.ResearchModule?.handles(AT.state.page)){window.ResearchModule.mount(main);return;}
     AT.drawSparks();
     if($('[data-plateau-ratio]'))$('[data-plateau-ratio]').value=AT.ui.plateauRatio||50;
     if($('[data-plateau-strategies]'))$('[data-plateau-strategies]').value=(AT.ui.plateauStrategies||['trend','volume']).join(',');
@@ -173,11 +217,37 @@
     }
   }
 
-  function picker(){AT.ui.pickerBoard='全部';AT.ui.pickerQuery='';AT.ui.pickerSelection=new Set(AT.ui.stockPool);openModal('选择研究股票',`<div class="filter-row" style="padding:0 0 14px"><input class="search-input" data-picker-query placeholder="股票名称或六位代码" aria-label="搜索研究股票"><select class="select" data-picker-board aria-label="按上市板块选择研究股票"><option>全部</option><option>主板</option><option>创业板</option><option>科创板</option></select></div><div style="padding:10px 0;display:flex;justify-content:space-between"><label class="check-option" style="margin:0"><input type="checkbox" data-picker-all>全选当前结果</label><span class="tiny muted" id="picker-count"></span></div><div id="picker-list"></div>`,{wide:true,footer:B('取消','','data-action="close-modal"')+B('确认选择','check','data-action="picker-confirm"','primary')});renderPicker()}
+  function picker(){AT.ui.pickerBoard='全部';AT.ui.pickerQuery='';AT.ui.pickerSelection=new Set(AT.ui.stockPool);openModal('选择研究股票',`<div class="filter-row" style="padding:0 0 14px"><input class="search-input" data-picker-query placeholder="股票名称或六位代码" aria-label="搜索研究股票"><select class="select" data-picker-board aria-label="按上市板块选择研究股票"><option>全部</option><option>主板</option><option>创业板</option><option>科创板</option></select></div><div style="padding:10px 0;display:flex;justify-content:space-between"><label class="check-option" style="margin:0"><input type="checkbox" data-picker-all>全选当前结果</label><span class="tiny muted" id="picker-count"></span></div><div id="picker-list"></div>`,{wide:true,confirmation:true,footer:B('取消','','data-action="close-modal"')+B('确认选择','check','data-action="picker-confirm"','primary')});renderPicker()}
   function pickerStocks(){return AT.stocks.filter(s=>(AT.ui.pickerBoard==='全部'||s.board===AT.ui.pickerBoard)&&(!AT.ui.pickerQuery||(s.name+s.code).includes(AT.ui.pickerQuery)))}
   function renderPicker(){preservePosition(()=>{const stocks=pickerStocks();$('#picker-list').innerHTML=stocks.map(s=>`<label class="stock-picker-row"><input type="${AT.ui.researchMode==='intersection'?'checkbox':'radio'}" name="picker-stock" data-pick-stock="${s.code}" ${AT.ui.pickerSelection.has(s.code)?'checked':''}><span><b>${s.name}</b> <span class="muted">${s.code}</span></span><span class="tag">${s.board}</span></label>`).join('')||'<p class="empty-state">没有匹配的股票</p>';$('#picker-count').textContent=`已选 ${AT.ui.pickerSelection.size} 只`;const all=$('[data-picker-all]'),count=stocks.filter(s=>AT.ui.pickerSelection.has(s.code)).length;all.disabled=AT.ui.researchMode!=='intersection';all.checked=stocks.length>0&&count===stocks.length;all.indeterminate=count>0&&count<stocks.length;all.parentElement.title=all.disabled?'当前模式只研究一个股票':''})}
-  function renderSearch(query,page=false){const q=query.trim().toLowerCase(),stocks=AT.stocks.filter(s=>(s.name+s.code).toLowerCase().includes(q)),pages=Object.values(AT.pages).filter(p=>p.title.toLowerCase().includes(q)).slice(0,query?12:5),target=page?$('#page-search-results'):$('#search-results');if(!target)return;target.innerHTML=stocks.slice(0,8).map(s=>`<button class="search-result" data-stock="${s.code}">${I('market')}<span>${s.name} <span class="muted">${s.code}</span></span><small>${s.board}</small></button>`).join('')+pages.map(p=>`<button class="search-result" data-nav="${p.id}">${I(p.icon)}<span>${p.title}</span><small>页面</small></button>`).join('')||'<div class="empty-state">没有匹配结果</div>'}
-  function search(){openModal('搜索股票与页面',`<div class="search-field">${I('search')}<input data-global-search aria-label="搜索股票与页面" placeholder="名称、六位代码或页面关键词"></div><div id="search-results" style="margin-top:12px"></div>`);renderSearch('')}
+  const searchRequests=new Map([[false,{serial:0,timer:null}],[true,{serial:0,timer:null}]]),searchComposing=new WeakSet();
+  function cancelSearch(page){for(const [key,request] of searchRequests){if(page!==undefined&&key!==page)continue;clearTimeout(request.timer);request.serial++}}
+  function renderSearch(query,page=false){
+    cancelSearch(page);
+    const q=query.trim().toLowerCase(),request=searchRequests.get(page),serial=request.serial,hostPage=AT.state.page;
+    const targetSelector=page?'#page-search-results':'#search-results',inputSelector=page?'[data-page-search]':'[data-global-search]',target=$(targetSelector),input=$(inputSelector);
+    if(!target)return;
+    const pages=Object.values(AT.pages).filter(p=>p.title.toLowerCase().includes(q)).slice(0,q?12:5),pageHtml=pages.map(p=>`<button type="button" class="search-result" data-nav="${E(p.id)}">${I(p.icon)}<span>${E(p.title)}</span><small>页面</small></button>`).join('');
+    const stockHtml=stocks=>stocks.slice(0,8).map(s=>`<button type="button" class="search-result" data-stock="${E(s.symbol||s.code)}">${I('market')}<span>${E(s.name)} <span class="muted">${E(s.code)}</span></span><small>${E(s.board||({sh:'沪市股票',sz:'深市股票',bj:'北交所股票'}[s.market])||'股票')}</small></button>`).join('');
+    const message=text=>`<div class="field-hint" role="status">${E(text)}</div>`;
+    if(!AT.isDesktop){target.innerHTML=stockHtml(AT.stocks.filter(s=>(s.name+s.code).toLowerCase().includes(q)))+pageHtml||'<div class="empty-state">没有匹配结果</div>';return}
+    if(!q){target.innerHTML=message('输入股票名称、六位代码或拼音首字母，也可搜索页面。')+pageHtml;return}
+    if(q.length>100){target.innerHTML=message('搜索内容请控制在 100 字以内。')+pageHtml;return}
+    target.innerHTML=message('正在搜索股票…')+pageHtml;
+    const current=()=>request.serial===serial&&target.isConnected&&$(targetSelector)===target&&$(inputSelector)===input&&input?.value.trim().toLowerCase()===q&&!searchComposing.has(input)&&AT.state.page===hostPage&&!target.closest('[hidden]');
+    request.timer=setTimeout(async()=>{
+      if(!current())return;
+      try{
+        if(typeof window.atradeDesktop?.market!=='function')throw new Error('行情服务尚未启动，请重新打开桌面应用。');
+        const response=await window.atradeDesktop.market('market.search',{query:q,kind:'stock',limit:8});
+        if(!current())return;
+        if(!response?.ok)throw new Error(typeof response?.error==='string'?response.error:response?.error?.message||'股票搜索暂不可用，请稍后重试。');
+        const items=(response.data?.items||[]).filter(s=>s.kind==='stock'&&/^(sh|sz|bj)\d{6}$/.test(s.symbol));
+        target.innerHTML=(stockHtml(items)||message('未找到股票，请尝试完整名称、六位代码或拼音首字母。'))+pageHtml;
+      }catch(error){if(current())target.innerHTML=message(error.message||'股票搜索暂不可用，请稍后重试。')+pageHtml}
+    },200);
+  }
+  function search(){openModal('搜索股票与页面',`<div class="search-field">${I('search')}<input data-global-search aria-label="搜索股票与页面" placeholder="股票名称、代码、拼音首字母或页面关键词" maxlength="100" autocomplete="off"></div><div id="search-results" style="margin-top:12px"></div>`);renderSearch('');$('[data-global-search]')?.focus({preventScroll:true})}
   function updateValuation(){const form=$('#valuation-form');if(!form)return;const data=new FormData(form),values=['profit','growth','pe','water','emotion','actual'].map(k=>Number(data.get(k)));if(values.some(v=>!Number.isFinite(v)||v<=0)){$('#valuation-value').textContent='请输入有效参数';$('#valuation-gap').textContent='所有参数应大于 0。';return}const [profit,growth,pe,water,emotion,actual]=values,value=profit*growth*pe*water*emotion;$('#valuation-value').innerHTML=`${AT.money(value,1)} <small>亿</small>`;$('#valuation-gap').textContent=`情景市值相对实际市值 ${AT.sign((value/actual-1)*100)}% · 输入驱动的示例`}
   function schedule(){let slots=AT.state.concurrency-AT.state.tasks.filter(t=>t.status==='running').length;for(const t of AT.state.tasks){if(slots<=0)break;if(t.status==='queued'){t.status='running';t.step=t.type==='收益平原'?'参数扫描':'日线模拟';slots--}}}
   function taskAction(id,action,redraw=true){const t=AT.state.tasks.find(t=>t.id===id);if(!t)return;let changed=false;if(action==='pause'&&['running','queued'].includes(t.status)){t.status='paused';changed=true}if(action==='resume'&&['paused','stopped'].includes(t.status)){t.status='queued';t.step='等待计算额度';changed=true}if(action==='stop'&&['running','queued','paused'].includes(t.status)){t.status='stopped';changed=true}if(!changed)return;schedule();AT.persist();if(redraw){render();toast(`${t.name}：${AT.statusNames[t.status]}`)}}
@@ -211,6 +281,7 @@
     const name=plateau?'持仓与止盈参数扫描':AT.ui.strategyIds.map(id=>AT.strategies.find(s=>s.id===id).name).join(' × '),t={id:'t'+Date.now(),name,type:plateau?'收益平原':AT.ui.researchMode==='intersection'?'多策略交集':'个股策略回测',status:'queued',progress:0,stock:AT.ui.stockPool[0]||'600900',date:'2018.01 — 2026.09',created:new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),step:'等待计算额度',count:plateau?40:AT.ui.stockPool.length,params:{...p},strategies:[...AT.ui.strategyIds],pool:[...AT.ui.stockPool],mode:AT.ui.researchMode};AT.state.tasks.push(t);AT.ui.activeTask=t.id;schedule();AT.persist();if(plateau)go('G02');else render();toast('已创建演示任务，可在任务中心管理')
   }
   function updateTasks(){
+    if(AT.isDesktop)return;
     if(!AT.state.tasks.some(task=>task.status==='running'))return;
     const focus=captureFocus();
     let transition=false;for(const t of AT.state.tasks){if(t.status!=='running')continue;t.progress=Math.min(100,+(t.progress+.14).toFixed(2));if(t.progress>=100){t.status='complete';t.step='报告已生成';transition=true}else t.step=t.type==='收益平原'?'参数扫描':t.progress<15?'数据准备':t.progress<35?'历史筛选':t.progress<90?'日线模拟':'指标统计'}
@@ -222,10 +293,10 @@
   function exportTrades(){const records=AT.state.page[0]==='R'?AT.researchTrace(AT.state.page==='R06'&&AT.ui.pathContext||AT.chartContext('research')):AT.trades;const rows=[['股票名称','股票代码','信号日期','成交日期','操作','数量','价格','说明'],...records.map(t=>[AT.findStock(t.code).name,t.code,t.signal,t.date,t.action,t.qty,t.price,t.reason])];download('A-trade-演示交易记录.csv','\ufeff'+rows.map(row=>row.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\r\n'),'text/csv;charset=utf-8')}
   function reportText(){return `A-trade 研究摘要（HTML 预览演示）\n\n本文件不是实际回测结果。\n研究：趋势回踩 × 量价突破\n对象：${AT.ui.stockPool.map(c=>{const s=AT.findStock(c);return s.name+' '+s.code}).join('、')}\n时序：T 日晚间判断，T+1 执行。\n示例累计收益 +42.80%，示例最大回撤 -8.36%。\n数据、财务和策略引擎尚未接入。\n\n说明：用于评审报告导出、研究路径与页面交互。`}
   function addTrade(){openModal('记录交易 · 演示流水',`<form id="trade-form"><label class="field"><span>股票</span><select name="stock">${AT.stocks.map(s=>`<option value="${s.code}">${s.name} ${s.code}</option>`).join('')}</select></label><div class="field-row"><label class="field"><span>操作</span><select name="action"><option>买入</option><option>减仓</option><option>卖出</option></select></label><label class="field"><span>成交日期</span><input name="date" type="date" value="2026-10-09" required></label><label class="field"><span>数量</span><input name="qty" type="number" value="100" min="1" step="1" required></label><label class="field"><span>成交价格</span><input name="price" type="number" value="28.64" min="0.01" step="0.01" required></label></div><label class="field"><span>操作依据</span><input name="reason" placeholder="记录当时的判断" maxlength="100"></label><p class="field-hint">仅追加预览流水，不向券商发送交易指令；账户资产仍使用固定示例快照。</p></form>`,{footer:B('取消','','data-action="close-modal"')+B('保存演示流水','save','data-action="save-trade"','primary')})}
-  function viewTrade(i){const t=AT.trades[i];openModal('交易记录详情',`<div class="report-text"><p>${AT.stockLink(t.code)}</p><h3>${t.action} ${AT.money(t.qty,0)} 股 · ¥ ${AT.money(t.price)}</h3><p>信号日期：${E(t.signal)}<br>成交日期：${E(t.date)}<br>依据：${E(t.reason)}</p><p class="field-hint">示例交易记录，不对应真实成交。</p></div>`,{drawer:true,footer:B('查看日线','market',`data-stock="${t.code}"`)+B('操作路径','route','data-nav="R06"','primary')})}
+  function viewTrade(i){const t=AT.trades[i];openModal('交易记录详情',`<div class="report-text"><p>${AT.stockLink(t.code)}</p><h3>${t.action} ${AT.money(t.qty,0)} 股 · ¥ ${AT.money(t.price)}</h3><p>信号日期：${E(t.signal)}<br>成交日期：${E(t.date)}<br>依据：${E(t.reason)}</p><p class="field-hint">示例交易记录，不对应真实成交。</p></div>`,{footer:B('查看日线','market',`data-stock="${t.code}"`)+B('操作路径','route','data-nav="R06"','primary')})}
   function quickNote(){openModal('灵感闪记',`<label class="field"><span>快速记录</span><textarea data-note="A12" rows="8" placeholder="刚刚想到的研究方向……">${E(AT.state.notes.A12||'')}</textarea></label><span class="tiny muted" id="note-state">${AT.isDesktop?'输入后自动保存到本机':'输入后自动保存在本浏览器'}</span>`,{footer:B('完成','check','data-action="close-modal"','primary')})}
   const actions={
-    'asset-snapshots':()=>openModal('资产快照',AT.snapshotRecords(),{drawer:true}),
+    'asset-snapshots':()=>openModal('资产快照',AT.snapshotRecords(),{wide:true}),
     'import-records':()=>openModal('导入与对账',`<div class="report-text"><p>把券商成交文件映射为统一流水，再核对笔数、金额与重复记录。</p><h3>导入字段</h3><p>成交日期 · 股票名称 / 六位代码 · 买卖方向 · 数量 · 成交价 · 手续费</p><h3>对账预览</h3><p>正式应用将在确认后写入交易管理。当前仅展示字段与记录样式，尚未接入文件解析。</p></div>${AT.recordsTable()}`,{wide:true,footer:B('返回交易管理','check','data-action="close-modal"','primary')}),
     'export-ledger':()=>AT.ui.ledgerMode==='cash'?download('A-trade-演示资金流水.csv',`日期,类型,金额,说明\n2026-01-05,期初资金,${AT.state.startCapital},账户演示起算资金`,'text/csv;charset=utf-8'):exportTrades(),
     'export-account-summary':()=>download('A-trade-复盘分享.txt',`A-trade · 账户复盘\n2026.01 — 2026.10 · 演示数据\n累计收益 +25.86%\n\n${AT.state.notes.A09||AT.state.notes.A08||'回顾判断，记录执行。'}\n\n不包含账户姓名、资产金额及持仓数量。`),
@@ -233,10 +304,9 @@
     'task-trash':taskTrash,'undo-delete':()=>restoreTasks(AT.ui.lastDeleted||[]),'restore-all-tasks':()=>restoreTasks(AT.state.taskTrash.map(entry=>entry.task.id)),
     'milestone-add-event':()=>{const form=$('#milestone-event-form');if(!form||AT.milestoneData(AT.ui.milestoneNumber).status==='future')return;form.hidden=false;form.scrollIntoView({block:'nearest'});$('[name="event-title"]',form).focus({preventScroll:true})},
     'milestone-cancel-event':()=>{const form=$('#milestone-event-form');if(form){form.reset();form.hidden=true}},
-    'page-menu':()=>{const navPage=navigationPage(AT.state.page),group=AT.groups.find(g=>g.id===navPage[0]);openModal(group.label,`<div class="page-menu-list">${AT.navPages(group).map(p=>`<button class="search-result" data-nav="${p.id}">${I(p.icon)}<span>${p.title}</span>${navEntryActive(p,navPage)?'<small>当前页面</small>':''}</button>`).join('')}</div>`)},
-    'search':search,'close-modal':closeModal,'data-info':showInfo,'account-settings':accountSettings,'back':back,'note':quickNote,'stock-picker':picker,'add-trade':addTrade,
+    'search':search,'close-modal':closeModal,'close-workspace':closeBusinessWorkspace,'data-info':showInfo,'account-settings':accountSettings,'back':back,'note':quickNote,'stock-picker':picker,'add-trade':addTrade,
     'export-trades':exportTrades,'export-report':()=>download('A-trade-演示研究摘要.txt',reportText()),
-    'backup':()=>download(AT.isDesktop?'A-trade-桌面状态副本.json':'A-trade-预览备份.json',JSON.stringify(AT.state,null,2),'application/json;charset=utf-8'),
+    'backup':()=>{try{const backup=AT.workspaceBackup.create(AT.state,{settings:AT.settingsState});download(AT.isDesktop?'A-trade-界面状态备份.json':'A-trade-预览备份.json',JSON.stringify(backup),'application/json;charset=utf-8')}catch(error){toast(error.message||'界面状态无法导出，请检查本机状态。')}},
     'save-account':()=>{const f=$('#account-form');if(!f.reportValidity())return;const d=new FormData(f);AT.state.goal=+d.get('goal');AT.state.stages=+d.get('stages');AT.state.startCapital=+d.get('capital');AT.ui.passPosition=null;AT.persist();closeModal();render();toast('账户目标已更新，通行证按新参数显示')},
     'picker-confirm':()=>{if(!AT.ui.pickerSelection.size){toast('请至少选择一只股票');return}AT.ui.stockPool=[...AT.ui.pickerSelection];closeModal();render()},
     'run-research':()=>runResearch(false),'run-plateau':()=>runResearch(true),
@@ -260,7 +330,7 @@
       });
       AT.persist();return;
     }
-    if(el.dataset.action){actions[el.dataset.action]?.();return}
+    if(el.dataset.action){if(!AT.businessUI?.handleAction(el.dataset.action))actions[el.dataset.action]?.();return}
     if(el.dataset.dayStep){AT.openDayDetail({...AT.ui.dayDetail,index:AT.ui.dayDetail.index+Number(el.dataset.dayStep)});return}
     if(el.dataset.researchDay){const context=JSON.parse(el.dataset.context),points=AT.curvePoints(context,'research','year');AT.openDayDetail({context,points,index:points.findIndex(p=>p.date===el.dataset.researchDay)});return}
     if(el.dataset.navGroup){const id=el.dataset.navGroup;AT.ui.navGroup=AT.ui.navGroup===id?null:id;updateShell();$(`[data-nav-group="${id}"]`).focus({preventScroll:true});return}
@@ -293,12 +363,14 @@
   document.addEventListener('input',e=>{const el=e.target;
     if(el.hasAttribute('data-stock-search')){AT.ui.query=el.value;rerenderList()}
     if(el.hasAttribute('data-picker-query')){AT.ui.pickerQuery=el.value;renderPicker()}
-    if(el.hasAttribute('data-global-search'))renderSearch(el.value);
-    if(el.hasAttribute('data-page-search'))renderSearch(el.value,true);
+    if(el.hasAttribute('data-global-search')&&!e.isComposing&&!searchComposing.has(el))renderSearch(el.value);
+    if(el.hasAttribute('data-page-search')&&!e.isComposing&&!searchComposing.has(el))renderSearch(el.value,true);
     if(el.dataset.note){AT.state.notes[el.dataset.note]=el.value;clearTimeout(noteTimer);const status=$('#note-state');if(status)status.textContent='等待保存…';const value=el.value,key=el.dataset.note;noteTimer=setTimeout(async()=>{const saved=await AT.persist(),current=$('#note-state');if(current&&AT.state.notes[key]===value)current.textContent=saved?(AT.isDesktop?'已保存到本机':'已保存到此浏览器'):'保存失败，笔记暂留在当前会话'},300)}
     if(el.closest('#valuation-form'))updateValuation();
     const param={'take-profit':'take','stop-loss':'stop','reduce-ratio':'reduce'}[el.name];if(param)AT.ui.researchParams[param]=Number(el.value);
   });
+  document.addEventListener('compositionstart',e=>{if(e.target.matches('[data-global-search],[data-page-search]')){searchComposing.add(e.target);cancelSearch(e.target.hasAttribute('data-page-search'))}});
+  document.addEventListener('compositionend',e=>{if(e.target.matches('[data-global-search],[data-page-search]')){searchComposing.delete(e.target);renderSearch(e.target.value,e.target.hasAttribute('data-page-search'))}});
   document.addEventListener('change',e=>{const el=e.target;
     if(['take-profit','stop-loss','reduce-ratio'].includes(el.name)&&el.validity.valid)render();
     if(el.hasAttribute('data-account')){AT.state.account=el.value;AT.persist();render();toast('已切换账户视图；两类账户暂共用一套演示数据')}
@@ -329,10 +401,39 @@
       AT.state.milestoneEvents[key]=[...(Array.isArray(items)?items:[]),{kind:'event',local:true,date:d.get('event-date'),time:new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Taipei'}),title,note,category:d.get('event-category'),code:d.get('event-stock')}];
       form.reset();form.hidden=true;AT.ui.milestoneFilter='event';milestoneDetail(AT.ui.milestoneNumber);const saved=await AT.persist();toast(saved?'日期事件已保存到此里程碑':'保存失败，事件暂留在当前会话');return;
     }
-    if(e.target.id==='rule-form'){e.preventDefault();const d=new FormData(e.target);AT.state.ruleA=+d.get('ruleA');AT.state.ruleB=+d.get('ruleB');const saved=await AT.persist();toast(saved?'预览设置已保存':'保存失败，设置暂留在当前会话')}});
-  function readBackup(file){if(file.size>2000000){toast('预览备份文件过大');return}file.text().then(text=>{let data;try{data=JSON.parse(text)}catch{toast('无法读取 JSON 备份');return}const validTrash=Array.isArray(data?.taskTrash)?data.taskTrash.every(entry=>entry?.task&&typeof entry.task.id==='string'&&typeof entry.task.name==='string'&&AT.statusNames[entry.task.status]&&Number.isFinite(entry.task.progress)&&entry.task.progress>=0&&entry.task.progress<=100&&Number.isInteger(entry.index)&&entry.index>=0&&Number.isFinite(Date.parse(entry.deletedAt))&&AT.stocks.some(s=>s.code===entry.task.stock)):data?.taskTrash===undefined;const valid=validTrash&&data&&data.version===1&&Number.isFinite(data.goal)&&data.goal>=.1&&data.goal<=500&&Number.isInteger(data.stages)&&data.stages>=1&&data.stages<=200&&Number.isFinite(data.startCapital)&&data.startCapital>0&&Array.isArray(data.tasks)&&data.tasks.length<=200&&data.tasks.every(t=>t&&typeof t.id==='string'&&typeof t.name==='string'&&typeof t.type==='string'&&AT.statusNames[t.status]&&Number.isFinite(t.progress)&&t.progress>=0&&t.progress<=100&&AT.stocks.some(s=>s.code===t.stock))&&data.notes&&Object.values(data.notes).every(v=>typeof v==='string')&&Array.isArray(data.watch)&&data.watch.every(c=>AT.stocks.some(s=>s.code===c))&&Array.isArray(data.reports)&&data.reports.every(r=>r&&typeof r.name==='string'&&typeof r.date==='string'&&AT.stocks.some(s=>s.code===r.stock));if(!valid){toast('备份字段不完整或不是此预览的有效备份');return}AT.ui.restoreCandidate=data;openModal(AT.isDesktop?'恢复状态副本':'恢复预览备份',`<div class="report-text"><p>${AT.isDesktop?'将替换当前桌面的演示配置、任务和笔记，运行中或排队的演示任务保持暂停。':'将替换此浏览器中的演示配置、任务和笔记。'}</p><p>目标 ${data.goal}% · ${data.stages} 个阶段<br>${data.tasks.length} 个任务 · ${Object.keys(data.notes).length} 份笔记</p></div>`,{footer:B('取消','','data-action="close-modal"')+B('确认恢复','backup','data-action="confirm-restore"','primary')})}).catch(()=>toast('无法读取备份文件'))}
-  actions['confirm-restore']=async()=>{const data=AT.ui.restoreCandidate;if(!data)return;Object.assign(AT.state,{goal:data.goal,stages:data.stages,startCapital:data.startCapital,tasks:data.tasks,taskTrash:data.taskTrash||[],notes:data.notes,watch:data.watch,reports:data.reports,effects:AT.effects.normalize(data.effects||AT.state.effects),milestoneEvents:data.milestoneEvents&&typeof data.milestoneEvents==='object'&&!Array.isArray(data.milestoneEvents)?data.milestoneEvents:AT.state.milestoneEvents});if(AT.isDesktop)for(const task of AT.state.tasks)if(['running','queued'].includes(task.status)){task.status='paused';task.step='演示已暂停 · 手动继续'}AT.ui.activeTask=AT.state.tasks[0]?.id||null;AT.ui.taskSelection.clear();closeModal();render();const saved=await AT.persist();toast(saved?(AT.isDesktop?'状态副本已恢复并保存到本机':'预览备份已恢复'):'保存失败，恢复内容暂留在当前会话')};
+    if(e.target.id==='rule-form'){e.preventDefault();await AT.settingsPage.saveRules(e.target)}});
+  async function readBackup(file){
+    AT.ui.restoreCandidate=null;
+    if(file.size>AT.workspaceBackup.MAX_FILE_BYTES){toast('界面备份文件不能超过 6 MiB');return}
+    try{
+      let data;try{data=JSON.parse(await file.text())}catch{throw new Error('无法读取 JSON 备份')}
+      const {candidate,summary}=AT.workspaceBackup.prepare(data,AT.state,{settings:AT.settingsState,isDesktop:AT.isDesktop});
+      AT.ui.restoreCandidate=data;
+      const prefs=['compact','largeText','reduced'].map(key=>`${{compact:'紧凑表格',largeText:'大号文字',reduced:'减少动态'}[key]}：${candidate[key]?'开启':'关闭'}`).join(' · ');
+      openModal('恢复界面状态',`<div class="report-text"><p>文件：${E(file.name)}</p><p>${summary.tasks} 个演示任务 · ${summary.notes} 份历史笔记 · ${summary.reviews} 份复盘草稿 · ${summary.customTrades} 笔演示流水</p><p>${E(prefs)}</p><p>将恢复文件包含的显示偏好、侧栏、费率与仓位规则等界面状态。${summary.legacy?'旧备份未包含的字段保持现值。':''}${AT.isDesktop?'运行中或排队的演示任务保持暂停。':''}</p><p>正式账户账本、真实跟踪池、行情缓存、研究任务与 AI 配置不在此恢复范围。</p><p class="business-error" data-interface-restore-error role="alert" hidden></p></div>`,{confirmation:true,footer:B('取消','','data-action="close-modal"')+B('确认恢复界面状态','backup','data-action="confirm-restore"','primary')});
+    }catch(error){toast(error.message||'无法读取备份文件')}
+    finally{const input=$('#restore-file');if(input)input.value=''}
+  }
+  actions['confirm-restore']=async()=>{
+    const data=AT.ui.restoreCandidate;if(!data||AT.ui.restoringBackup)return;
+    const button=$('[data-action="confirm-restore"]');
+    AT.ui.restoringBackup=true;if(button)button.disabled=true;
+    try{
+      const {candidate}=AT.workspaceBackup.prepare(data,AT.state,{settings:AT.settingsState,isDesktop:AT.isDesktop});
+      if(!await AT.persist(candidate))throw new Error('保存失败，当前界面状态未替换。请检查磁盘空间或目录权限后重试。');
+      const previousTrades=new Set(AT.state.customTrades||[]);AT.trades=AT.trades.filter(trade=>!previousTrades.has(trade));
+      for(const key of Object.keys(AT.state))if(!Object.hasOwn(candidate,key))delete AT.state[key];
+      Object.assign(AT.state,candidate);AT.trades.unshift(...(candidate.customTrades||[]));
+      AT.ui.restoreCandidate=null;AT.ui.activeTask=AT.state.tasks[0]?.id||null;AT.ui.taskSelection.clear();AT.ui.restoringBackup=false;
+      applyPrefs();closeModal();render();toast(AT.isDesktop?'界面状态已恢复并保存到本机':'界面状态已恢复并保存到浏览器');
+    }catch(error){const target=$('[data-interface-restore-error]');if(target){target.hidden=false;target.textContent=error.message}toast(error.message||'恢复失败，当前状态已保留')}
+    finally{AT.ui.restoringBackup=false;if(button)button.disabled=false}
+  };
   document.addEventListener('keydown',e=>{
+    if(e.target.matches('[data-global-search],[data-page-search]')&&['Enter','ArrowDown'].includes(e.key)&&!e.isComposing&&e.keyCode!==229&&!searchComposing.has(e.target)){
+      const result=$(e.target.hasAttribute('data-page-search')?'#page-search-results .search-result':'#search-results .search-result');
+      if(result){e.preventDefault();if(e.key==='Enter')result.click();else result.focus({preventScroll:true})}return;
+    }
     if(e.target.matches('.local-tab')&&['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){
       e.preventDefault();const tabs=$$('.local-tab',e.target.closest('[role="tablist"]')),index=tabs.indexOf(e.target),next=e.key==='Home'?0:e.key==='End'?tabs.length-1:(index+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;tabs[next].focus({preventScroll:true});tabs[next].click();return;
     }
@@ -340,7 +441,7 @@
     if(e.key==='ArrowDown'&&e.target.matches('[data-nav-group]')&&$('.nav-flyout')){e.preventDefault();$('.nav-flyout .nav-item')?.focus({preventScroll:true});return}
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();search()}
     if(e.key==='Escape'&&$('.overlay'))closeModal();
-    if(e.key==='Tab'&&$('.modal')){const items=$$('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href]', $('.modal')).filter(x=>x.getClientRects().length),first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}}
+    if(e.key==='Tab'&&$('.overlay .modal')){const items=$$('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href]', $('.overlay .modal')).filter(x=>x.getClientRects().length),first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}}
   });
   window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{const compact=compactNavigation();if(compact!==document.body.classList.contains('nav-collapsed')){AT.ui.navGroup=compact?null:navigationGroup(AT.state.page);updateShell()}positionSubnav();AT.drawCharts();AT.drawCandles()},100)});
   if(!AT.isDesktop)window.addEventListener('beforeunload',()=>{AT.persist()});

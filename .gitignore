@@ -17,3 +17,6 @@ node_modules/
 dist/
 artifacts/
 *.tsbuildinfo
+__pycache__/
+*.pyc
+.venv/

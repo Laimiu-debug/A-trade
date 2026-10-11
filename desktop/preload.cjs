@@ -10,7 +10,13 @@ const publicWindowState = state => state && typeof state.maximized === 'boolean'
   : null;
 contextBridge.exposeInMainWorld('atradeDesktop', {
   bootstrap,
+  business: (method, payload = {}) => ipcRenderer.invoke('atrade:business', method, payload),
+  market: (method, payload = {}) => ipcRenderer.invoke('atrade:market', method, payload),
+  openExternal: url => ipcRenderer.invoke('atrade:open-external', url),
+  chooseTDXDirectory: () => ipcRenderer.invoke('atrade:choose-tdx-directory'),
+  ai: (method, payload = {}) => ipcRenderer.invoke('atrade:ai', method, payload),
   saveState: state => ipcRenderer.invoke('atrade:save-state', state),
+  diagnostics: (copy = false) => ipcRenderer.invoke('atrade:diagnostics', copy === true),
   openDataFolder: () => ipcRenderer.invoke('atrade:open-data-folder'),
   windowAction: action => windowActions.has(action)
     ? ipcRenderer.invoke('atrade:window-action', action)

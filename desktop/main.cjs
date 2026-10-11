@@ -23,9 +23,9 @@ if (!app.requestSingleInstanceLock()) {
     mainWindow = await createDesktop({
       dataDirectory: path.join(app.getPath('userData'), 'workspace'),
     });
-  }).catch(() => {
+  }).catch(error => {
     dialog.showErrorBox('A-trade 启动失败',
-      '无法安全读取本地工作区。原数据已保留，请检查文件格式、目录权限或磁盘空间。\n' +
+      (error.businessReason || '无法安全读取本地工作区。原数据已保留，请检查文件格式、目录权限或磁盘空间。') + '\n' +
       `数据位置：${path.join(app.getPath('userData'), 'workspace')}`);
     app.exit(1);
   });

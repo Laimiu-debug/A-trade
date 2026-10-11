@@ -1,0 +1,4 @@
+# Optional runtime for the local, read-only TDX MCP worker.
+mcp==1.30.0
+pandas==2.3.2
+numpy==2.3.2

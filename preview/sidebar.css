@@ -1,48 +1,49 @@
 /* JavaScript resolves the saved preference and the default compact breakpoint. */
 body.nav-collapsed { --sidebar:72px; }
 
-.sidebar-toggle-row {
-  display:flex;
-  justify-content:flex-end;
-  flex-shrink:0;
-  padding:0 12px 6px;
-}
+.sidebar > .brand { gap:7px; padding:0 19px; }
 .sidebar-toggle {
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:7px;
-  height:32px;
-  padding:0 10px;
-  border-radius:7px;
-  color:var(--muted);
-  font-size:11px;
-  white-space:nowrap;
+  position:relative;
+  display:grid;
+  place-items:center;
+  flex:0 0 44px;
+  width:44px;
+  height:44px;
+  padding:0;
+  border-radius:12px;
+  -webkit-app-region:no-drag;
 }
-.sidebar-toggle:hover {
-  color:var(--primary);
-  background:var(--hover);
+.sidebar-toggle-glyph {
+  position:absolute;
+  inset:4px;
+  display:grid;
+  place-items:center;
+  border-radius:10px;
+  background:linear-gradient(145deg,#299bff,#2457e5 70%);
+  color:white;
+  opacity:0;
+  transition:opacity .14s ease;
+  pointer-events:none;
 }
-.sidebar-toggle .icon { width:17px; height:17px; }
+.sidebar-toggle:is(:hover,:focus-visible) .sidebar-toggle-glyph { opacity:1; }
+.sidebar-toggle-glyph .icon { width:22px; height:22px; }
+.sidebar-toggle:focus-visible { outline-offset:0; }
+.brand-name { white-space:nowrap; }
+@media(prefers-reduced-motion:reduce) { .sidebar-toggle-glyph { transition:none; } }
+.reduce-motion .sidebar-toggle-glyph { transition:none; }
 
 body.nav-collapsed .sidebar > .brand {
   height:75px;
   padding:0;
   justify-content:center;
 }
-body.nav-collapsed .sidebar > .brand > span:last-child,
+body.nav-collapsed .sidebar .brand-name,
 body.nav-collapsed .sidebar .nav-main > span,
 body.nav-collapsed .sidebar .nav-main > .icon:last-child,
 body.nav-collapsed .sidebar .nav-children,
-body.nav-collapsed .sidebar-toggle > span:last-child,
 body.nav-collapsed .sidebar .queue-shortcut > span:not(.queue-symbol),
 body.nav-collapsed .sidebar .queue-shortcut > .icon,
 body.nav-collapsed .sidebar .local-identity { display:none; }
-body.nav-collapsed .sidebar-toggle-row {
-  justify-content:center;
-  padding:0 10px 6px;
-}
-body.nav-collapsed .sidebar-toggle { width:40px; padding:0; }
 body.nav-collapsed .sidebar nav { padding:10px; }
 body.nav-collapsed .sidebar .nav-main {
   justify-content:center;

@@ -54,6 +54,26 @@ test('second save keeps the preceding valid version and recovers damaged main', 
   assert.deepEqual(store.load(), { state: state('第一版'), warning: null });
 });
 
+test('market-qualified securities survive reopening without confusing identical codes', (t) => {
+  const store = fixture(t);
+  for (const stock of ['sh000001', 'sz000001', 'bj920001', '600900']) {
+    store.save({ ...state(), page: 'G01', stock });
+    assert.equal(new StateStore(store.paths.directory).load().state.stock, stock);
+  }
+  for (const stock of ['us000001', 'sh00001', '../sh000001']) {
+    assert.throws(() => store.save({ ...state(), stock }));
+  }
+});
+
+test('market display preferences survive restart and invalid preferences preserve the saved workspace', (t) => {
+  const store = fixture(t), marketPreferences = {version:1, lists:{'stocks:stocks':{query:'长江',size:30,sort:'amount',order:'desc',compact:true,filtersOpen:false}}, studies:{ma:false,force:true,signals:false,box:true}};
+  store.save({...state(),marketPreferences});
+  assert.deepEqual(new StateStore(store.paths.directory).load().state.marketPreferences, marketPreferences);
+  const before = fs.readFileSync(store.paths.file, 'utf8');
+  assert.throws(() => store.save({...state(),marketPreferences:{...marketPreferences,lists:{'stocks:stocks':{size:500}}}}), {code:'INVALID_STATE'});
+  assert.equal(fs.readFileSync(store.paths.file, 'utf8'), before);
+});
+
 test('missing main is recovered from a valid backup', (t) => {
   const store = fixture(t);
   store.save(state());

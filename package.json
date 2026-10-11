@@ -9,7 +9,17 @@
     "start": "node scripts/start-desktop.cjs",
     "preview": "node preview/serve.cjs",
     "test": "node --test tests/*.test.cjs",
-    "test:desktop": "node scripts/smoke-desktop.cjs"
+    "test:desktop": "node scripts/smoke-desktop.cjs",
+    "test:settings": "node scripts/smoke-settings.cjs",
+    "test:business": "node scripts/test-business.cjs",
+    "test:account": "node scripts/smoke-account.cjs",
+    "test:market": "node scripts/smoke-market.cjs",
+    "test:market-live": "node scripts/smoke-market-live.cjs",
+    "test:analysis": "node scripts/smoke-analysis.cjs",
+    "test:information": "node scripts/smoke-information.cjs",
+    "test:research": "node scripts/smoke-portfolio.cjs",
+    "test:portfolio": "node scripts/smoke-portfolio.cjs",
+    "setup:market": "node scripts/setup-market.cjs"
   },
   "engines": {
     "node": ">=22.12.0"
