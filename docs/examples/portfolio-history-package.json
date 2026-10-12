@@ -1,0 +1,181 @@
+{
+  "schema": "historical-package-v1",
+  "coverage": {
+    "startDate": "2024-01-02",
+    "endDate": "2024-01-05"
+  },
+  "declaration": {
+    "universe": "FORMAT EXAMPLE ONLY - two synthetic historical members",
+    "source": "Synthetic fixture - no investment evidence",
+    "calendarSource": "fixture-independent-calendar",
+    "completeMembership": true,
+    "completeActions": true
+  },
+  "dataset": {
+    "adjustment": "raw",
+    "calendar": [
+      "2024-01-02",
+      "2024-01-03",
+      "2024-01-04",
+      "2024-01-05"
+    ],
+    "membershipByDate": {
+      "2024-01-02": [
+        "sh600000",
+        "sz000001"
+      ],
+      "2024-01-03": [
+        "sh600000",
+        "sz000001"
+      ],
+      "2024-01-04": [
+        "sh600000",
+        "sz000001"
+      ],
+      "2024-01-05": [
+        "sh600000"
+      ]
+    },
+    "securities": [
+      {
+        "symbol": "sh600000",
+        "name": "FORMAT EXAMPLE - SYNTHETIC",
+        "listingDate": "2000-01-01",
+        "bars": [
+          {
+            "date": "2024-01-02",
+            "open": 10,
+            "high": 10.1,
+            "low": 9.9,
+            "close": 10,
+            "volume": 2000000,
+            "amount": 20000000
+          },
+          {
+            "date": "2024-01-03",
+            "open": 10,
+            "high": 10.1,
+            "low": 9.9,
+            "close": 10,
+            "volume": 2000000,
+            "amount": 20000000
+          },
+          {
+            "date": "2024-01-04",
+            "open": 10,
+            "high": 10.1,
+            "low": 9.9,
+            "close": 10,
+            "volume": 2000000,
+            "amount": 20000000
+          },
+          {
+            "date": "2024-01-05",
+            "open": 9.9,
+            "high": 10,
+            "low": 9.8,
+            "close": 9.9,
+            "volume": 2000000,
+            "amount": 19800000
+          }
+        ],
+        "stByDate": {
+          "2024-01-02": false,
+          "2024-01-03": false,
+          "2024-01-04": false,
+          "2024-01-05": false
+        },
+        "tradeStatusByDate": {
+          "2024-01-02": 1,
+          "2024-01-03": 1,
+          "2024-01-04": 1,
+          "2024-01-05": 1
+        },
+        "precloseByDate": {
+          "2024-01-02": 10,
+          "2024-01-03": 10,
+          "2024-01-04": 10,
+          "2024-01-05": 9.9
+        },
+        "corporateActionsComplete": true,
+        "corporateActions": [
+          {
+            "id": "synthetic-dividend",
+            "type": "distribution",
+            "announcementDate": "2024-01-02",
+            "recordDate": "2024-01-04",
+            "exDate": "2024-01-05",
+            "cashPayDate": "2024-01-05",
+            "cashNetPerShare": 0.1,
+            "cashTaxModel": "declared_net",
+            "source": "synthetic example only"
+          }
+        ]
+      },
+      {
+        "symbol": "sz000001",
+        "name": "FORMAT EXAMPLE - SYNTHETIC",
+        "listingDate": "2000-01-01",
+        "bars": [
+          {
+            "date": "2024-01-02",
+            "open": 10,
+            "high": 10.1,
+            "low": 9.9,
+            "close": 10,
+            "volume": 2000000,
+            "amount": 20000000
+          },
+          {
+            "date": "2024-01-03",
+            "open": 10,
+            "high": 10.1,
+            "low": 9.9,
+            "close": 10,
+            "volume": 2000000,
+            "amount": 20000000
+          },
+          {
+            "date": "2024-01-04",
+            "open": 10,
+            "high": 10.1,
+            "low": 9.9,
+            "close": 10,
+            "volume": 2000000,
+            "amount": 20000000
+          }
+        ],
+        "stByDate": {
+          "2024-01-02": false,
+          "2024-01-03": false,
+          "2024-01-04": false
+        },
+        "tradeStatusByDate": {
+          "2024-01-02": 1,
+          "2024-01-03": 1,
+          "2024-01-04": 1
+        },
+        "precloseByDate": {
+          "2024-01-02": 10,
+          "2024-01-03": 10,
+          "2024-01-04": 10
+        },
+        "corporateActionsComplete": true,
+        "corporateActions": [
+          {
+            "id": "synthetic-settlement",
+            "type": "cash_settlement",
+            "announcementDate": "2024-01-02",
+            "recordDate": "2024-01-04",
+            "exDate": "2024-01-05",
+            "cashPayDate": "2024-01-05",
+            "cashNetPerShare": 10,
+            "cashTaxModel": "declared_net",
+            "source": "synthetic example only"
+          }
+        ],
+        "delistDate": "2024-01-05"
+      }
+    ]
+  }
+}

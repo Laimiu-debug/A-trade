@@ -10,18 +10,27 @@ const config={initialCapital:100000,maxPositions:5,positionFraction:.2,maxPartic
 const strategy={id:'momentum',name:'趋势动量',description:'规则定义',rationale:'可检验假设',caveats:'尚未证明有效',parameters:[{key:'lookback',label:'观察期',default:20,min:2,max:252,step:1},{key:'minReturn',label:'最低收益',default:.05,min:0,max:1,step:.01}]};
 function task(id='one',status='completed',kind='backtest'){return {id,name:`任务 ${id}`,kind,status,progress:status==='completed'?1:.25,phase:'计算中',symbols:['sh600900'],config};}
 function result(){return {kind:'backtest',config,metrics:{totalReturnPct:10,maxDrawdownPct:3,closedTradeCount:2,tradeCount:5,winRatePct:50,annualizedReturnPct:12,benchmarkReturnPct:4,excessReturnPct:6},curve:[{date:'2025-01-02',equity:100000,cash:50000,drawdownPct:0,benchmarkEquity:100000},{date:'2025-01-03',equity:110000,cash:51000,drawdownPct:3,benchmarkEquity:104000}],trades:[{date:'2025-01-03',signalDate:'2025-01-02',symbol:'sh600900',side:'buy',quantity:100,price:10,fee:5,reason:'规则通过'}],decisions:[{date:'2025-01-02',symbol:'sh600900',action:'buy',status:'queued',reason:'晚间信号'}],warnings:['固定股票池存在选择偏差'],pagination:{decisions:{offset:0,total:410,hasMore:true},trades:{offset:0,total:1,hasMore:false}}};}
-function harness({desktop=true,tasks=[task()],results={one:result()},fail=false,createFailures=0}={}){
+function harness({desktop=true,tasks=[task()],results={one:result()},fail=false,createFailures=0,portfolioView=false}={}){
   const listeners=new Map(),calls=[],timers=new Map();let timerId=0;
   const document={addEventListener(type,listener){if(!listeners.has(type))listeners.set(type,[]);listeners.get(type).push(listener);},getElementById(){return null;},querySelector(){return null;}};
   const AT={escape,state:{page:'R03'},render(){},navigate(page){this.state.page=page;}};
-  const bridge=async(method,payload)=>{calls.push({method,payload});if(fail)return {ok:false,error:'日线服务未配置'};if(method==='research.catalogue')return {ok:true,data:{strategies:[strategy],defaults:config,tasks,limits:{maxSymbols:50,maxCombinations:125}}};if(method==='research.list')return {ok:true,data:{tasks}};if(method==='research.get')return {ok:true,data:{task:tasks.find(t=>t.id===payload.id),result:results[payload.id]||null}};if(method==='research.create'||method==='research.replay'){if(createFailures-->0)return {ok:false,error:'响应超时'};const t=task('new','queued',payload.kind||'backtest');tasks.unshift(t);return {ok:true,data:t};}if(method==='research.control')return {ok:true,data:{tasks:payload.ids.map(id=>{const t=tasks.find(t=>t.id===id);t.status=payload.action==='pause'?'paused':payload.action==='resume'?'running':'stopped';return t;}),outcomes:payload.ids.map(id=>({id,ok:true}))}};throw new Error(method);};
+  const bridge=async(method,payload)=>{calls.push({method,payload});if(fail)return {ok:false,error:'日线服务未配置'};if(method==='research.catalogue')return {ok:true,data:{strategies:[strategy],defaults:config,tasks,limits:{maxSymbols:50,maxCombinations:125}}};if(method==='research.list')return {ok:true,data:{tasks}};if(method==='research.get')return {ok:true,data:{task:tasks.find(t=>t.id===payload.id),result:results[payload.id]||null}};if(method==='research.create'||method==='research.replay'){if(createFailures-->0)return {ok:false,error:'响应超时'};const t=task('new','queued',payload.kind||'backtest');tasks.unshift(t);return {ok:true,data:t};}if(method==='research.control')return {ok:true,data:{tasks:payload.ids.map(id=>{const t=tasks.find(t=>t.id===id);t.status=payload.action==='pause'?'paused':payload.action==='resume'?'running':'stopped';return t;}),outcomes:payload.ids.map(id=>({id,ok:true}))}};if(method==='research.rename'){const t=tasks.find(t=>t.id===payload.id);t.name=payload.name;return {ok:true,data:{task:t}};}if(method==='research.delete'){for(const id of payload.ids){const index=tasks.findIndex(t=>t.id===id);if(index>=0)tasks.splice(index,1);}return {ok:true,data:{tasks:[...tasks],outcomes:payload.ids.map(id=>({id,ok:true}))}};}throw new Error(method);};
   const window=desktop?{atradeDesktop:{business:bridge}}:{};
+  if(portfolioView)window.PortfolioWorkbench={configure(){},available:()=>true,currentStep:()=>5,form:()=>'<div>五步研究设置</div>',result:()=>'<div class="pf-account-curve">实际账户结果</div>'};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../preview/research-display.js'),'utf8'),{window,document});
   vm.runInNewContext(source,{window,AT,document,structuredClone,console,queueMicrotask,setTimeout(fn,delay){timers.set(++timerId,{fn,delay});return timerId;},clearTimeout(id){timers.delete(id);},Blob,URL,Set,Map},{filename:'research-module.js'});
   function dispatch(type,target){for(const listener of listeners.get(type)||[])listener({target,preventDefault(){},stopPropagation(){},stopImmediatePropagation(){}});}
   function click(action,id,extra={}){const el={disabled:false,dataset:{rsAction:action,rsId:id,...extra},hasAttribute(){return false;}};dispatch('click',{closest(){return el;}});}
   function field(key,value){dispatch('input',{dataset:{rsField:key},value,matches(){return true;}});}
   return {module:window.ResearchModule,AT,calls,timers,dispatch,click,field,tasks};
 }
+test('the fifth workflow step renders funded portfolios and distinguishes pool-only previews',async()=>{
+ const h=harness({portfolioView:true,tasks:[task('one','completed','portfolio')]});await h.module.refresh();
+ assert.match(h.module.render('R03'),/实际账户结果/);assert.doesNotMatch(h.module.render('R03'),/这是股票池筛选任务/);
+ const screen=harness({portfolioView:true,tasks:[task('one','completed','poolPreview')]});await screen.module.refresh();
+ assert.match(screen.module.render('R03'),/这是股票池筛选任务/);assert.doesNotMatch(screen.module.render('R03'),/实际账户结果/);
+});
+
 test('percentage input units round trip, including nested strategy and fee ratios',()=>{
   assert.equal(helpers.displayValue('stopLossPct',.08),8);assert.equal(helpers.storedValue('stopLossPct',8),.08);
   assert.equal(helpers.displayValue('strategyParams.momentum.minReturn',.05),5);assert.equal(helpers.storedValue('commissionRate',.03),.0003);
@@ -61,6 +70,15 @@ test('service pagination offsets are requested and cached separately from chart 
   const req=h.calls.filter(c=>c.method==='research.get').at(-1);assert.equal(req.payload.decisionOffset,200);assert.equal(req.payload.tradeOffset,200);assert.equal(req.payload.pageSize,200);
   assert.match(h.module.render('R06'),/第 2 页/);
 });
+
+test('fold account selector pages the chosen nested execution ledger only',async()=>{
+ const first=result(),second=result();first.pagination.path='folds.0.testing.fixed';second.pagination.path='folds.1.testing.equalWeight';second.trades[0].symbol='sz000001';
+ const h=harness({tasks:[task('one','completed','walkForward')],results:{one:{kind:'walkForward',folds:[{testing:{fixed:first}},{testing:{equalWeight:second}}]}}});await h.module.refresh();
+ assert.match(h.module.render('R06'),/第 2 折 · 等权组合/);
+ h.dispatch('change',{value:'folds.1.testing.equalWeight',dataset:{},hasAttribute:name=>name==='data-rs-result-path'});await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(h.calls.filter(c=>c.method==='research.get').at(-1).payload.resultPath,'folds.1.testing.equalWeight');assert.match(h.module.render('R06'),/sz000001/);
+ h.click('path-next');await new Promise(resolve=>setImmediate(resolve));const request=h.calls.filter(c=>c.method==='research.get').at(-1).payload;assert.equal(request.resultPath,'folds.1.testing.equalWeight');assert.equal(request.decisionOffset,200);assert.equal(request.tradeOffset,200);
+});
 test('controls issue backend state changes and never increment progress on a local timer',async()=>{
   const h=harness({tasks:[task('one','running')]});await h.module.refresh();h.click('control','one',{rsControl:'pause'});await h.module.flush();assert.equal(h.tasks[0].status,'paused');assert.equal(h.tasks[0].progress,.25);assert.deepEqual(h.calls.filter(c=>c.method==='research.control').map(c=>JSON.parse(JSON.stringify(c.payload))),[{ids:['one'],action:'pause'}]);
   h.AT.state.page='A02';await h.module.refresh();assert.ok([...h.timers.values()].some(timer=>timer.delay===10000));
@@ -88,4 +106,11 @@ test('Chinese path filtering searches translated reasons and UTC timestamps rend
 });
 test('server supplied names and warnings are escaped, including task action attributes',async()=>{
   const evil=task('x" onclick="alert(1)');evil.name='<img src=x onerror=alert(1)>';const r=result();r.warnings=['<script>alert(1)</script>'];const h=harness({tasks:[evil],results:{[evil.id]:r}});await h.module.refresh();for(const page of ['G02','R04','R09']){const html=h.module.render(page);assert.doesNotMatch(html,/<script>|<img src=x|data-rs-id="x" onclick/);assert.match(html,/&lt;/);}
+});
+
+test('task center can search, rename and explicitly delete a saved task',async()=>{
+ const h=harness({tasks:[task('one'),task('two')]});await h.module.refresh();assert.match(h.module.render('G02'),/搜索任务名称/);assert.match(h.module.render('G02'),/重命名/);assert.match(h.module.render('G02'),/新增研究/);
+ h.click('task-rename','one');h.dispatch('input',{value:'改名研究',hasAttribute:name=>name==='data-rs-edit-name'});h.click('task-rename-save');await h.module.flush();assert.equal(h.tasks.find(t=>t.id==='one').name,'改名研究');
+ h.dispatch('input',{value:'改名研究',hasAttribute:name=>name==='data-rs-task-query'});const html=h.module.render('G02');assert.match(html,/改名研究/);assert.doesNotMatch(html,/任务 two/);
+ h.click('task-delete','one');assert.match(h.module.render('G02'),/确认删除/);assert.equal(h.calls.some(c=>c.method==='research.delete'),false);h.click('task-delete-confirm');await h.module.flush();assert.ok(h.calls.some(c=>c.method==='research.delete'));assert.equal(h.tasks.some(t=>t.id==='one'),false);
 });

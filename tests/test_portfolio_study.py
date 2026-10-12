@@ -4,7 +4,7 @@ import json
 import unittest
 from unittest.mock import patch
 
-from service.portfolio_study import PortfolioStudy, _slice, normalize_study, persistence_diagnostic, spearman
+from service.portfolio_study import PortfolioStudy, _slice, normalize_study, persistence_diagnostic, spearman, rotation_comparison
 
 
 def fixture():
@@ -163,10 +163,12 @@ class PortfolioStudyTests(unittest.TestCase):
         self.assertEqual(normal["training"]["selectedStrategyId"], "alpha")
         self.assertNotEqual(normal["comparison"]["fixed"], alternative["comparison"]["fixed"])
         self.assertEqual(len(normal["training"]["runs"]), 4)
-        self.assertEqual(set(normal["testing"]), {"fixed", "equalWeight"})
+        self.assertEqual(set(normal["testing"]), {"fixed", "equalWeight", "softRotation", "hardRotation"})
         self.assertFalse(normal["protocol"]["testUsedForSelection"])
         self.assertFalse(normal["rotationGate"]["passed"])
-        self.assertIsNone(normal["rotationGate"]["estimatedRotationGain"])
+        self.assertEqual(normal["rotationGate"]["estimatedRotationGain"], 0)
+        self.assertEqual(normal["rotationGate"]["status"], "no_value")
+        self.assertIn("轮动没有创造价值", normal["rotationGate"]["conclusion"])
         self.assertIn("data_quality_not_certified", normal["rotationGate"]["reasons"])
         for engine in FakeEngine.calls:
             self.assertLessEqual(engine.dataset["securities"][0]["bars"][-1]["date"], engine.config["endDate"])
@@ -188,6 +190,31 @@ class PortfolioStudyTests(unittest.TestCase):
         changed["commissionRate"] *= 2
         with self.assertRaises(ValueError):
             PortfolioStudy(data, changed, state=state)
+
+    def test_disabled_rotation_still_runs_prespecified_baselines(self):
+        data, config = fixture()
+        config["study"]["rotationEnabled"] = False
+        result = finish(PortfolioStudy(data, config))
+        self.assertEqual(set(result["testing"]), {"fixed", "equalWeight"})
+        self.assertTrue(result["training"]["persistence"]["passed"])
+        self.assertEqual(result["rotationGate"]["status"], "skipped")
+        self.assertIn("rotation_disabled", result["rotationGate"]["reasons"])
+
+    def test_independent_comparison_never_passes_without_gate_and_completion(self):
+        testing = {key: {"metrics": {"totalReturnPct": value}, "quality": {"certified": True}}
+                   for key, value in (("softRotation", 8), ("fixed", 6), ("equalWeight", 4))}
+        for enabled, passed, complete, expected in ((False, True, True, "skipped"),
+                                                    (True, False, True, "skipped"),
+                                                    (True, True, False, "running")):
+            _, gate = rotation_comparison(testing, 100000, {"passed": passed}, enabled, complete)
+            self.assertFalse(gate["passed"])
+            self.assertEqual(gate["status"], expected)
+        _, gate = rotation_comparison(testing, 100000, {"passed": True})
+        self.assertTrue(gate["passed"])
+        testing["softRotation"]["metrics"]["totalReturnPct"] = 4
+        _, gate = rotation_comparison(testing, 100000, {"passed": True})
+        self.assertEqual(gate["status"], "no_value")
+        self.assertIn("轮动没有创造价值", gate["conclusion"])
 
     def test_missing_quality_bad_data_and_unfair_baselines_block_selection(self):
         data, config = fixture()

@@ -2,7 +2,7 @@
 
 Signals and budgets are observed at close. Orders use a later session's open,
 previous-session volume, and available cash. OHLC extrema never imply a fill.
-This research ledger does not book corporate actions or certify total returns.
+Corporate actions are booked from dated source evidence under a declared net-cash model.
 """
 from __future__ import annotations
 
@@ -17,8 +17,10 @@ from statistics import mean, stdev
 
 from .portfolio_config import normalize_config
 from .portfolio_signals import DailyScorer, SCORER_VERSION
+from .portfolio_rotation import ROTATION_MODES, decide_rotation, regime_label
+from .portfolio_actions import build_schedule, apply_actions, capture_rights, asset_adjustment
 
-ENGINE_VERSION = "portfolio-shared-ledger-v2"
+ENGINE_VERSION = "portfolio-shared-ledger-v5-daily-activities"
 RULES_VERSION = "ashare-conservative-2026-07-06"
 
 
@@ -79,13 +81,27 @@ def execution_limit(security, day):
 
 
 class PortfolioEngine:
-    def __init__(self, dataset, config=None, state=None):
+    def __init__(self, dataset, config=None, state=None, *, _shared=None):
         self.config = normalize_config(config)
-        self._validate_dataset(dataset)
         self.dataset = dataset
-        self.data_digest = _digest(dataset)
-        self.fingerprint = str(dataset.get("fingerprint") or self.data_digest)
-        self.scorer = DailyScorer(dataset, self.config)
+        if _shared is None:
+            self._validate_dataset(dataset)
+            self.data_digest = _digest(dataset)
+            self.fingerprint = str(dataset.get("fingerprint") or self.data_digest)
+            self.scorer = DailyScorer(dataset, self.config)
+        else:
+            # A rotation's single-strategy shadow ledgers differ only in dates
+            # and allocation. Bars, validation and full-pool scores are shared.
+            for key in ("securities", "bars", "by_date", "calendar_supplied", "all_dates", "calendar_index",
+                        "benchmark_by_date", "data_digest", "fingerprint", "scorer", "action_schedule", "history_counts", "st_counts"):
+                setattr(self, key, getattr(_shared, key))
+            self.dates = [day for day in self.all_dates if self.config["startDate"] <= day <= self.config["endDate"]]
+            score_keys = ("strategies", "combinations", "universe", "poolSettings")
+            if any(self.config[key] != _shared.config[key] for key in score_keys):
+                self.scorer = (DailyScorer(dataset, self.config, _prepared=_shared.scorer)
+                               if hasattr(_shared.scorer, "series") else DailyScorer(dataset, self.config))
+        self.rotation_enabled = self.config["allocation"]["mode"] in ROTATION_MODES
+        identifiers = self.config["allocation"]["strategyIds"]
         self.state = {
             "engineVersion": ENGINE_VERSION, "rulesVersion": RULES_VERSION, "scorerVersion": SCORER_VERSION,
             "dataDigest": self.data_digest, "datasetFingerprint": self.fingerprint,
@@ -96,10 +112,16 @@ class PortfolioEngine:
             "totalFees": 0., "totalSlippage": 0., "grossTradedAmount": 0.,
             "curve": [], "trades": [], "closedTrades": [], "decisions": [], "daily": [],
             "corporateActionDates": [], "unaccountedActionExposure": [], "quarantined": {},
+            "actionEntitlements": {}, "processedActions": [], "actionLedger": [], "cashReceivables": [],
+            "actionPayables": [], "reservedActionCash": 0., "observedBarCount": 0, "observedStCount": 0,
+            "carriedHistoryDays": 0,
+            "preExRights": {},
+            "rotationWeights": {key: 1. / len(identifiers) for key in identifiers},
+            "rotationLastAdjustment": None, "rotationLog": [], "shadowStates": {},
             "warnings": [
                 "研究假设：收盘形成目标，下一交易日开盘先卖后买，共用现金；日内高低价不构成成交依据。",
                 "未模拟竞价队列；成交容量取前一交易日成交量。开盘成交与滑点属于假设。",
-                "公司行动权益未入账，复权因子不改变现金或真实成交价；本报告不能认证总回报。",
+                "现金权益采用数据包声明的税后金额，不自动推断个人持股期限补税；缺失权益证据不能认证总回报。",
                 "非完整历史股票集合不能消除生存者偏差；分批计算不构成投资范围截断。",
                 "统一佣金、最低佣金、过户费、滑点是配置假设；自动印花税仅还原已支持的日期切换。",
             ],
@@ -112,6 +134,44 @@ class PortfolioEngine:
             raise ValueError("自动印花税仅支持 2008-09-19 起的卖方单边期间")
         if state is not None:
             self._restore(state)
+        self._init_shadows()
+
+    def _init_shadows(self):
+        self.shadows = {}
+        if not self.rotation_enabled:
+            return
+        first = self.calendar_index[self.dates[0]]
+        warmup_start = self.all_dates[max(0, first - self.config["rotation"]["warmupDays"])]
+        for identifier in self.config["allocation"]["strategyIds"]:
+            config = deepcopy(self.config)
+            config.update({"startDate": warmup_start, "endDate": self.dates[-1],
+                           "allocation": {"mode": "single", "strategyIds": [identifier]}})
+            shadow = PortfolioEngine(self.dataset, config, self.state["shadowStates"].get(identifier), _shared=self)
+            self.shadows[identifier] = shadow
+            self.state["shadowStates"][identifier] = shadow.state
+        self._warning("轮动预算来自扣除完整交易成本的单策略 Top N 影子组合；独立回测仅作诊断，持续性门控和样本外价值结论须由研究任务提供。")
+
+    def _advance_shadows(self, day, limit=20000):
+        # Advance in calendar order across strategies. DailyScorer caches the
+        # current day, so each full-universe cross-section is computed once.
+        advanced = 0
+        while self.shadows and advanced < limit:
+            pending = [shadow.dates[shadow.state["cursor"]] for shadow in self.shadows.values()
+                       if shadow.state["cursor"] < len(shadow.dates)]
+            if not pending or min(pending) > day:
+                break
+            next_day = min(pending)
+            snapshots = {key: shadow._transaction_snapshot() for key, shadow in self.shadows.items()}
+            try:
+                for shadow in self.shadows.values():
+                    if shadow.state["cursor"] < len(shadow.dates) and shadow.dates[shadow.state["cursor"]] == next_day:
+                        shadow.step(1)
+            except Exception:
+                for key, shadow in self.shadows.items():
+                    shadow._transaction_restore(snapshots[key])
+                raise
+            advanced += 1
+        return advanced
 
     def _validate_dataset(self, dataset):
         if not isinstance(dataset, dict) or not isinstance(dataset.get("securities"), list) or not dataset["securities"]:
@@ -199,6 +259,14 @@ class PortfolioEngine:
             json.dumps({key: value for key, value in dataset.items() if key != "securities"}, allow_nan=False)
         except (TypeError, ValueError):
             raise ValueError("数据集元数据包含非法值") from None
+        self.action_schedule = build_schedule(self.securities)
+        self.history_counts, self.st_counts = {}, {}
+        for symbol, rows in self.bars.items():
+            for row in rows:
+                day = row["date"]
+                self.history_counts[day] = self.history_counts.get(day, 0) + 1
+                if day in self.securities[symbol].get("stByDate", {}):
+                    self.st_counts[day] = self.st_counts.get(day, 0) + 1
 
     def _restore(self, state):
         if not isinstance(state, dict) or set(state) != set(self.state):
@@ -211,9 +279,26 @@ class PortfolioEngine:
             if state[key] != self.state[key]:
                 raise ValueError("配置、数据或引擎版本已改变，不能恢复")
         cursor = state["cursor"]
-        if type(cursor) is not int or not 0 <= cursor <= len(self.dates) or len(state["curve"]) != cursor or len(state["daily"]) != cursor:
+        carried = state["carriedHistoryDays"]
+        if type(carried) is not int or carried < 0 or type(cursor) is not int or not 0 <= cursor <= len(self.dates) or len(state["curve"]) != cursor + carried or len(state["daily"]) != cursor + carried:
             raise ValueError("恢复进度不一致")
         _finite(state["cash"], "cash")
+        weights = state["rotationWeights"]
+        if not isinstance(weights, dict) or set(weights) != set(self.config["allocation"]["strategyIds"]):
+            raise ValueError("恢复轮动策略权重无效")
+        for value in weights.values():
+            _finite(value, "rotationWeights", 0, 1)
+        if abs(sum(weights.values()) - 1) > 1e-8:
+            raise ValueError("恢复轮动权重之和须为 1")
+        adjustment = state["rotationLastAdjustment"]
+        latest_index = self.calendar_index[state["curve"][-1]["date"]] if state["curve"] else -1
+        if adjustment is not None and (type(adjustment) is not int or not 0 <= adjustment <= latest_index):
+            raise ValueError("恢复轮动冷却进度无效")
+        expected_shadows = set(self.config["allocation"]["strategyIds"]) if self.rotation_enabled else set()
+        if not isinstance(state["shadowStates"], dict) or set(state["shadowStates"]) not in (set(), expected_shadows):
+            raise ValueError("恢复影子账户不完整")
+        if cursor and set(state["shadowStates"]) != expected_shadows:
+            raise ValueError("恢复影子账户进度缺失")
         for symbol, position in state["positions"].items():
             if symbol not in self.securities or type(position["quantity"]) is not int or position["quantity"] <= 0:
                 raise ValueError("恢复持仓无效")
@@ -239,25 +324,46 @@ class PortfolioEngine:
     @property
     def progress(self):
         cursor = self.state["cursor"]
-        return {"progress": cursor / len(self.dates), "phase": "completed" if cursor == len(self.dates) else "backtesting", "completedDays": cursor, "totalDays": len(self.dates)}
+        warmup_total = warmup_done = 0
+        if self.shadows:
+            shadow = next(iter(self.shadows.values()))
+            warmup_total = sum(day < self.dates[0] for day in shadow.dates)
+            warmup_done = min(shadow.state["cursor"], warmup_total)
+        return {"progress": (warmup_done + cursor) / (warmup_total + len(self.dates)),
+                "phase": "completed" if cursor == len(self.dates) else "warmingShadowAccounts" if warmup_done < warmup_total else "backtesting",
+                "completedDays": cursor, "totalDays": len(self.dates), "warmupDays": warmup_total, "completedWarmupDays": warmup_done}
 
     def checkpoint(self):
         return deepcopy(self.state)
 
+    def _transaction_snapshot(self):
+        append_only = ("curve", "trades", "closedTrades", "decisions", "daily", "warnings", "corporateActionDates", "unaccountedActionExposure", "rotationLog", "actionLedger", "processedActions")
+        immutable = ("config", "engineVersion", "rulesVersion", "scorerVersion", "dataDigest", "datasetFingerprint", "shadowStates")
+        return ({key: len(self.state[key]) for key in append_only},
+                {key: deepcopy(value) for key, value in self.state.items() if key not in append_only + immutable})
+
+    def _transaction_restore(self, snapshot):
+        lengths, values = snapshot
+        self.state.update(values)
+        for key, length in lengths.items():
+            del self.state[key][length:]
+
     def step(self, days=5):
         if type(days) is not int or not 1 <= days <= 20000:
             raise ValueError("推进天数必须为 1..20000 整数")
+        if self.shadows and self.state["cursor"] == 0:
+            before_first = self.calendar_index[self.dates[0]] - 1
+            if before_first >= 0:
+                days -= self._advance_shadows(self.all_dates[before_first], limit=days)
         for _ in range(min(days, len(self.dates) - self.state["cursor"])):
-            append_only = ("curve", "trades", "closedTrades", "decisions", "daily", "warnings", "corporateActionDates", "unaccountedActionExposure")
-            immutable = ("config", "engineVersion", "rulesVersion", "scorerVersion", "dataDigest", "datasetFingerprint")
-            lengths = {key: len(self.state[key]) for key in append_only}
-            rollback = {key: deepcopy(value) for key, value in self.state.items() if key not in append_only + immutable}
+            rollback = self._transaction_snapshot()
+            shadow_rollbacks = {key: shadow._transaction_snapshot() for key, shadow in self.shadows.items()}
             try:
                 self._step_day(self.dates[self.state["cursor"]])
             except Exception:
-                self.state.update(rollback)
-                for key, length in lengths.items():
-                    del self.state[key][length:]
+                self._transaction_restore(rollback)
+                for key, shadow in self.shadows.items():
+                    shadow._transaction_restore(shadow_rollbacks[key])
                 raise
             self.state["cursor"] += 1
         return self.state["cursor"] == len(self.dates)
@@ -297,6 +403,9 @@ class PortfolioEngine:
             if reference is not None and abs(reference - previous) > max(.005, previous * 1e-7):
                 event = {"symbol": symbol, "date": day, "rawPreviousClose": previous, "preclose": reference}
                 self.state["corporateActionDates"].append(event)
+                if any(stage == "ex" and row["symbol"] == symbol and row["eventKey"] in self.state["processedActions"]
+                       for stage, row in self.action_schedule.get(day, [])):
+                    continue
                 if symbol in self.state["positions"]:
                     self.state["unaccountedActionExposure"].append({**event, "quantity": self.state["positions"][symbol]["quantity"]})
                     self._decision(day, symbol, "corporateAction", "unaccounted", "referenceChangedWithoutRightsLedger", rawPreviousClose=previous, preclose=reference)
@@ -395,10 +504,13 @@ class PortfolioEngine:
                     pending["quantities"][symbol] = limit
                 else:
                     self._decision(day, symbol, "rebalance", "deferred", "missingBar", signalDate=pending["signalDate"])
+        excluded_entries = self._excluded_today(day)
         for side in ("sell", "buy"):
             for symbol in self._priority_order(pending["quantities"], pending["priorityBySymbol"]):
                 if symbol in s["forcedExits"]:
                     continue  # independent liquidation owns this security
+                if side == "buy" and symbol in excluded_entries:
+                    continue  # a completed risk exit must not revive an older entry
                 held = s["positions"].get(symbol, {}).get("quantity", 0)
                 delta = pending["quantities"][symbol] - held
                 requested = -delta if side == "sell" else delta
@@ -423,7 +535,7 @@ class PortfolioEngine:
         position = s["positions"].get(symbol)
         pnl = None
         if side == "sell":
-            sellable = sum(lot["quantity"] for lot in position["lots"] if lot["date"] < day)
+            sellable = sum(lot["quantity"] for lot in position["lots"] if lot["date"] < day and lot.get("unlockDate", lot["date"]) <= day)
             if sellable == 0:
                 self._decision(day, symbol, side, "deferred", "tPlusOne", signalDate=pending["signalDate"])
                 return
@@ -433,17 +545,17 @@ class PortfolioEngine:
                 self._decision(day, symbol, side, "deferred", "previousVolumeOrLotMinimum", signalDate=pending["signalDate"], requestedQuantity=requested)
                 return
             fee = self._fees(quantity * price, side, day)
-            if s["cash"] + quantity * price < fee:
+            if s["cash"] - s["reservedActionCash"] + quantity * price < fee:
                 self._decision(day, symbol, side, "deferred", "insufficientSellFeeCash", signalDate=pending["signalDate"])
                 return
             left, cost, retained = quantity, 0., []
             for lot in position["lots"]:
-                sold = min(left, lot["quantity"]) if lot["date"] < day else 0
+                sold = min(left, lot["quantity"]) if lot["date"] < day and lot.get("unlockDate", lot["date"]) <= day else 0
                 allocated = lot["cost"] * sold / lot["quantity"]
                 left -= sold
                 cost += allocated
                 if lot["quantity"] > sold:
-                    retained.append({"date": lot["date"], "quantity": lot["quantity"] - sold, "cost": lot["cost"] - allocated})
+                    retained.append({**lot, "quantity": lot["quantity"] - sold, "cost": lot["cost"] - allocated})
             position["lots"] = retained
             position["quantity"] -= quantity
             position["costBasis"] -= cost
@@ -453,8 +565,8 @@ class PortfolioEngine:
             if not position["quantity"]:
                 s["closedTrades"].append({"symbol": symbol, "entryDate": position["entryDate"], "exitDate": day,
                                            "pnlAmount": position["realizedPnl"], "investedAmount": position["investedAmount"],
-                                           "returnPct": position["realizedPnl"] / position["investedAmount"] * 100,
-                                           "holdingDays": s["cursor"] - position["entryCursor"] + 1})
+                                           "returnPct": position["realizedPnl"] / position["investedAmount"] * 100 if position["investedAmount"] else None,
+                                           "holdingDays": self.calendar_index[day] - self.calendar_index[position["entryDate"]] + 1})
                 del s["positions"][symbol]
         else:
             if position is None and len(s["positions"]) >= self.config["maxPositions"]:
@@ -462,7 +574,7 @@ class PortfolioEngine:
                 return
             ceiling = _quantity(min(requested, capacity), minimum, increment)
             target_budget = max(0., pending["budgets"][symbol] - (position["quantity"] * price if position else 0.))
-            quantity = self._affordable_quantity(ceiling, minimum, increment, price, min(s["cash"], target_budget), day)
+            quantity = self._affordable_quantity(ceiling, minimum, increment, price, min(max(0., s["cash"] - s["reservedActionCash"]), target_budget), day)
             if quantity < minimum:
                 self._decision(day, symbol, side, "deferred", "cashOrPreviousVolumeBelowMinimum", signalDate=pending["signalDate"], requestedQuantity=requested)
                 return
@@ -526,10 +638,18 @@ class PortfolioEngine:
                     reason = "trailingStop"
                 elif c["takeProfitPct"] and gain >= c["takeProfitPct"]:
                     reason = "takeProfit"
-                elif c["maxHoldingDays"] and s["cursor"] - position["entryCursor"] + 1 >= c["maxHoldingDays"]:
+                elif c["maxHoldingDays"] and self.calendar_index[day] - self.calendar_index[position["entryDate"]] + 1 >= c["maxHoldingDays"]:
                     reason = "maxHoldingDays"
             if reason and symbol not in s["forcedExits"]:
                 s["forcedExits"][symbol] = {"signalDate": day, "reason": reason}
+                pending = s["pendingTarget"]
+                if pending is not None:
+                    # A held rotation target may survive several closes. Drop
+                    # the risk-exited name permanently from that old intention,
+                    # including after its forced sell has finished.
+                    for key in ("weights", "budgets", "priorityBySymbol", "signalDates"):
+                        pending.get(key, {}).pop(symbol, None)
+                    pending["quantities"][symbol] = 0
                 self._decision(day, symbol, "sell", "queued", reason, signalDate=day,
                                observedClose=bar["close"] if bar else None)
             elif eligibility.get(symbol, {}).get("reason") == "amount20BelowMinimum":
@@ -539,7 +659,7 @@ class PortfolioEngine:
         # A liquidation is not cancelled by another strategy selecting the same
         # stock; do not immediately rebuy a risk exit on its completion date.
         return set(self.state["forcedExits"]) | {trade["symbol"] for trade in self.state["trades"]
-                                               if trade["date"] == day and trade["side"] == "sell" and trade["reason"] != "targetRebalance"}
+                                               if trade["date"] == day and trade["side"] == "sell" and trade["reason"] not in ("targetRebalance", "strategyRotation")}
 
     @staticmethod
     def _priority_order(symbols, priorities):
@@ -553,7 +673,7 @@ class PortfolioEngine:
         allocation = self.config["allocation"]
         identifiers = allocation["strategyIds"]
         for identifier in identifiers:
-            strategy_weights[identifier] = 1. / len(identifiers)
+            strategy_weights[identifier] = self.state["rotationWeights"][identifier] if self.rotation_enabled else 1. / len(identifiers)
             candidates = scored.get("strategies", {}).get(identifier, [])
             by_symbol = {}
             for item in candidates:
@@ -582,6 +702,8 @@ class PortfolioEngine:
             details[identifier] = [{**deepcopy(by_symbol[symbol]), "rank": rank + 1} for rank, symbol in enumerate(chosen)]
             scores = [by_symbol[symbol]["score"] for symbol in chosen]
             denominator = sum(scores) if self.config["weighting"] == "rank" else len(chosen)
+            if strategy_weights[identifier] <= 1e-15:
+                continue
             for symbol in chosen:
                 share = (by_symbol[symbol]["score"] / denominator if denominator else 1. / len(chosen)) if self.config["weighting"] == "rank" else 1. / len(chosen)
                 target_weights[symbol] = target_weights.get(symbol, 0.) + strategy_weights[identifier] * share
@@ -638,9 +760,12 @@ class PortfolioEngine:
 
     def _step_day(self, day):
         s = self.state
+        decision_start, fill_start = len(s["decisions"]), len(s["trades"])
+        apply_actions(self, day)
         self._observe_actions(day)
         self._execute_target(day)
         stale = []
+        known_halts = []
         for symbol in sorted(self.securities):
             bar, index = self._bar(symbol, day)
             if bar is not None and index and bar["volume"] > 0 and abs(bar["close"] / self._reference(symbol, index) - 1) > nominal_limit(symbol, day) + .005:
@@ -649,13 +774,20 @@ class PortfolioEngine:
                 self._warning(f"{symbol} 存在无法解释的原始价格断点，后续成交隔离；相关净值不可用于有效性结论。")
         for symbol in sorted(s["positions"]):
             bar, _ = self._bar(symbol, day)
-            if bar is not None and bar["volume"] > 0:
+            known_suspension = (bar is not None and self.dataset.get("dataQuality", {}).get("certified") is True
+                                and self.securities[symbol].get("tradeStatusByDate", {}).get(day) in (False, 0, "0"))
+            if bar is not None and (bar["volume"] > 0 or known_suspension):
                 s["lastPrices"][symbol], s["lastPriceDates"][symbol] = bar["close"], day
+                if known_suspension and bar["volume"] == 0:
+                    known_halts.append(symbol)
+                    self._decision(day, symbol, "valuation", "held", "declaredHistoricalSuspensionMark")
             else:
                 stale.append(symbol)
                 self._decision(day, symbol, "valuation", "stale", "missingOrSuspendedBar", priceDate=s["lastPriceDates"].get(symbol))
         market_value = sum(position["quantity"] * s["lastPrices"][symbol] for symbol, position in s["positions"].items())
-        equity = s["cash"] + market_value
+        equity = s["cash"] + market_value + asset_adjustment(s)
+        s["observedBarCount"] += self.history_counts.get(day, 0)
+        s["observedStCount"] += self.st_counts.get(day, 0)
         previous_equity = s["curve"][-1]["equity"] if s["curve"] else self.config["initialCapital"]
         s["peakEquity"] = max(s["peakEquity"], equity)
         benchmark_close = self.benchmark_by_date.get(day)
@@ -668,25 +800,54 @@ class PortfolioEngine:
                  "dailyReturn": equity / previous_equity - 1 if previous_equity else None,
                  "drawdownPct": (1 - equity / s["peakEquity"]) * 100 if s["peakEquity"] else 0.,
                  "staleSymbols": stale, "valuationReliable": not stale and not s["unaccountedActionExposure"] and not any(symbol in s["quarantined"] for symbol in s["positions"]),
+                 "knownSuspendedSymbols": known_halts,
                  "benchmarkEquity": benchmark_equity, "benchmarkStale": bool(self.benchmark_by_date) and s["benchmarkLastDate"] != day,
                  "regimeForReturn": deepcopy(s["daily"][-1]["regime"]) if s["daily"] else {"status": "unknown", "reason": "noPriorCloseObservation"}}
         s["curve"].append(curve)
+        self._advance_shadows(day)
         scored = self.scorer.daily(day)
         if not isinstance(scored, dict) or not isinstance(scored.get("strategies"), dict):
             raise ValueError("DailyScorer 返回结构无效")
         self._risk_exits(day, scored.get("eligibilityBySymbol", {}))
+        rotation_decision = None
+        rotation_changed = False
+        if self.rotation_enabled:
+            rotation_decision = decide_rotation(day, self.calendar_index[day], self.config["allocation"]["mode"], self.config["rotation"],
+                                                s["rotationWeights"], s["rotationLastAdjustment"],
+                                                {key: shadow.state["curve"] for key, shadow in self.shadows.items()}, scored.get("regime"))
+            rotation_changed = rotation_decision["status"] == "adjusted"
+            if isinstance(scored.get("regime"), dict):
+                used = any(item["regimeBlendApplied"] > 0 for item in rotation_decision["scores"].values())
+                scored["regime"].update(eligibleForRotation=self.config["rotation"]["regimeBlend"] > 0,
+                                        usedForRotationScoring=used, affectsWeights=used and rotation_changed)
+                rotation_decision["regime"] = deepcopy(scored["regime"])
+            if rotation_changed:
+                s["rotationWeights"] = deepcopy(rotation_decision["after"])
+                s["rotationLastAdjustment"] = self.calendar_index[day]
+                next_index = self.calendar_index[day] + 1
+                rotation_decision["earliestExecutionDate"] = self.all_dates[next_index] if next_index < len(self.all_dates) else None
+                s["rotationLog"].append(deepcopy(rotation_decision))
         rebalance = s["cursor"] % self.config["rebalanceEvery"] == 0
         strategy_weights = {identifier: 1. / len(self.config["allocation"]["strategyIds"]) for identifier in self.config["allocation"]["strategyIds"]}
         selected, weights, strategy_weights, details, clipped, priorities = self._select_targets(scored, self._excluded_today(day) | set(s["quarantined"]))
         raw_top_n = {identifier: [{**deepcopy(item), "rank": rank + 1} for rank, item in enumerate(
             sorted([row for row in rows if row.get("eligible", True)], key=lambda row: (-row["score"], row["symbol"]))[:self.config["topN"]])]
                      for identifier, rows in scored["strategies"].items()}
-        if rebalance or s["forcedExits"]:
+        prior = s["pendingTarget"]
+        outstanding_rotation = bool(prior and prior.get("reason") == "strategyRotation" and any(
+            symbol not in s["forcedExits"] and (symbol not in prior["quantities"] or prior["quantities"][symbol] != s["positions"].get(symbol, {}).get("quantity", 0))
+            for symbol in set(prior["weights"]) | set(s["positions"])))
+        queue_target = rebalance or bool(s["forcedExits"]) or rotation_changed
+        if self.config["rebalanceMode"] == "risk" and outstanding_rotation and not rotation_changed:
+            # Retain blocked/partial rotation orders until executable. Risk
+            # events still liquidate independently through forcedExits.
+            queue_target = False
+        if queue_target:
             quantities = {}
             carry_budgets, carry_dates = {}, {}
-            if self.config["rebalanceMode"] == "risk":
+            if self.config["rebalanceMode"] == "risk" and not rotation_changed:
                 weights, quantities, carry_budgets, carry_dates, priorities = self._risk_targets(weights, priorities, equity, day)
-            elif not rebalance and s["pendingTarget"]:
+            elif not rebalance and not rotation_changed and s["pendingTarget"]:
                 # Between rank dates, risk can remove names but cannot trigger
                 # an unrequested fresh cross-sectional rebalance.
                 weights = {symbol: weight for symbol, weight in s["pendingTarget"]["weights"].items() if symbol not in s["forcedExits"]}
@@ -700,27 +861,32 @@ class PortfolioEngine:
                         self._decision(day, symbol, "rebalance", "superseded", "newCloseTarget", unfilledQuantity=abs(remaining))
             s["selectedByStrategy"] = selected
             s["pendingTarget"] = {"signalDate": day, "signalEquity": equity, "weights": weights, "quantities": quantities,
+                                  "reason": "strategyRotation" if rotation_changed else "targetRebalance",
                                   "priorityBySymbol": priorities,
                                   "budgets": {**{symbol: weight * equity for symbol, weight in weights.items()}, **carry_budgets},
                                   "signalDates": {**{symbol: day for symbol in weights}, **carry_dates}}
             for symbol in sorted(set(weights) | set(s["positions"])):
-                self._decision(day, symbol, "target", "queued", "scheduledRebalance", targetWeight=weights.get(symbol, 0.), signalEquity=equity)
+                self._decision(day, symbol, "target", "queued", "strategyRotation" if rotation_changed else "scheduledRebalance", targetWeight=weights.get(symbol, 0.), signalEquity=equity)
         pending = s["pendingTarget"]
         holdings = [{"symbol": symbol, "quantity": position["quantity"], "costBasis": position["costBasis"],
                      "marketValue": position["quantity"] * s["lastPrices"][symbol],
                      "weight": position["quantity"] * s["lastPrices"][symbol] / equity if equity else 0.}
                     for symbol, position in sorted(s["positions"].items())]
         s["daily"].append({"date": day, "rebalance": rebalance, "topNByStrategy": raw_top_n, "selectedCandidatesByStrategy": details,
+                           "rotationDecision": rotation_decision,
                            "selectedByStrategy": deepcopy(s["selectedByStrategy"]), "strategyWeights": strategy_weights,
-                           "strategyBudgetWeights": strategy_weights, "strategyWeightMeaning": "fixedEntryBudgetNotRealizedHoldingAttribution",
+                           "strategyBudgetWeights": strategy_weights, "strategyWeightMeaning": "nextOpenTargetBudgetNotRealizedHoldingAttribution" if self.rotation_enabled else "fixedEntryBudgetNotRealizedHoldingAttribution",
                            "targetWeights": deepcopy(pending["weights"] if pending else {}), "targetSignalDate": pending["signalDate"] if pending else None,
                            "targetPriority": self._priority_order(pending["weights"], pending["priorityBySymbol"]) if pending else [],
                            "targetPriorityBySymbol": deepcopy(pending["priorityBySymbol"] if pending else {}),
                            "holdings": holdings, "actualStockWeights": {row["symbol"]: row["weight"] for row in holdings},
                            "coverage": deepcopy(scored.get("coverage", {})),
+                           "poolCounts": {key: len(values) for key, values in scored.get("pools", {}).items()},
                            "regime": deepcopy(scored.get("regime")), "clippedTargets": clipped,
+                           "activities": deepcopy(s["decisions"][decision_start:]), "fills": deepcopy(s["trades"][fill_start:]),
                            "targetSelectionPolicy": "aggregateBudgetBeforeCap;strategyBudgetWeightedScore;symbolTieBreak;maxPositionsTruncation;noRedistribution",
                            "cash": s["cash"], "equity": equity})
+        capture_rights(self, day)
 
     def result(self):
         s = self.state
@@ -740,8 +906,7 @@ class PortfolioEngine:
                       "marketValue": position["quantity"] * s["lastPrices"][symbol]}
                      for symbol, position in sorted(s["positions"].items())]
         stale_days = sum(bool(row["staleSymbols"]) for row in s["curve"])
-        history_count = sum(1 for day in self.dates[:s["cursor"]] for symbol in self.securities if day in self.by_date[symbol])
-        st_count = sum(1 for day in self.dates[:s["cursor"]] for security in self.securities.values() if day in security.get("stByDate", {}) and day in self.by_date[security["symbol"]])
+        history_count, st_count = s["observedBarCount"], s["observedStCount"]
         quality = {"certified": False, "returnType": "rawPriceReturnWithoutCorporateActionLedger",
                    "calendarSupplied": self.calendar_supplied, "historicalStCoverage": st_count / history_count if history_count else None,
                    "calendarIndependent": self.calendar_supplied and not self.dataset.get("calendarSource", "").startswith("observed"),
@@ -751,11 +916,20 @@ class PortfolioEngine:
                    "corporateActionDates": deepcopy(s["corporateActionDates"]),
                    "unaccountedActionExposure": deepcopy(s["unaccountedActionExposure"]),
                    "coverage": deepcopy(s["daily"][-1]["coverage"]) if s["daily"] else {}}
+        quality["knownSuspensionValuationDays"] = sum(bool(row.get("knownSuspendedSymbols")) for row in s["curve"])
         quality["benchmark"] = {"available": bool(self.benchmark_by_date),
                                  "symbol": (self.dataset.get("benchmark") or {}).get("symbol"),
                                  "firstDate": s["benchmarkFirstDate"], "lastPriceDate": s["benchmarkLastDate"],
                                  "returnType": "suppliedIndexClosePriceReturnWithoutFees",
-                                 "fullIntervalComparable": bool(s["curve"]) and s["benchmarkFirstDate"] == self.dates[0] and s["benchmarkLastDate"] == s["curve"][-1]["date"]}
+                                 "fullIntervalComparable": bool(s["curve"]) and all(row["date"] in self.benchmark_by_date for row in s["curve"])}
+        quality["corporateActionsComplete"] = all(security.get("corporateActionsComplete") is True for security in self.securities.values())
+        coverage = self.dataset.get("historyCoverage", {})
+        quality["certified"] = bool(s["daily"]) and self.dataset.get("dataQuality", {}).get("certified") is True and (
+            coverage.get("startDate", "9999") <= self.dates[0] <= self.dates[-1] <= coverage.get("endDate", "0000")) and (
+            quality["calendarIndependent"] and quality["pointInTimeComplete"] and quality["corporateActionsComplete"]
+            and not stale_days and not s["quarantined"] and not s["unaccountedActionExposure"])
+        quality["returnType"] = "declaredNetCashAndShareRightsTotalReturn" if quality["certified"] else "uncertifiedPriceAndAvailableRightsReturn"
+        quality["certificateScope"] = "internallyValidatedDeclaredUniverseAndNetCashModel"
         metrics = {"initialCapital": self.config["initialCapital"], "finalEquity": equity,
                    "totalReturnPct": (equity / self.config["initialCapital"] - 1) * 100,
                    "annualizedReturnPct": annualized, "maxDrawdownPct": max((row["drawdownPct"] for row in s["curve"]), default=0.),
@@ -775,12 +949,41 @@ class PortfolioEngine:
         comparable = quality["benchmark"]["fullIntervalComparable"]
         metrics["benchmarkReturnPct"] = (s["benchmarkLastClose"] / s["benchmarkFirstClose"] - 1) * 100 if comparable else None
         metrics["excessReturnPct"] = metrics["totalReturnPct"] - metrics["benchmarkReturnPct"] if comparable else None
-        regime_returns = {}
-        for row in s["curve"]:
-            regime = row["regimeForReturn"]
-            label = (str(regime.get("trend", "unknown")) + "/" + str(regime.get("volatility", "unknown"))) if isinstance(regime, dict) and regime.get("status") == "observed" else "unknown"
+        benchmark_metrics = None
+        if comparable:
+            closes = [self.benchmark_by_date[row["date"]] for row in s["curve"]]
+            benchmark_daily = [0.] + [closes[index] / closes[index - 1] - 1 for index in range(1, len(closes))]
+            benchmark_deviation = stdev(benchmark_daily) if len(benchmark_daily) > 1 else 0.
+            benchmark_peak, benchmark_drawdown = closes[0], 0.
+            for close in closes:
+                benchmark_peak = max(benchmark_peak, close)
+                benchmark_drawdown = max(benchmark_drawdown, 1 - close / benchmark_peak)
+            benchmark_annualized = None
+            try:
+                benchmark_annualized = ((closes[-1] / closes[0]) ** (252 / len(closes)) - 1) * 100
+                if not math.isfinite(benchmark_annualized):
+                    benchmark_annualized = None
+            except OverflowError:
+                pass
+            benchmark_metrics = {"symbol": quality["benchmark"]["symbol"], "observedDays": len(closes),
+                                 "totalReturnPct": metrics["benchmarkReturnPct"], "annualizedReturnPct": benchmark_annualized,
+                                 "maxDrawdownPct": benchmark_drawdown * 100,
+                                 "sharpe": mean(benchmark_daily) / benchmark_deviation * math.sqrt(252) if benchmark_deviation > 1e-15 else None,
+                                 "dailyWinRatePct": sum(value > 0 for value in benchmark_daily[1:]) / (len(closes) - 1) * 100 if len(closes) > 1 else None,
+                                 "winRatePct": None, "turnoverPct": None, "costRatioPct": None,
+                                 "totalFees": None, "totalSlippage": None,
+                                 "definition": "suppliedIndexClosePriceReturn;firstCloseBase;noTradableLedgerOrCosts;dailyWinRateExcludesInitialBase"}
+        regime_returns, regime_dates, date_regimes, benchmark_returns = {}, {}, {}, {}
+        previous_benchmark = None
+        for index, row in enumerate(s["curve"]):
+            label = regime_label(row["regimeForReturn"])
+            date_regimes[row["date"]] = label
+            current_benchmark = self.benchmark_by_date.get(row["date"])
+            benchmark_returns[row["date"]] = (current_benchmark / previous_benchmark - 1 if previous_benchmark else 0. if index == 0 else None) if current_benchmark else None
+            previous_benchmark = current_benchmark
             if row["dailyReturn"] is not None:
                 regime_returns.setdefault(label, []).append(row["dailyReturn"])
+                regime_dates.setdefault(label, []).append(row["date"])
         regime_metrics = []
         for label, sample in sorted(regime_returns.items()):
             growth = math.prod(1 + value for value in sample)
@@ -791,15 +994,50 @@ class PortfolioEngine:
                     conditional_annualized = None
             except OverflowError:
                 pass
-            regime_metrics.append({"regime": label, "sampleDays": len(sample), "subsampleReturnPct": (growth - 1) * 100,
+            path, peak, drawdown = 1., 1., 0.
+            for value in sample:
+                path *= 1 + value
+                peak = max(peak, path)
+                drawdown = max(drawdown, 1 - path / peak if peak else 0.)
+            deviation = stdev(sample) if len(sample) > 1 else 0.
+            trades = [trade for trade in s["trades"] if date_regimes.get(trade["date"]) == label]
+            episodes = [episode for episode in s["closedTrades"] if date_regimes.get(episode["exitDate"]) == label]
+            fees, slippage = sum(t["fee"] for t in trades), sum(t["slippage"] for t in trades)
+            benchmarks = [benchmark_returns[day] for day in regime_dates[label]]
+            benchmark_return = (math.prod(1 + value for value in benchmarks) - 1) * 100 if all(value is not None for value in benchmarks) else None
+            regime_metrics.append({"regime": label, "sampleDays": len(sample), "observedDays": len(sample),
+                                   "subsampleReturnPct": (growth - 1) * 100, "totalReturnPct": (growth - 1) * 100,
                                    "conditionalAnnualizedReturnPct": conditional_annualized,
+                                   "annualizedReturnPct": conditional_annualized,
+                                   "maxDrawdownPct": drawdown * 100,
+                                   "sharpe": mean(sample) / deviation * math.sqrt(252) if deviation > 1e-15 else None,
+                                   "winRatePct": sum(episode["pnlAmount"] > 0 for episode in episodes) / len(episodes) * 100 if episodes else None,
+                                   "closedTradeCount": len(episodes), "tradeCount": len(trades),
+                                   "turnoverPct": sum(trade["amount"] for trade in trades) / self.config["initialCapital"] * 100,
+                                   "totalFees": fees, "totalSlippage": slippage,
+                                   "costRatioPct": (fees + slippage) / self.config["initialCapital"] * 100,
+                                   "benchmarkReturnPct": benchmark_return,
+                                   "excessReturnPct": (growth - 1) * 100 - benchmark_return if benchmark_return is not None else None,
                                    "meanDailyReturnPct": mean(sample) * 100,
-                                   "definition": "previousCloseBenchmarkState;noncontiguousConditionalSamplesNotContinuousCAGR;doesNotChangeWeights"})
+                                   "definition": "previousCloseBenchmarkState;noncontiguousConditionalCompoundedPathNotContinuousCAGR;episodeWinsAssignedByExitDate;costAndTurnoverDenominatorInitialCapital"})
         metrics["regimeMetrics"] = regime_metrics
         return {"status": "completed" if s["cursor"] == len(self.dates) else "running", "config": deepcopy(self.config),
                 "versions": {"engine": ENGINE_VERSION, "rules": RULES_VERSION, "scorer": SCORER_VERSION}, "fingerprint": self.fingerprint,
                 "dataDigest": self.data_digest, "metrics": metrics, "curve": deepcopy(s["curve"]),
                 "trades": deepcopy(s["trades"]), "closedTrades": deepcopy(s["closedTrades"]), "decisions": deepcopy(s["decisions"]), "daily": deepcopy(s["daily"]),
                 "regimeMetrics": regime_metrics,
+                "benchmarkMetrics": benchmark_metrics,
+                "rotationLog": deepcopy(s["rotationLog"]),
+                "rotation": {"enabled": self.rotation_enabled, "mode": self.config["allocation"]["mode"],
+                             "diagnosticOnly": self.rotation_enabled, "gateStatus": "notEvaluatedByEngine" if self.rotation_enabled else "notApplicable",
+                             "settings": deepcopy(self.config["rotation"]), "adjustmentCount": len(s["rotationLog"]),
+                             "actualWarmupDays": self.progress["completedWarmupDays"],
+                             "currentWeights": deepcopy(s["rotationWeights"]),
+                             "shadowAccountCount": len(self.shadows),
+                             "shadowReturnDefinition": "completeSingleStrategyTopNSharedCashLedgerNetOfAllCosts;historicalWarmupOnly;actualAccountStartsCash",
+                             "shadowThroughDate": {key: shadow.state["curve"][-1]["date"] if shadow.state["curve"] else None for key, shadow in self.shadows.items()}},
                 "positions": positions, "pendingTarget": deepcopy(s["pendingTarget"]), "forcedExits": deepcopy(s["forcedExits"]),
+                "actionLedger": deepcopy(s["actionLedger"]), "cashReceivables": deepcopy(s["cashReceivables"]),
+                "actionPayables": deepcopy(s["actionPayables"]), "reservedActionCash": s["reservedActionCash"],
+                "preExRights": deepcopy(s["preExRights"]),
                 "quality": quality, "warnings": list(s["warnings"])}

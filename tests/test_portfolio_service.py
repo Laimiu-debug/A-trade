@@ -472,13 +472,82 @@ class PortfolioServiceTests(unittest.TestCase):
         self.assertEqual(result, service.get({"id": task["id"], "pageSize": 2})["result"])
         capabilities = service.catalogue()["portfolio"]["capabilities"]
         self.assertTrue(capabilities["wholeUniverse"])
-        self.assertFalse(capabilities["rotation"])
-        self.assertFalse(capabilities["systemPlateau"])
+        self.assertTrue(capabilities["rotation"])
+        self.assertTrue(capabilities["systemPlateau"])
+        self.assertTrue(capabilities["rotationRequiresTrainingPersistence"])
 
     def test_invalid_study_dates_rejected_without_loading_source(self):
         service = self.service(autostart=False)
         with self.assertRaises(ValueError):
             self.create(service, kind="comparison", config={"study": {}})
+        self.assertEqual(self.calls, [])
+        self.assertEqual(service.list()["tasks"], [])
+
+    def test_nested_fold_audit_pagination_targets_only_selected_run(self):
+        service = self.service(autostart=False)
+        task = self.create(service)
+        run = {"daily": [{"date": f"2024-01-{i + 1:02d}"} for i in range(9)],
+               "rotationLog": [{"date": f"2024-01-{i + 1:02d}", "reason": "fixture"} for i in range(5)]}
+        stored = {"folds": [{"testing": {"softRotation": copy.deepcopy(run), "equalWeight": copy.deepcopy(run)}}]}
+        with service._db() as db:
+            db.execute("UPDATE jobs SET result=? WHERE id=?", (_pack(stored), task["id"]))
+        report = service.get({"id": task["id"], "resultPath": "folds.0.testing.softRotation",
+                              "dailyOffset": 3, "rotationOffset": 2, "pageSize": 2})["result"]
+        rotation, equal = (report["folds"][0]["testing"][key] for key in ("softRotation", "equalWeight"))
+        self.assertEqual(rotation["daily"], run["daily"][3:5])
+        self.assertEqual(rotation["rotationLog"], run["rotationLog"][2:4])
+        self.assertEqual(equal["daily"], run["daily"][:2])
+        self.assertEqual(rotation["pagination"]["path"], "folds.0.testing.softRotation")
+        self.assertEqual(rotation["pagination"]["daily"]["total"], 9)
+        with service._db() as db:
+            original = _unpack(db.execute("SELECT result FROM jobs WHERE id=?", (task["id"],)).fetchone()[0])
+        self.assertEqual(original, stored)
+        for path in ("folds.99.testing", "folds.-1", "missing", [], 2):
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                service.get({"id": task["id"], "resultPath": path})
+
+    def test_walk_forward_queue_pause_restart_uses_frozen_source(self):
+        from service.portfolio_experiment import PortfolioExperiment
+        service = self.service(autostart=False)
+        config = copy.deepcopy(CONFIG)
+        config.update(startDate=self.dataset["calendar"][0], endDate=self.dataset["calendar"][-1])
+        experiment = {"kind": "walkForward", "trainDays": 35, "testDays": 10, "stepDays": 10,
+                      "maxFolds": 2, "axes": []}
+        task = self.create(service, kind="walkForward", config=config, experiment=experiment)
+        self.assertEqual(self.calls, [])
+        original_step = PortfolioExperiment.step
+        def pause_after_chunk(runner, days=5):
+            done = original_step(runner, days)
+            service.control({"ids": [task["id"]], "action": "pause"})
+            return done
+        with patch.object(PortfolioExperiment, "step", pause_after_chunk):
+            service.run_next()
+        paused = service.get({"id": task["id"]})
+        self.assertEqual(paused["task"]["status"], "paused", paused["task"].get("error"))
+        reference = PortfolioExperiment(copy.deepcopy(self.dataset), paused["task"]["config"], paused["task"]["experiment"])
+        while not reference.step(days=20):
+            pass
+        service.close()
+        self.dataset = dataset_fixture(symbol_count=9)
+        restored = self.service(autostart=False)
+        restored.control({"ids": [task["id"]], "action": "resume"})
+        restored.run_next()
+        report = restored.get({"id": task["id"]})
+        self.assertEqual(report["task"]["status"], "completed", report["task"].get("error"))
+        with restored._db() as db:
+            stored = _unpack(db.execute("SELECT result FROM jobs WHERE id=?", (task["id"],)).fetchone()[0])
+        stored.pop("kind", None)
+        self.assertEqual(stored.pop("validationAudit")["status"], "fresh")
+        self.assertEqual(stored.pop("securityNames"), {s["symbol"]: s["name"] for s in reference.dataset["securities"]})
+        self.assertEqual(stored, reference.result())
+        self.assertEqual(len(self.calls), 1)
+
+    def test_invalid_system_experiment_rejected_before_source_read(self):
+        service = self.service(autostart=False)
+        config = {**copy.deepcopy(CONFIG), "startDate": self.dataset["calendar"][0], "endDate": self.dataset["calendar"][-1]}
+        for experiment in ([], {"kind": "walkForward"}, {"axes": []}, {"axes": [{"path": "__class__", "values": [1, 2]}]}):
+            with self.subTest(experiment=experiment), self.assertRaises(ValueError):
+                self.create(service, kind="systemPlateau", config=config, experiment=experiment)
         self.assertEqual(self.calls, [])
         self.assertEqual(service.list()["tasks"], [])
 

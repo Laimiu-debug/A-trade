@@ -12,13 +12,14 @@
 - **持仓参数分开。** 每策略 Top N、组合总持仓上限与单股新买目标上限分别配置。先汇总子策略目标，再应用组合约束；被裁剪预算留现金。每日原始 Top N、经过换仓门槛的候选、策略预算权重、实际股票权重分别保存。
 - **三种调仓。** 风险退出后补仓、排名换仓、排名加风险。风险模式持仓不因单日金叉信号消失而卖出；收盘检查止损、止盈、持仓收盘峰值回撤及可选最长持有期，次日开盘尝试成交。其间单股实际比例可能因价格变化而漂移；20% 是新买预算上限。暂停和拒卖的持仓继续占用现金和持仓位。
 - **比较和持续性。** 配置训练及样本外日期后，软件自动运行各策略 Top N 账户、等权账户、训练区选定的固定策略样本外账户。策略排名持续性只在训练区测试，至少三个不同有效策略和六对非重叠相邻窗口；样本外不参与选参。39 日预设只适合功能试跑，通常不够持续性证据。具体协议见 [验证协议](portfolio-validation-protocol.md)。
-- **任务生命周期。** `research.create` 的 `portfolio` / `comparison` 类型立即创建后台任务，股票池读取按批可中断；读取完成后保存独立快照再运行。未冻结完就暂停的任务，继续时重新冻结；冻结后的续跑只用原快照。全市场组合任务同时至多一个，避免多个完整数据集耗尽桌面内存；不按股票数量裁掉输入。旧报告仍可读取。
+- **轮动、滚动与全系统平原。** 持续性通过后可比较软配权、硬切换、等权与训练选定固定策略；策略预算来自扣除成本的 Top N 影子账户，实际调仓仍走共享资金账本。滚动研究按折冻结训练选择；系统平原同时扫描策略、组合、轮动、持仓四层，最多 81 组参数，按邻域及样本外、年份、环境证据验收。详见 [系统研究协议](portfolio-system-research.md)。
+- **任务生命周期。** `research.create` 的 `portfolio` / `comparison` / `walkForward` / `systemPlateau` 类型立即创建后台任务，股票池读取按批可中断；读取完成后保存独立快照再运行。未冻结完就暂停的任务，继续时重新冻结；冻结后的续跑只用原快照。全市场组合任务同时至多一个，避免多个完整数据集耗尽桌面内存；不按股票数量裁掉输入。旧报告仍可读取。
 
-当前仍缺完整历史成分/状态与公司行动权益账本，本地现存日线无法消除幸存者偏差，也不能认证含分红总回报。严格历史模式缺事实则排除，宽松模式明确标成诊断。动态轮动、滚动训练和“策略 × 组合 × 轮动 × 持仓”全系统收益平原尚未接入；软件不会用旧版热力图替代，也不会在未运行轮动时声称“轮动有效”或“轮动没有创造价值”。按用户指定顺序，先验收这一阶段再继续轮动层。
+现已支持完整历史成分/状态与权益包导入、分红/送股/配股账本、连续资金滚动账户、参数连通区域和完整审计导出，见 [历史包协议](portfolio-history-format.md) 和 [系统研究协议](portfolio-system-research.md)。本地现存日线仍无法单独消除幸存者偏差，也不能认证含分红总回报；历史包认证限于声明范围内的内部完整性与税后现金模型。严格历史模式缺事实则排除，宽松模式明确标成诊断。运行完成不代表策略有效：未通过持续性就跳过轮动；没有完整样本外与数据质量证据就不认证平原，也不兜底推荐收益最高的单点。
 
-新模块路径：`service/portfolio_config.py`、`portfolio_universe.py`、`portfolio_signals.py`、`portfolio_engine.py`、`portfolio_study.py`；前端 `preview/portfolio-workbench.js`，任务仍由 `research_service.py` 持久化。自动化验证使用隔离合成行情，不启动用户真实股票池的收益研究。
+新模块路径：`service/portfolio_config.py`、`portfolio_universe.py`、`portfolio_signals.py`、`portfolio_engine.py`、`portfolio_rotation.py`、`portfolio_study.py`、`portfolio_experiment.py`；前端 `preview/portfolio-workbench.js`，任务仍由 `research_service.py` 持久化。自动化验证使用隔离合成行情，不启动用户真实股票池的收益研究。
 
-本轮最终验证：`python -B -m unittest discover -s tests -p test_portfolio*.py` 共 79 项通过；工作台、原研究界面和桌面业务桥接的 Node 测试共 28 项通过；`npm run test:research`（同 `test:portfolio`）使用 136 股隔离日线夹具通过真实 Electron 写入及重开两阶段验收，覆盖配置提交、全池遍历、风险退出、每日分页、保存设置和报告恢复。另有旧版引擎 21 项、旧研究服务 12 项回归通过。这些验证证明功能与会计时序，不证明策略有投资价值。
+第一阶段验证记录：当时组合相关 Python 共 79 项通过，工作台、原研究界面与桌面桥接 Node 共 28 项通过；136 股隔离日线夹具通过真实 Electron 写入及重开验收。新增轮动与系统研究使用 `tests/test_portfolio_rotation.py`、`tests/test_portfolio_experiment.py` 及服务、界面契约测试继续验证。当前验证命令与结果见 [系统研究协议](portfolio-system-research.md)。这些验证证明功能与会计时序，不证明策略有投资价值。
 
 持仓容量排序明确为：先比较封顶前聚合策略预算，再比较预算加权标准分，最后才按代码打破平局；该优先级写入检查点。大型快照与结果的编解码放在任务控制锁之外，并用确定性并发测试确认序列化期间暂停请求仍能受理。图像验收位于 `artifacts/portfolio-workbench.png`、`portfolio-result.png`、`portfolio-daily.png`、`portfolio-reopened.png`。
 

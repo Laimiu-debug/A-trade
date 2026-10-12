@@ -60,7 +60,7 @@ def normalize_selection(selection=None):
     selection = {} if selection is None else selection
     if not isinstance(selection, dict):
         raise ValueError("股票池配置必须为对象")
-    unknown = set(selection) - {"mode", "symbols", "markets", "boards", "batchSize", "lookbackDays", "benchmarkSymbol"}
+    unknown = set(selection) - {"mode", "symbols", "markets", "boards", "batchSize", "lookbackDays", "benchmarkSymbol", "source", "sourceId"}
     if unknown:
         raise ValueError("未知股票池配置: " + ",".join(sorted(unknown)))
     mode = selection.get("mode", "all")
@@ -98,7 +98,11 @@ def normalize_selection(selection=None):
         if tdx.security_kind(market, code) != "index":
             raise ValueError("市场基准必须是本地真实指数代码")
         benchmark = market + code
-    return {"mode": mode, "symbols": normalized, "markets": sorted(set(markets)),
+    source = selection.get("source", "local")
+    source_id = selection.get("sourceId")
+    if source not in ("local", "history") or source == "history" and not isinstance(source_id, str):
+        raise ValueError("请选择有效历史数据源")
+    return {"mode": mode, "source": source, "sourceId": source_id, "symbols": normalized, "markets": sorted(set(markets)),
             "boards": sorted(set(boards)), "batchSize": batch, "lookbackDays": lookback,
             "benchmarkSymbol": benchmark or None}
 
@@ -247,6 +251,11 @@ def snapshot_universe(directory, selection=None, end_date=None, start_date=None,
 
     checkpoint()
     selection = normalize_selection(selection)
+    if selection.get("source") == "history":
+        from .portfolio_history import HistoryStore
+        dataset = HistoryStore(directory).snapshot(selection, start_date, end_date)
+        checkpoint(len(dataset["securities"]), len(dataset["securities"]))
+        return dataset
     end_date = _date(end_date or dt.date.today().isoformat(), "结束日期")
     if start_date is not None:
         _date(start_date, "开始日期")

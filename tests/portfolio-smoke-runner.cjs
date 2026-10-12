@@ -35,8 +35,8 @@ app.whenReady().then(async()=>{
   await click('[data-rs-action="strategy-use"][data-rs-id="momentum"]');await wait('!!document.querySelector("[data-pf-form]")','portfolio form');
   await fill('periodMode','dates');
   for(const [name,value]of Object.entries({name:'Smoke · 全池风险组合','config.startDate':dates[260],'config.endDate':dates.at(-1),'params.momentum.lookback':'5','params.momentum.trendWindow':'8','params.momentum.minReturn':'0','config.topN':'4','config.maxPositions':'3','config.maxStockWeight':'35','config.maxHoldingDays':'5','config.takeProfitPct':'0','config.stopLossPct':'4'}))await fill(name,value);
-  await screenshot('portfolio-workbench.png','[data-pf-form]');
-  await evaluate('document.querySelector("[data-pf-form]").requestSubmit()');await wait('AT.state.page==="G03"','create task');
+  await click('[data-pf-action="workflow-step"][data-pf-step="4"]');await wait('!!document.querySelector(".pf-config-ready")','effective configuration');await screenshot('portfolio-workbench.png','[data-pf-form]');
+  await evaluate('document.querySelector("[data-pf-form]").requestSubmit()');await wait('AT.state.page==="R03"&&PortfolioWorkbench.currentStep()===5','create task');
   await wait('document.querySelector(".rs-status-completed")&&document.querySelector(".pf-account-curve")','completed portfolio');
   const id=await evaluate('document.querySelector("[data-rs-task]").value');const response=await evaluate(`atradeDesktop.business('research.get',{id:${JSON.stringify(id)},dailyPageSize:200})`);assert.equal(response.ok,true,response.error);const {task,result}=response.data;
   assert.equal(task.kind,'portfolio');assert.equal(task.symbolCount,136);assert.equal(result.daily.length,80);assert.equal(result.config.topN,4);assert.equal(result.config.maxPositions,3);assert.equal(result.config.rebalanceMode,'risk');assert.equal(result.config.stopLossPct,.04);assert.equal(result.config.stampDutyRate,null);assert.equal(result.quality.coverage.sourceCoverage.loadedCount,136);assert.ok(result.trades.length>0);assert.ok(result.trades.some(t=>t.side==='sell'&&['maxHoldingDays','stopLoss','trailingStop'].includes(t.reason)),'real risk exit');assert.ok(result.daily.some(d=>d.holdings.length>0));assert.ok(result.daily.every(d=>d.holdings.length<=3));
@@ -45,7 +45,7 @@ app.whenReady().then(async()=>{
  }else{
   const saved=JSON.parse(await fs.readFile(path.join(directory,'result.json'),'utf8'));await navigate('G02');await wait(`!!document.querySelector('[data-rs-action="task-open"][data-rs-id="${saved.id}"]')`,'persistent task');await click(`[data-rs-action="task-open"][data-rs-id="${saved.id}"]`);await wait('!!document.querySelector(".pf-account-curve")','restored real result');
   const response=await evaluate(`atradeDesktop.business('research.get',{id:${JSON.stringify(saved.id)}})`);assert.equal(response.data.task.status,'completed');assert.deepEqual(response.data.result.curve,saved.curve);assert.equal(response.data.result.metrics.tradeCount,saved.tradeCount);await screenshot('portfolio-reopened.png','.pf-account-curve');
-  await navigate('R03');assert.equal(await evaluate('document.querySelector("[data-pf-field=name]").value'),'Smoke · 全池风险组合');assert.equal(await evaluate('document.querySelector("[data-pf-field="+CSS.escape("config.maxPositions")+"]").value'),'3');
+  await navigate('R03');await click('[data-pf-action="workflow-step"][data-pf-step="4"]');assert.equal(await evaluate('document.querySelector("[data-pf-field=name]").value'),'Smoke · 全池风险组合');assert.equal(await evaluate('document.querySelector("[data-pf-field="+CSS.escape("config.maxPositions")+"]").value'),'3');
  }
  assert.deepEqual(await evaluate('__portfolioErrors'),[]);assert.deepEqual(errors,[]);console.log(`PASS portfolio ${phase}`);win.close();setTimeout(()=>app.exit(0),300);
 }).catch(error=>{console.error(error.stack);if(win)win.destroy();app.exit(1);});

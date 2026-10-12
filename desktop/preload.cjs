@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('atradeDesktop', {
   market: (method, payload = {}) => ipcRenderer.invoke('atrade:market', method, payload),
   openExternal: url => ipcRenderer.invoke('atrade:open-external', url),
   chooseTDXDirectory: () => ipcRenderer.invoke('atrade:choose-tdx-directory'),
+  importResearchHistory: () => ipcRenderer.invoke('atrade:import-research-history'),
+  exportResearchReport: id => ipcRenderer.invoke('atrade:export-research-report', id),
   ai: (method, payload = {}) => ipcRenderer.invoke('atrade:ai', method, payload),
   saveState: state => ipcRenderer.invoke('atrade:save-state', state),
   diagnostics: (copy = false) => ipcRenderer.invoke('atrade:diagnostics', copy === true),

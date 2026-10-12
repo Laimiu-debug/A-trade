@@ -97,7 +97,7 @@ def normalize_config(raw=None):
     raw = {} if raw is None else raw
     _object(raw, "组合回测参数", set(NUMBERS) | {
         "startDate", "endDate", "stampDutyRate", "weighting", "rebalanceMode",
-        "strategies", "combinations", "allocation", "universe", "poolSettings", "study",
+        "strategies", "combinations", "allocation", "universe", "poolSettings", "study", "rotation", "rightsPolicy",
     })
     config = {key: number(raw.get(key, default), key, low, high, integer)
               for key, (default, low, high, integer) in NUMBERS.items()}
@@ -107,6 +107,7 @@ def normalize_config(raw=None):
         raise ValueError("开始日期不能晚于结束日期")
     config["weighting"] = _choice(raw.get("weighting", "equal"), ("equal", "rank"), "股票权重方式")
     config["rebalanceMode"] = _choice(raw.get("rebalanceMode", "risk"), ("risk", "rank", "hybrid"), "调仓方式")
+    config["rightsPolicy"] = _choice(raw.get("rightsPolicy", "skip"), ("skip", "subscribe"), "配股处理")
     tax = raw.get("stampDutyRate")
     config["stampDutyRate"] = None if tax is None else number(tax, "印花税率", 0, .02)
     definitions = {row["id"]: row for row in catalogue()}
@@ -159,10 +160,24 @@ def normalize_config(raw=None):
     chosen = allocation.get("strategyIds", [row["id"] for row in config["strategies"]])
     if not isinstance(chosen, list) or not chosen or any(not isinstance(s, str) or s not in ids for s in chosen) or len(set(chosen)) != len(chosen):
         raise ValueError("配权策略须为已定义且不重复的策略编号")
-    mode = _choice(allocation.get("mode", "equal"), ("single", "equal"), "策略配权模式")
+    mode = _choice(allocation.get("mode", "equal"), ("single", "equal", "soft_rotation", "hard_rotation"), "策略配权模式")
     if mode == "single" and len(chosen) != 1:
         raise ValueError("固定策略模式须选择一个策略实例，可选择一个组合策略")
     config["allocation"] = {"mode": mode, "strategyIds": chosen[:]}
+    if mode in ("soft_rotation", "hard_rotation") and len(chosen) < 2:
+        raise ValueError("轮动至少选择两个策略实例")
+    rotation_defaults = {
+        "lookbackDays": (20, 2, 252, True),
+        "cooldownDays": (5, 0, 252, True),
+        "minWeightChange": (.1, 0, 1, False),
+        "temperature": (.05, .0001, 10, False),
+        "regimeBlend": (.25, 0, 1, False),
+        "regimeMinObservations": (5, 2, 252, True),
+        "warmupDays": (120, 0, 500, True),
+    }
+    rotation = _object(raw.get("rotation", {}), "策略轮动", rotation_defaults)
+    config["rotation"] = {key: number(rotation.get(key, default), "rotation." + key, low, high, integer)
+                          for key, (default, low, high, integer) in rotation_defaults.items()}
     universe = _object(raw.get("universe", {}), "基础资格", {"strictHistory", "excludeSt", "minListingDays", "minAmount20"})
     config["universe"] = {
         "strictHistory": _boolean(universe.get("strictHistory", False), "严格历史资格"),
@@ -196,10 +211,17 @@ def default_config():
 
 def normalize_selection(raw=None):
     raw = {} if raw is None else raw
-    _object(raw, "股票池来源", {"mode", "symbols", "markets", "boards", "batchSize", "benchmarkSymbol", "lookbackDays"})
+    _object(raw, "股票池来源", {"mode", "symbols", "markets", "boards", "batchSize", "benchmarkSymbol", "lookbackDays", "source", "sourceId"})
     mode = _choice(raw.get("mode", "all"), ("all", "explicit"), "股票池来源")
     result = {"mode": mode, "symbols": [], "batchSize": number(raw.get("batchSize", 128), "读取批次", 1, 1000, True),
               "lookbackDays": number(raw.get("lookbackDays", 39), "最近交易日", 2, 10000, True)}
+    result["source"] = _choice(raw.get("source", "local"), ("local", "history"), "研究数据来源")
+    source_id = raw.get("sourceId")
+    if source_id is not None and (not isinstance(source_id, str) or not re.fullmatch(r"[0-9a-f]{64}", source_id)):
+        raise ValueError("历史数据源编号无效")
+    if result["source"] == "history" and source_id is None:
+        raise ValueError("请选择已导入的历史数据源")
+    result["sourceId"] = source_id
     for key, choices in (("markets", ("sh", "sz", "bj")), ("boards", ("main", "chinext", "star", "bse"))):
         values = raw.get(key, list(choices))
         if not isinstance(values, list) or not values or any(not isinstance(v, str) or v not in choices for v in values) or len(values) != len(set(values)):

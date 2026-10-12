@@ -135,6 +135,7 @@ async function createDesktop({ dataDirectory, show = true, onWindow } = {}) {
   ipcMain.handle('atrade:business', async (event, method, payload) => {
     if (!trusted(event)) return { ok: false, error: '此页面无权操作账户数据。' };
     if (typeof method === 'string' && method.startsWith('market.')) return { ok: false, error: '请使用行情接口。' };
+    if (method === 'research.history.importFile') return { ok: false, error: '请使用历史数据包选择窗口。' };
     if (typeof method === 'string' && method.startsWith('research.')) return researchBusiness.request(method, payload);
     if (method === 'account.valuation') return accountValuation(payload);
     return business.request(method, payload);
@@ -161,6 +162,26 @@ async function createDesktop({ dataDirectory, show = true, onWindow } = {}) {
     catch { return {ok: false, error: '无法打开浏览器，请稍后重试。'}; }
   });
   let choosingTDX = false;
+  ipcMain.handle('atrade:import-research-history', async event => {
+    if (!trusted(event)) return { ok: false, error: '页面来源无效。' };
+    const selected = await dialog.showOpenDialog(win, { title: '导入历史研究数据包',
+      properties: ['openFile'], filters: [{ name: '历史研究数据包', extensions: ['json', 'jsonl', 'ndjson'] }] });
+    if (selected.canceled || !selected.filePaths[0]) return { ok: true, canceled: true };
+    return researchBusiness.request('research.history.importFile', { path: selected.filePaths[0] }, { timeoutMs: 300000 });
+  });
+  ipcMain.handle('atrade:export-research-report', async (event, id) => {
+    if (!trusted(event) || typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, error: '请选择有效研究任务。' };
+    const report = await researchBusiness.request('research.export', { id }, { timeoutMs: 120000 });
+    if (!report.ok) return report;
+    const selected = await dialog.showSaveDialog(win, { title: '保存完整研究报告',
+      defaultPath: `A-trade-完整研究-${id}.json`, filters: [{ name: '完整研究 JSON', extensions: ['json'] }] });
+    if (selected.canceled || !selected.filePath) return { ok: true, canceled: true };
+    const exported = path.resolve(report.data.path);
+    const directory = path.resolve(dataDirectory, 'research-exports');
+    if (path.dirname(exported) !== directory || path.basename(exported) !== id + '.json') return { ok: false, error: '导出文件路径无效。' };
+    if (path.resolve(selected.filePath) !== exported) await fs.copyFile(exported, selected.filePath);
+    return { ok: true, data: { bytes: report.data.bytes, completeAudit: true, taskComplete: report.data.taskComplete } };
+  });
   ipcMain.handle('atrade:choose-tdx-directory', async event => {
     if (!trusted(event)) return { ok: false, error: '此页面无权选择数据目录。' };
     if (choosingTDX) return { ok: false, error: '目录选择窗口已打开。' };
@@ -306,6 +327,8 @@ async function createDesktop({ dataDirectory, show = true, onWindow } = {}) {
     ipcMain.removeHandler('atrade:market');
     ipcMain.removeHandler('atrade:open-external');
     ipcMain.removeHandler('atrade:choose-tdx-directory');
+    ipcMain.removeHandler('atrade:import-research-history');
+    ipcMain.removeHandler('atrade:export-research-report');
     ipcMain.removeHandler('atrade:ai');
     ai.close();
     marketBusiness.close();

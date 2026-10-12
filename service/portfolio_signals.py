@@ -16,7 +16,7 @@ from service.strategies import (FORCE_VERSION, FORCE_WARMUP, evaluate,
                                prepare_bars, _force_state, _positive_ratio, _ratio_score)
 from service.portfolio_config import catalogue, normalize_config
 
-SCORER_VERSION = "portfolio-causal-midrank-v1"
+SCORER_VERSION = "portfolio-causal-reference-adjusted-midrank-v2"
 KINDS = {s["id"] for s in catalogue()} | {"forcePurpleToYellow"}
 FORCE_KINDS = {"forceGoldenCross", "forcePurpleToYellow", "forceTrend"}
 FORCE_KEYS = ("mainForce", "retailForce", "forceDominance", "signalScore", "mainForcePowerScore",
@@ -118,6 +118,17 @@ class _Series:
             if security.get(key):
                 _valid_day(security[key])
         self.bars = security["bars"]
+        self.signal_bars = self.bars
+        references = security.get("precloseByDate", {})
+        if any(i and day in references and abs(references[day] - self.bars[i - 1]["close"]) > .005
+               for i, day in enumerate(bar["date"] for bar in self.bars)):
+            self.signal_bars = []
+            factor = 1.
+            for i, bar in enumerate(self.bars):
+                reference = references.get(bar["date"])
+                if i and reference is not None and reference > 0 and abs(reference - self.bars[i - 1]["close"]) > max(.005, self.bars[i - 1]["close"] * 1e-7):
+                    factor *= self.bars[i - 1]["close"] / reference
+                self.signal_bars.append({**bar, **{key: bar[key] * factor for key in ("open", "high", "low", "close")}})
         self.dates, self.by_date = [], {}
         self.sums = {k: array("d", [0.]) for k in ("close", "volume", "amount", "zeros")}
         previous = ""
@@ -134,7 +145,7 @@ class _Series:
             self.dates.append(day)
             self.by_date[day] = i
             for key in self.sums:
-                value = int(bar["volume"] <= 0) if key == "zeros" else bar.get(key, 0)
+                value = int(bar["volume"] <= 0) if key == "zeros" else self.signal_bars[i]["close"] if key == "close" else bar.get(key, 0)
                 self.sums[key].append(self.sums[key][-1] + value)
             previous = day
         self.offset = int(security.get("historyWindow", {}).get("observationsBefore", 0))
@@ -148,13 +159,13 @@ class _Series:
         cache_key = (key, window)
         if cache_key not in self.maxima:
             maxima, queue = array("d"), deque()
-            for i, row in enumerate(self.bars):
+            for i, row in enumerate(self.signal_bars):
                 while queue and queue[0] <= i - window:
                     queue.popleft()
-                while queue and self.bars[queue[-1]][key] <= row[key]:
+                while queue and self.signal_bars[queue[-1]][key] <= row[key]:
                     queue.pop()
                 queue.append(i)
-                maxima.append(self.bars[queue[0]][key])
+                maxima.append(self.signal_bars[queue[0]][key])
             self.maxima[cache_key] = maxima
         return self.maxima[cache_key][index]
 
@@ -170,7 +181,7 @@ class _Series:
 
 
 class DailyScorer:
-    def __init__(self, dataset, config):
+    def __init__(self, dataset, config, *, _prepared=None):
         self.dataset, self.config = dataset, normalize_config(config)
         self.strategies = list(self.config.get("strategies", []))
         self.combinations = list(self.config.get("combinations", []))
@@ -230,7 +241,8 @@ class DailyScorer:
             if symbol in self.series or symbol in self.load_errors:
                 raise ValueError("股票池包含重复证券")
             try:
-                self.series[symbol] = _Series(security, need_force)
+                prior = _prepared.series.get(symbol) if _prepared is not None else None
+                self.series[symbol] = prior if prior is not None and (not need_force or prior.force is not None) else _Series(security, need_force)
             except (TypeError, ValueError, KeyError, OverflowError) as exc:
                 self.load_errors[symbol] = str(exc)
         self.rules = {"strictHistory": False, "excludeSt": True, "minListingDays": 60, "minAmount20": 10000000,
@@ -242,7 +254,15 @@ class DailyScorer:
             if key in self.pool_settings:
                 self.pool_settings[key].update(settings)
         benchmark = dataset.get("benchmark")
-        self.benchmark = _Series(benchmark, False) if isinstance(benchmark, dict) and benchmark.get("bars") else None
+        if _prepared is not None:
+            self.benchmark = _prepared.benchmark
+        elif isinstance(benchmark, dict) and benchmark.get("bars"):
+            # An index only needs closes for regime recognition. These defaults
+            # belong to scoring inputs; no index OHLC or volume is used for fills.
+            benchmark = {**benchmark, "bars": [{"open": bar["close"], "high": bar["close"], "low": bar["close"], "volume": 0, **bar} for bar in benchmark["bars"]]}
+            self.benchmark = _Series(benchmark, False)
+        else:
+            self.benchmark = None
         self._last_date, self._last_result = None, None
 
     def _eligibility(self, series, day, index, members=None):
@@ -299,13 +319,13 @@ class DailyScorer:
 
     def _pools(self, series, index):
         result = {"base": True, "trend": False, "structure": False, "volume": False}
-        close = series.bars[index]["close"]
+        close = series.signal_bars[index]["close"]
         p = self.pool_settings["trend"]
         window = int(p["window"])
         if index >= window:
             average = series.mean("close", index - window + 1, index + 1)
             previous = series.mean("close", index - window, index)
-            result["trend"] = close > average > previous and close / series.bars[index - window]["close"] - 1 >= p["minReturn"]
+            result["trend"] = close > average > previous and close / series.signal_bars[index - window]["close"] - 1 >= p["minReturn"]
         p = self.pool_settings["structure"]
         window = int(p["window"])
         if index >= window - 1:
@@ -321,7 +341,7 @@ class DailyScorer:
     def _signal(self, series, index, node):
         kind, params = node["kind"], node["params"]
         if kind not in FORCE_KINDS:
-            return evaluate(series.bars, index, {"strategyIds": [kind], "strategyParams": {kind: params}})
+            return evaluate(series.signal_bars, index, {"strategyIds": [kind], "strategyParams": {kind: params}})
         if series.offset + index < FORCE_WARMUP or index < min(FORCE_WARMUP, series.offset + index):
             return None
         start = index - FORCE_WARMUP
@@ -406,7 +426,8 @@ class DailyScorer:
                     states[symbol] = {"eligible": signal is not None, "reason": "signal" if signal else "noSignal", "baseEligible": True}
                     if signal is not None:
                         candidates.append({"symbol": symbol, "rawScore": float(signal["score"]), "eligible": True,
-                                           "evidence": {"kind": node["kind"], "pool": node["pool"], "details": signal["strategies"]}})
+                                           "evidence": {"kind": node["kind"], "pool": node["pool"], "details": signal["strategies"],
+                                                        "priceBasis": "causalReferenceAdjustedSignals;rawExecutionPrices"}})
             else:
                 children = [child for child in node["children"] if child.get("weight", 1) > 0]
                 child_rows = {child["id"]: {r["symbol"]: r for r in strategies[child["id"]]} for child in children}

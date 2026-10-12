@@ -4,6 +4,8 @@ const fs = require('node:fs');
 
 const METHODS = new Set(['workspace', 'account.save', 'account.archive', 'account.asof', 'ledger.save', 'ledger.void',
   'research.catalogue', 'research.create', 'research.list', 'research.get', 'research.control', 'research.replay',
+  'research.history.status', 'research.history.import', 'research.history.importFile', 'research.export',
+  'research.rename', 'research.update', 'research.delete', 'research.previewSettings',
   'import.preview', 'import.commit', 'review.save', 'review.delete', 'review.score', 'plan.save', 'plan.delete',
   'snapshot.save', 'backup.export', 'backup.restore',
   'market.status', 'market.configure', 'market.scan', 'market.search', 'market.bars',

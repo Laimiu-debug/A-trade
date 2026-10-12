@@ -10,9 +10,11 @@ import copy
 import datetime as dt
 import hashlib
 import json
+import os
 from pathlib import Path
 import sqlite3
 import threading
+import tempfile
 import uuid
 import zlib
 
@@ -26,6 +28,7 @@ MAX_SYMBOLS = 50
 MAX_BARS = 150000
 MAX_WORKERS = 2
 ACTIVE = {"queued", "running", "pausing", "stopping"}
+PORTFOLIO_KINDS = {"portfolio", "comparison", "walkForward", "systemPlateau", "poolPreview"}
 
 
 def _now():
@@ -37,7 +40,20 @@ def _dump(value):
 
 
 def _pack(value):
-    return zlib.compress(_dump(value).encode("utf-8"))
+    # Avoid simultaneously allocating a full-market JSON string and its UTF-8
+    # copy. Buffer small encoder fragments before passing them to zlib.
+    encoder = json.JSONEncoder(ensure_ascii=False, allow_nan=False, separators=(",", ":"), sort_keys=True)
+    compressor, compressed, pending, size = zlib.compressobj(), [], [], 0
+    for chunk in encoder.iterencode(value):
+        pending.append(chunk)
+        size += len(chunk)
+        if size >= 65536:
+            compressed.append(compressor.compress("".join(pending).encode("utf-8")))
+            pending, size = [], 0
+    if pending:
+        compressed.append(compressor.compress("".join(pending).encode("utf-8")))
+    compressed.append(compressor.flush())
+    return b"".join(compressed)
 
 
 def _unpack(value):
@@ -48,7 +64,8 @@ def _version():
     digest = hashlib.sha256()
     for name in ("backtest_engine.py", "strategies.py", "plateau.py", "research_service.py",
                  "portfolio_config.py", "portfolio_universe.py", "portfolio_signals.py",
-                 "portfolio_engine.py", "portfolio_study.py"):
+                 "portfolio_engine.py", "portfolio_study.py", "portfolio_rotation.py",
+                 "portfolio_experiment.py", "portfolio_history.py", "portfolio_actions.py", "portfolio_regions.py", "portfolio_continuous.py", "portfolio_prepared.py", "portfolio_screen.py", "research_names.py"):
         digest.update(name.encode())
         digest.update((Path(__file__).parent / name).read_bytes())
     return digest.hexdigest()
@@ -117,11 +134,16 @@ class ResearchService:
                 raise ValueError("研究数据库损坏，原文件已保留")
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS datasets (id TEXT PRIMARY KEY, data BLOB NOT NULL);
+                CREATE TABLE IF NOT EXISTS dataset_names (dataset_id TEXT PRIMARY KEY, names TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS jobs (
                     id TEXT PRIMARY KEY, request_id TEXT UNIQUE, meta TEXT NOT NULL,
                     dataset_id TEXT NOT NULL, version TEXT NOT NULL,
                     checkpoint BLOB, result BLOB,
                     FOREIGN KEY(dataset_id) REFERENCES datasets(id));
+                CREATE TABLE IF NOT EXISTS validation_usage (
+                    job_id TEXT NOT NULL, family TEXT NOT NULL, start_date TEXT NOT NULL, end_date TEXT NOT NULL,
+                    config_signature TEXT NOT NULL, fingerprint TEXT NOT NULL,
+                    PRIMARY KEY(job_id,start_date,end_date));
             """)
             for row in db.execute("SELECT id,meta FROM jobs").fetchall():
                 meta = json.loads(row["meta"])
@@ -148,11 +170,19 @@ class ResearchService:
 
     def dispatch(self, method, payload=None):
         payload = payload or {}
-        routes = {"research.catalogue": self.catalogue, "research.list": self.list,
+        routes = {"research.catalogue": self.catalogue, "research.list": lambda: self.list(payload),
                   "research.create": lambda: self.create(payload),
+                  "research.previewSettings": lambda: self.preview_settings(payload),
                   "research.get": lambda: self.get(payload),
                   "research.replay": lambda: self.replay(payload),
+                  "research.rename": lambda: self.rename(payload),
+                  "research.update": lambda: self.update(payload),
+                  "research.delete": lambda: self.delete(payload),
                   "research.control": lambda: self.control(payload)}
+        routes.update({"research.history.status": self.history_status,
+                       "research.history.import": lambda: self.import_history(payload),
+                       "research.history.importFile": lambda: self.import_history_file(payload),
+                       "research.export": lambda: self.export_report(payload)})
         if method not in routes:
             raise ValueError("不支持的研究请求")
         return routes[method]()
@@ -163,36 +193,96 @@ class ResearchService:
                 "portfolio": {"version": portfolio_config.CONFIG_VERSION,
                     "strategies": portfolio_config.catalogue(), "defaults": portfolio_config.default_config(),
                     "selection": portfolio_config.normalize_selection(),
+                    "historySources": self.history_status()["sources"],
+                    "experimentDefaults": {"trainDays": 140, "testDays": 39, "stepDays": 39,
+                        "capitalMode": "independent",
+                        "expanding": False, "maxFolds": 5, "axes": [], "maxTrials": 81,
+                        "minNeighborPositiveFraction": .7, "minNeighborhoodSize": 3,
+                        "maxNeighborhoodStdPct": 10, "minOosYears": 2, "minOosRegimes": 2},
+                    "experimentLimits": {"maxAxes": 8, "maxValuesPerAxis": 5, "maxTrials": 81,
+                                         "maxFolds": 8, "maxEngineRuns": 4000},
                     "capabilities": {"wholeUniverse": True, "maxConcurrentPortfolioTasks": 1,
                                      "combinations": ["intersection", "union", "weighted"],
-                                     "allocation": ["single", "equal"], "persistence": True,
-                                     "rotation": False, "systemPlateau": False}},
-                "tasks": self.list()["tasks"]}
+                                     "allocation": ["single", "equal", "soft_rotation", "hard_rotation"], "persistence": True,
+                                     "rotation": True, "walkForward": True, "systemPlateau": True,
+                                     "rotationRequiresTrainingPersistence": True}},
+                "securityNames": self.security_names(), "tasks": self.list()["tasks"]}
 
-    def list(self):
+    def security_names(self):
+        cache = self.directory / "market.sqlite3"
+        if not cache.exists():
+            return {}
+        from contextlib import closing
+        try:
+            with closing(sqlite3.connect(cache.as_uri() + "?mode=ro", uri=True)) as db:
+                return {symbol: name for symbol, name in db.execute("SELECT symbol,name FROM securities") if isinstance(symbol, str) and isinstance(name, str) and name and name not in (symbol, symbol[2:])}
+        except sqlite3.Error:
+            return {}
+
+    def display_names(self, dataset_id, supplied=None):
+        names = self.security_names()
+        if supplied:
+            return {**names, **{symbol: name for symbol, name in supplied.items() if isinstance(symbol, str) and isinstance(name, str) and name and name not in (symbol, symbol[2:])}}
+        if not dataset_id or dataset_id.startswith("pending-"):
+            return names
+        with self._db() as db:
+            stored = db.execute("SELECT names FROM dataset_names WHERE dataset_id=?", (dataset_id,)).fetchone()
+            if stored:
+                return {**names, **json.loads(stored[0])}
+            row = db.execute("SELECT data FROM datasets WHERE id=?", (dataset_id,)).fetchone()
+        if row:
+            try:
+                from .research_names import snapshot_names
+                frozen = snapshot_names(row[0])
+                with self._db() as db:
+                    db.execute("INSERT OR IGNORE INTO dataset_names VALUES (?,?)", (dataset_id, _dump(frozen)))
+                names.update(frozen)
+            except (ValueError, zlib.error):
+                pass  # Display failure never rewrites a result or price snapshot.
+        return names
+
+    def list(self, payload=None):
+        payload = payload or {}
+        query, status = payload.get("query", ""), payload.get("status", "all")
+        if not isinstance(query, str) or len(query) > 200 or status not in {"all", "queued", "running", "pausing", "stopping", "paused", "stopped", "completed", "failed"}:
+            raise ValueError("任务查询条件无效")
         with self.lock, self._db() as db:
-            tasks = [json.loads(row[0]) for row in db.execute("SELECT meta FROM jobs")]
+            tasks = []
+            for row in db.execute("SELECT meta,dataset_id,result IS NULL AS unstarted FROM jobs"):
+                meta = json.loads(row["meta"])
+                meta["configEditable"] = bool(row["unstarted"] and row["dataset_id"].startswith("pending-")
+                    and meta["status"] in ("queued", "paused") and meta["id"] not in self.inflight)
+                tasks.append(meta)
+        tasks = [t for t in tasks if (status == "all" or t["status"] == status) and (not query or query.lower() in
+                 " ".join([t["name"], t["id"], t["kind"], *t.get("symbols", [])]).lower())]
         return {"tasks": sorted(tasks, key=lambda row: (row["createdAt"], row["id"]), reverse=True),
                 "workers": self.workers}
 
     @staticmethod
     def _runner(dataset, meta, state=None):
+        if meta["kind"] == "poolPreview":
+            from service.portfolio_screen import PortfolioScreen
+            return PortfolioScreen(dataset, meta["config"], state=state)
         if meta["kind"] == "portfolio":
             from service.portfolio_engine import PortfolioEngine
             return PortfolioEngine(dataset, meta["config"], state=state)
         if meta["kind"] == "comparison":
             from service.portfolio_study import PortfolioStudy
             return PortfolioStudy(dataset, meta["config"], state=state)
+        if meta["kind"] in ("walkForward", "systemPlateau"):
+            from service.portfolio_experiment import PortfolioExperiment
+            return PortfolioExperiment(dataset, meta["config"], meta["experiment"], state=state)
         if meta["kind"] == "plateau":
             return PlateauRunner(dataset, meta["config"], meta["scan"], state=state)
         return BacktestEngine(dataset, meta["config"], state=state)
 
     def create(self, payload):
         kind = payload.get("kind", "backtest")
-        if kind not in ("backtest", "plateau", "portfolio", "comparison"):
+        if kind not in {"backtest", "plateau"} | PORTFOLIO_KINDS:
             raise ValueError("不支持的研究类型")
         name = payload.get("name") or {"plateau": "收益平原研究", "backtest": "日线组合回测",
-                                      "portfolio": "股票池组合回测", "comparison": "多策略比较与持续性检验"}[kind]
+                                      "portfolio": "股票池组合回测", "comparison": "多策略比较与持续性检验",
+                                      "walkForward": "滚动样本外验证", "systemPlateau": "全系统收益平原", "poolPreview": "股票池筛选预览"}[kind]
         if not isinstance(name, str) or len(name.strip()) > 100:
             raise ValueError("研究名称最多 100 字")
         request_id = payload.get("requestId")
@@ -203,7 +293,7 @@ class ResearchService:
                 old = db.execute("SELECT meta FROM jobs WHERE request_id=?", (request_id,)).fetchone()
                 if old:
                     return json.loads(old[0])
-        if kind in ("portfolio", "comparison"):
+        if kind in PORTFOLIO_KINDS:
             return self._create_portfolio(payload, kind, name.strip(), request_id)
         config = normalize_config(payload.get("config", {}))
         dataset = self.snapshot_loader(self.directory, payload.get("symbols"), config.get("endDate"))
@@ -227,12 +317,9 @@ class ResearchService:
 
     def _create_portfolio(self, payload, kind, name, request_id):
         """Accept quickly; source loading is cancellable background work, not IPC."""
-        config = portfolio_config.normalize_config(payload.get("config", {}))
-        selection = portfolio_config.normalize_selection(payload.get("selection", {}))
-        selection["lookbackDays"] = config["lookbackDays"]
-        if kind == "comparison":
-            from service.portfolio_study import normalize_study
-            normalize_study(config)  # Validate before accepting costly work.
+        config, selection, experiment = self._portfolio_settings(payload, kind)
+        if not (payload.get("name") or "").strip():
+            name = self._portfolio_name(kind, config)
         task_id = str(uuid.uuid4())
         pending_id = "pending-" + task_id
         dataset = {"pendingUniverse": True, "selection": selection}
@@ -240,6 +327,8 @@ class ResearchService:
                 "phase": "等待冻结股票池与行情", "progress": 0, "createdAt": _now(), "updatedAt": _now(),
                 "config": config, "selection": selection, "symbols": [], "symbolCount": None,
                 "fingerprint": None, "error": None}
+        if experiment is not None:
+            meta["experiment"] = experiment
         with self.lock, self._db() as db:
             if request_id:
                 old = db.execute("SELECT meta FROM jobs WHERE request_id=?", (request_id,)).fetchone()
@@ -249,6 +338,116 @@ class ResearchService:
             db.execute("INSERT INTO jobs VALUES (?,?,?,?,?,?,?)", (task_id, request_id, _dump(meta), pending_id, self.version, None, None))
         self.wake.set()
         return meta
+
+    @staticmethod
+    def _portfolio_settings(payload, kind):
+        config = portfolio_config.normalize_config(payload.get("config", {}))
+        selection = portfolio_config.normalize_selection(payload.get("selection", {}))
+        selection["lookbackDays"] = config["lookbackDays"]
+        if kind == "comparison":
+            from service.portfolio_study import normalize_study
+            normalize_study(config)  # Validate before accepting costly work.
+        experiment = None
+        if kind in ("walkForward", "systemPlateau"):
+            from service.portfolio_experiment import normalize_experiment
+            raw_experiment = payload.get("experiment", {})
+            if not isinstance(raw_experiment, dict):
+                raise ValueError("实验设置须为对象")
+            if raw_experiment.get("kind", kind) != kind:
+                raise ValueError("实验类型与任务类型不一致")
+            experiment = normalize_experiment({**raw_experiment, "kind": kind}, config)
+        return config, selection, experiment
+
+    @staticmethod
+    def _portfolio_name(kind, config):
+        labels = {"portfolio": "组合回测", "comparison": "策略比较", "walkForward": "滚动验证",
+                  "systemPlateau": "系统收益平原", "poolPreview": "股票池筛选"}
+        names = {s["id"]: s["name"] for s in portfolio_config.catalogue()}
+        strategies = config["allocation"]["strategyIds"]
+        title = names.get(strategies[0], "组合策略")
+        if len(strategies) > 1:
+            title += "等" + str(len(strategies)) + "个策略"
+        period = (config["startDate"] + " — " + config["endDate"] if config["startDate"] and config["endDate"]
+                  else "最近" + str(config["lookbackDays"]) + "个交易日")
+        return (labels[kind] + " · " + title + " · " + period)[:100]
+
+    def preview_settings(self, payload):
+        """Validate exactly as creation does, without creating a job or loading prices."""
+        kind = payload.get("kind", "portfolio")
+        if kind not in PORTFOLIO_KINDS:
+            raise ValueError("请选择股票池研究任务类型")
+        name = payload.get("name", "")
+        if not isinstance(name, str) or len(name.strip()) > 100:
+            raise ValueError("研究名称最多 100 字")
+        config, selection, experiment = self._portfolio_settings(payload, kind)
+        result = {"kind": kind, "name": name.strip() or self._portfolio_name(kind, config),
+                  "config": config, "selection": selection, "configVersion": portfolio_config.CONFIG_VERSION,
+                  "execution": {"signal": "T 日收盘", "fill": "下一交易日开盘", "tPlusOne": True,
+                                "poolRefresh": "每个交易日", "datesResolvedAfterSnapshot": not bool(config["startDate"])}}
+        if experiment is not None:
+            result["experiment"] = experiment
+        return result
+
+    def rename(self, payload):
+        name = payload.get("name")
+        if not isinstance(name, str) or not name.strip() or len(name.strip()) > 100:
+            raise ValueError("任务名称须为 1 至 100 字")
+        with self.lock, self._db() as db:
+            row = db.execute("SELECT meta FROM jobs WHERE id=?", (payload.get("id"),)).fetchone()
+            if not row:
+                raise ValueError("任务不存在")
+            meta = json.loads(row[0])
+            meta.update(name=name.strip(), updatedAt=_now())
+            db.execute("UPDATE jobs SET meta=? WHERE id=?", (_dump(meta), meta["id"]))
+        return {"task": meta}
+
+    def update(self, payload):
+        task_id = payload.get("id")
+        kind = payload.get("kind")
+        if kind not in PORTFOLIO_KINDS:
+            raise ValueError("请编辑股票池研究任务；旧版任务保留其原始结果")
+        config, selection, experiment = self._portfolio_settings(payload, kind)
+        name = payload.get("name")
+        if not isinstance(name, str) or not name.strip() or len(name.strip()) > 100:
+            raise ValueError("任务名称须为 1 至 100 字")
+        with self.lock, self._db() as db:
+            row = db.execute("SELECT * FROM jobs WHERE id=?", (task_id,)).fetchone()
+            if not row:
+                raise ValueError("任务不存在")
+            meta = json.loads(row["meta"])
+            if meta["status"] not in ("queued", "paused") or task_id in self.inflight or row["result"] is not None or not row["dataset_id"].startswith("pending-"):
+                raise ValueError("任务已冻结行情或开始计算；请复制设置另存新任务，原结果不能被改写")
+            meta.update(name=name.strip(), kind=kind, config=config, selection=selection, updatedAt=_now(), error=None)
+            meta.pop("experiment", None)
+            if experiment is not None:
+                meta["experiment"] = experiment
+            db.execute("UPDATE datasets SET data=? WHERE id=?", (_pack({"pendingUniverse": True, "selection": selection}), row["dataset_id"]))
+            db.execute("UPDATE jobs SET meta=?,version=?,request_id=NULL,checkpoint=NULL WHERE id=?", (_dump(meta), self.version, task_id))
+        self.wake.set()
+        return {"task": meta}
+
+    def delete(self, payload):
+        ids = payload.get("ids")
+        if not isinstance(ids, list) or not 1 <= len(ids) <= 200 or any(not isinstance(i, str) for i in ids):
+            raise ValueError("请选择 1 至 200 项任务")
+        outcomes = []
+        with self.lock, self._db() as db:
+            for task_id in dict.fromkeys(ids):
+                row = db.execute("SELECT meta,dataset_id FROM jobs WHERE id=?", (task_id,)).fetchone()
+                if not row:
+                    outcomes.append({"id": task_id, "ok": False, "error": "任务不存在"})
+                    continue
+                status = json.loads(row["meta"])["status"]
+                if task_id in self.inflight or status in ("running", "pausing", "stopping"):
+                    outcomes.append({"id": task_id, "ok": False, "error": "请先停止任务，等待保存完成后删除"})
+                    continue
+                db.execute("DELETE FROM jobs WHERE id=?", (task_id,))
+                db.execute("DELETE FROM datasets WHERE id=? AND NOT EXISTS(SELECT 1 FROM jobs WHERE dataset_id=?)", (row["dataset_id"], row["dataset_id"]))
+                db.execute("DELETE FROM dataset_names WHERE dataset_id NOT IN (SELECT id FROM datasets)")
+                # Validation use survives deletion; removing a report cannot
+                # make its already-inspected holdout an independent sample.
+                outcomes.append({"id": task_id, "ok": True})
+        return {"tasks": self.list()["tasks"], "outcomes": outcomes}
 
     def _prepare_portfolio(self, meta, pending):
         from service.portfolio_universe import snapshot_universe, UniversePreparationInterrupted
@@ -308,6 +507,10 @@ class ResearchService:
                 current.update(config=config, symbols=symbols if pending["selection"]["mode"] == "explicit" else [],
                                symbolCount=len(symbols), fingerprint=dataset["fingerprint"],
                                universeCoverage=dataset.get("universeCoverage"), phase="股票池已冻结，开始计算", updatedAt=_now())
+                family = {"source": dataset.get("historyDeclaration", {}).get("source", dataset.get("source")),
+                          "universe": dataset.get("historyDeclaration", {}).get("universe", "local-file-coverage"),
+                          "scope": "declared source; overlapping dates tracked even when the selected stock subset changes"}
+                current["validationFamily"] = hashlib.sha256(_dump(family).encode()).hexdigest()
                 if current["status"] in ("pausing", "stopping") or self.closing.is_set():
                     current["status"] = "stopped" if current["status"] == "stopping" else "paused"
                 db.execute("INSERT OR IGNORE INTO datasets VALUES (?,?)", (storage_id, dataset_blob))
@@ -328,32 +531,224 @@ class ResearchService:
         if type(size) is not int or not 1 <= size <= 1000 or type(daily_size) is not int or not 1 <= daily_size <= 200 or any(type(v) is not int or v < 0 for v in offsets.values()):
             raise ValueError("分页范围无效")
         with self.lock, self._db() as db:
-            row = db.execute("SELECT meta,result FROM jobs WHERE id=?", (task_id,)).fetchone()
+            row = db.execute("SELECT meta,result,dataset_id FROM jobs WHERE id=?", (task_id,)).fetchone()
             if not row:
                 raise ValueError("研究任务不存在")
         result = _unpack(row["result"])
         meta = json.loads(row["meta"])
+        meta["configEditable"] = next((t["configEditable"] for t in self.list()["tasks"] if t["id"] == task_id), False)
+        if isinstance(result, dict):
+            names = self.display_names(row["dataset_id"], result.get("securityNames"))
+            if names:
+                result["securityNames"] = names
+            if isinstance(result.get("screenPools"), dict):
+                pool, offset, limit, query = payload.get("pool", "base"), payload.get("poolOffset", 0), payload.get("poolPageSize", 100), payload.get("poolQuery", "")
+                if pool not in result["screenPools"] or type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 200 or not isinstance(query, str) or len(query) > 100:
+                    raise ValueError("股票池分页或搜索条件无效")
+                pagination = {}
+                for key, rows in result["screenPools"].items():
+                    for item in rows:
+                        if not item.get("name") or item["name"] in (item["symbol"], item["symbol"][2:]):
+                            item["name"] = names.get(item["symbol"])
+                    filtered = [item for item in rows if not query or query.lower() in (item["symbol"]+" "+(item.get("name") or "")).lower()] if key == pool else rows
+                    position = offset if key == pool else 0
+                    result["screenPools"][key] = filtered[position:position+limit]
+                    pagination[key] = {"offset": position, "total": len(filtered), "unfilteredTotal": len(rows), "pageSize": limit, "hasMore": position+limit < len(filtered)}
+                result["poolPagination"] = pagination
+        result_path = payload.get("resultPath")
+        event_date = payload.get("eventDate")
+        if event_date is not None:
+            try:
+                if dt.date.fromisoformat(event_date).isoformat() != event_date:
+                    raise ValueError()
+            except (ValueError, TypeError):
+                raise ValueError("操作日期须为 YYYY-MM-DD") from None
+        if result_path is not None:
+            if not isinstance(result_path, str) or len(result_path) > 512:
+                raise ValueError("研究明细路径无效")
+            selected = result
+            try:
+                for part in result_path.split(".") if result_path else []:
+                    if isinstance(selected, list) and part.isdigit():
+                        selected = selected[int(part)]
+                    elif isinstance(selected, dict) and part in selected:
+                        selected = selected[part]
+                    else:
+                        raise KeyError(part)
+                if not isinstance(selected, dict):
+                    raise KeyError(result_path)
+            except (KeyError, IndexError):
+                raise ValueError("研究明细路径不存在") from None
         if isinstance(result, dict):
             result["taskStatus"] = meta["status"]
             result["complete"] = meta["status"] == "completed"
-        def page_records(value):
+        def page_records(value, path=""):
+            if isinstance(value, list):
+                for index, child in enumerate(value):
+                    page_records(child, f"{path}.{index}")
+                return
             if not isinstance(value, dict):
                 return
             pagination = {}
-            for key, singular in (("decisions", "decision"), ("trades", "trade"), ("closedTrades", "closedTrade"), ("daily", "daily"), ("rotationLog", "rotation")):
+            for key, singular in (("decisions", "decision"), ("trades", "trade"), ("closedTrades", "closedTrade"), ("daily", "daily"), ("rotationLog", "rotation"), ("actionLedger", "trade")):
                 if isinstance(value.get(key), list):
-                    offset = offsets[singular]
+                    if event_date and key in ("decisions", "trades") and (result_path is None or path == result_path):
+                        value[key] = [item for item in value[key] if item.get("date") == event_date]
+                    offset = offsets[singular] if result_path is None or path == result_path else 0
                     total = len(value[key])
                     page_size = daily_size if key == "daily" else size
                     value[key] = value[key][offset:offset + page_size]
                     pagination[key] = {"offset": offset, "total": total, "pageSize": page_size, "hasMore": offset + page_size < total}
-            for child in value.values():
-                if isinstance(child, dict):
-                    page_records(child)
+            for key, child in value.items():
+                if isinstance(child, (dict, list)):
+                    page_records(child, f"{path}.{key}" if path else key)
             if pagination:
+                pagination["path"] = path
                 value["pagination"] = pagination
+                if event_date:
+                    pagination["eventDate"] = event_date
         page_records(result)
         return {"task": meta, "result": result}
+
+    def history_status(self):
+        from .portfolio_history import HistoryStore
+        return {"sources": HistoryStore(self.directory).list()}
+
+    def import_history(self, payload):
+        from .portfolio_history import HistoryStore
+        summary = HistoryStore(self.directory).import_package(payload.get("package"))
+        return {"imported": summary, **self.history_status()}
+
+    def import_history_file(self, payload):
+        # Only the desktop main process exposes the file picker; renderer's
+        # generic business IPC rejects this private path-bearing method.
+        path = Path(payload.get("path", ""))
+        extension = path.suffix.lower()
+        maximum = 2 * 1024**3 if extension in (".jsonl", ".ndjson") else 512 * 1024**2
+        if not path.is_file() or extension not in (".json", ".jsonl", ".ndjson") or path.stat().st_size > maximum:
+            raise ValueError("请选择 JSON（最多 512 MiB）或逐行 JSONL/NDJSON（最多 2 GiB）历史包")
+        with path.open("r", encoding="utf-8-sig") as stream:
+            if extension == ".json":
+                package = json.load(stream)
+            else:
+                import sys
+                first = stream.readline(16 * 1024**2 + 1)
+                if len(first) > 16 * 1024**2:
+                    raise ValueError("JSONL 首行超出 16 MiB")
+                package = json.loads(first)
+                if not isinstance(package, dict) or not isinstance(package.get("dataset"), dict):
+                    raise ValueError("JSONL 首行须为历史包头部（包含 dataset.calendar）")
+                dataset = package["dataset"]
+                securities = dataset.setdefault("securities", [])
+                members = dataset.setdefault("membershipByDate", {})
+                while True:
+                    line = stream.readline(16 * 1024**2 + 1)
+                    if not line:
+                        break
+                    if len(line) > 16 * 1024**2:
+                        raise ValueError("JSONL 单条证券或成分记录超出 16 MiB")
+                    if not line.strip():
+                        continue
+                    record = json.loads(line)
+                    if not isinstance(record, dict):
+                        raise ValueError("JSONL 记录须为对象")
+                    if set(record) == {"security"}:
+                        securities.append(record["security"])
+                    elif set(record) == {"date", "members"} and isinstance(record["members"], list):
+                        if record["date"] in members:
+                            raise ValueError("JSONL 成分日期重复")
+                        members[record["date"]] = [sys.intern(symbol) for symbol in record["members"]]
+                    else:
+                        raise ValueError("JSONL 记录须为 security 或 date/members")
+        from .portfolio_history import HistoryStore
+        summary = HistoryStore(self.directory).import_package(package, owned=True)
+        return {"imported": summary, **self.history_status()}
+
+    def export_report(self, payload):
+        task_id = payload.get("id")
+        try:
+            uuid.UUID(task_id)
+        except (ValueError, TypeError, AttributeError):
+            raise ValueError("请选择有效研究任务") from None
+        with self.lock, self._db() as db:
+            row = db.execute("SELECT meta,result,dataset_id FROM jobs WHERE id=?", (task_id,)).fetchone()
+        if not row or not row["result"]:
+            raise ValueError("研究任务尚无可导出结果")
+        report = {"task": json.loads(row["meta"]), "result": _unpack(row["result"]),
+                  "export": {"completeAudit": True, "snapshotAt": _now(), "paginationApplied": False}}
+        if isinstance(report["result"], dict):
+            names = self.display_names(row["dataset_id"], report["result"].get("securityNames"))
+            if names:
+                report["result"]["securityNames"] = names
+        directory = self.directory / "research-exports"
+        directory.mkdir(exist_ok=True)
+        target = directory / (task_id + ".json")
+        descriptor, temporary = tempfile.mkstemp(prefix="report-", suffix=".tmp", dir=directory)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+                json.dump(report, stream, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, target)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+        return {"path": str(target), "bytes": target.stat().st_size, "completeAudit": True,
+                "taskComplete": report["task"]["status"] == "completed"}
+
+    def _validation_audit(self, meta, result):
+        intervals = set()
+        def visit(value):
+            if not isinstance(value, dict):
+                return
+            for run in value.get("testing", {}).values():
+                config = run.get("config", {}) if isinstance(run, dict) else {}
+                if config.get("startDate") and config.get("endDate"):
+                    intervals.add((config["startDate"], config["endDate"]))
+            for fold in value.get("folds", []):
+                visit(fold)
+            visit(value.get("currentFold"))
+            continuous = value.get("continuous")
+            if isinstance(continuous, dict):
+                for run in continuous.get("runs", {}).values():
+                    curve = run.get("curve", [])
+                    if curve:
+                        intervals.add((curve[0]["date"], curve[-1]["date"]))
+        visit(result)
+        if not intervals:
+            return
+        family = meta.get("validationFamily", meta.get("fingerprint"))
+        signature = hashlib.sha256(_dump({"config": meta["config"], "experiment": meta.get("experiment")}).encode()).hexdigest()
+        reused, reproductions = [], []
+        with self.lock, self._db() as db:
+            previous = db.execute("SELECT * FROM validation_usage WHERE family=? AND job_id<>?", (family, meta["id"])).fetchall()
+            for start, end in sorted(intervals):
+                for old in previous:
+                    if start <= old["end_date"] and end >= old["start_date"]:
+                        item = {"priorJobId": old["job_id"], "startDate": max(start, old["start_date"]), "endDate": min(end, old["end_date"])}
+                        if signature == old["config_signature"] and meta["fingerprint"] == old["fingerprint"]:
+                            reproductions.append(item)
+                        else:
+                            reused.append(item)
+                db.execute("INSERT OR IGNORE INTO validation_usage VALUES (?,?,?,?,?,?)", (meta["id"], family, start, end, signature, meta["fingerprint"]))
+        result["validationAudit"] = {"status": "developmentSample" if reused else "reproduction" if reproductions else "fresh",
+                                     "reusedIntervals": reused, "reproductionIntervals": reproductions,
+                                     "trackedIntervals": [list(pair) for pair in sorted(intervals)],
+                                     "scope": "same declared source/universe within this workspace; external prior use cannot be detected"}
+        if reused:
+            message = "该样本外区间此前已用不同设置计算，现在标记为开发样本；正式验证请使用未使用区间。"
+            result.setdefault("warnings", []).append(message)
+            if isinstance(result.get("rotationGate"), dict):
+                result["rotationGate"].update(passed=False, status="unverified", conclusion=message)
+            for child in [*result.get("folds", []), result.get("currentFold"), result.get("continuous")]:
+                if isinstance(child, dict) and isinstance(child.get("rotationGate"), dict):
+                    child["rotationGate"].update(passed=False, status="unverified", conclusion=message)
+            if isinstance(result.get("plateau"), dict):
+                result["plateau"].update(certified=False, recommendedRanges=[], recommendedCartesianComplete=False, conclusion=message)
+                result["plateau"].setdefault("reasons", []).append("holdout_reused_with_changed_settings")
+                validation = result["plateau"].setdefault("statisticalValidation", {})
+                validation["passed"] = False
+                validation.setdefault("reasons", []).append("holdout_reused_with_changed_settings")
 
     def replay(self, payload):
         """Rebuild a scanned point's training path from the original frozen input."""
@@ -430,12 +825,12 @@ class ResearchService:
             claimed = None
             with self.lock, self._db() as db:
                 rows = db.execute("SELECT id,meta,version FROM jobs ORDER BY rowid").fetchall()
-                portfolio_busy = any(row["id"] in self.inflight and json.loads(row["meta"])["kind"] in ("portfolio", "comparison") for row in rows)
+                portfolio_busy = any(row["id"] in self.inflight and json.loads(row["meta"])["kind"] in PORTFOLIO_KINDS for row in rows)
                 for row in rows:
                     meta = json.loads(row["meta"])
                     if meta["status"] != "queued" or row["id"] in self.inflight:
                         continue
-                    if portfolio_busy and meta["kind"] in ("portfolio", "comparison"):
+                    if portfolio_busy and meta["kind"] in PORTFOLIO_KINDS:
                         continue
                     if row["version"] != self.version:
                         meta.update(status="paused", phase="版本已变化，请创建新任务")
@@ -495,10 +890,14 @@ class ResearchService:
                 meta, dataset, runner = prepared
             else:
                 runner = self._runner(dataset, meta, state)
+            names = {s["symbol"]: s["name"] for s in dataset.get("securities", []) if isinstance(s.get("name"), str) and s["name"] and s["name"] not in (s["symbol"], s["symbol"][2:])}
             while True:
                 done = runner.step(days=5)
                 result = runner.result()
                 result["kind"] = meta["kind"]
+                if names:
+                    result["securityNames"] = names
+                self._validation_audit(meta, result)
                 state = runner.checkpoint()
                 progress, phase = self._progress(runner, result, done)
                 # Encoding must not hold the control lock: pause/stop can be

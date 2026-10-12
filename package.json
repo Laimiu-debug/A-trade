@@ -19,6 +19,9 @@
     "test:information": "node scripts/smoke-information.cjs",
     "test:research": "node scripts/smoke-portfolio.cjs",
     "test:portfolio": "node scripts/smoke-portfolio.cjs",
+    "test:system-research": "node scripts/smoke-system-research.cjs",
+    "test:research-refinements": "node scripts/smoke-research-refinements.cjs",
+    "test:research-usability": "node scripts/smoke-research-usability.cjs",
     "setup:market": "node scripts/setup-market.cjs"
   },
   "engines": {
