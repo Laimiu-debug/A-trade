@@ -132,6 +132,7 @@ async function main() {
     await wait('!!document.querySelector("[data-pf-form]")', 'single-strategy editor');
     assert.deepEqual(await evaluate('[...new Set([...document.querySelectorAll("[data-pf-action=workflow-step]")].map(el=>Number(el.dataset.pfStep)))].sort()'), [1,2,3,4,5]);
     assert.equal(await evaluate('document.querySelectorAll(".pf-research-pipeline .pf-pipeline-stage").length'), 6);
+    await evaluate('document.querySelector("[data-pf-action=workflow-step][data-pf-step=\\"1\\"]").click();true');
     const singleDraft = await evaluate('JSON.parse(localStorage.getItem("atrade.single-editor.v1")).draft');
     assert.equal(singleDraft.kind, 'singleBacktest');
     assert.equal(singleDraft.periodMode, 'dates');
@@ -140,6 +141,7 @@ async function main() {
     assert.equal(singleDraft.selection.mode, 'all');
     await evaluate('document.querySelector("[data-pf-action=advanced]").click();true');
     await wait('document.querySelector(".pf-intro")?.innerText.includes("高级研究")', 'explicit advanced editor');
+    await evaluate('document.querySelector("[data-pf-action=workflow-step][data-pf-step=\\"1\\"]").click();true');
     assert.equal(await evaluate('JSON.parse(localStorage.getItem("atrade.portfolio-editor.v1")).draft.kind'), 'portfolio');
     assert.deepEqual(await evaluate('JSON.parse(localStorage.getItem("atrade.single-editor.v1")).draft'), singleDraft,
       'advanced research keeps the single-strategy draft intact');
