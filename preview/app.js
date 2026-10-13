@@ -53,7 +53,7 @@
     $('#nav-flyout-root').innerHTML=compact&&expanded?`<nav class="nav-flyout" id="nav-${expanded.id}" aria-label="${expanded.label}子页面"><header><strong>${expanded.label}</strong><button class="icon-button" data-action="close-subnav" aria-label="收起子页面">${I('close')}</button></header><div class="nav-flyout-items">${navItems(expanded,navPage.id)}</div></nav>`:'';
     nav.scrollTop=scroll;
     positionSubnav();
-    document.title=`${page.title} · A-trade ${AT.isDesktop?'桌面开发版':'HTML 预览'}`;
+    document.title=`${page.title} · A-trade ${AT.isDesktop?(window.atradeDesktop?.bootstrap?.app?.packaged?'便携版':'桌面开发版'):'HTML 预览'}`;
     AT.businessUI?.updateShell(page.id);
     AT.marketUI?.updateShell(page.id);
     AT.marketNews?.updateShell(page.id);
@@ -446,9 +446,10 @@
   window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{const compact=compactNavigation();if(compact!==document.body.classList.contains('nav-collapsed')){AT.ui.navGroup=compact?null:navigationGroup(AT.state.page);updateShell()}positionSubnav();AT.drawCharts();AT.drawCandles()},100)});
   if(!AT.isDesktop)window.addEventListener('beforeunload',()=>{AT.persist()});
   if(AT.isDesktop){
-    document.title='A-trade · 桌面开发版';
-    $('.local-identity small').textContent='本机保存 · 桌面开发版';
-    $('.demo-label').textContent='桌面开发版 · 业务演示';
+    const desktopLabel=window.atradeDesktop?.bootstrap?.app?.packaged?'便携版':'桌面开发版';
+    document.title='A-trade · '+desktopLabel;
+    $('.local-identity small').textContent='本机保存 · '+desktopLabel;
+    $('.demo-label').textContent=desktopLabel+' · 业务演示';
     $('.statusbar>span:first-child').innerHTML='<i class="status-dot"></i> 业务演示数据 · 未连接 TDX / MCP';
     $('#save-status').textContent=AT.storageWarning||'更改自动保存到本机';
     $('#save-status').dataset.saveState=AT.storageWarning?'warning':'ready';

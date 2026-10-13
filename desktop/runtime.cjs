@@ -60,7 +60,8 @@ async function createDesktop({ dataDirectory, show = true, onWindow } = {}) {
   const researchBusiness = new BusinessService(dataDirectory, { mode: 'research' });
   const accountValuation = createAccountValuation({ business, market: marketBusiness });
   const market = await marketBusiness.request('market.status');
-  const bootstrap = { ...initial, storage: store.paths, business: workspace.data, ai: ai.publicConfig(), market };
+  const bootstrap = { ...initial, storage: store.paths, business: workspace.data, ai: ai.publicConfig(), market,
+    app: { version: require('../package.json').version, packaged: require('electron').app.isPackaged } };
   let lastStateSave = { state: 'not-checked', savedAt: null };
   await installProtocol();
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));

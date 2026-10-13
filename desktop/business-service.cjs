@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const METHODS = new Set(['workspace', 'account.save', 'account.archive', 'account.asof', 'ledger.save', 'ledger.void',
   'research.catalogue', 'research.create', 'research.list', 'research.get', 'research.control', 'research.replay',
   'research.history.status', 'research.history.import', 'research.history.importFile', 'research.export',
-  'research.rename', 'research.update', 'research.delete', 'research.previewSettings',
+  'research.rename', 'research.update', 'research.delete', 'research.previewSettings', 'research.freeze', 'research.freezes',
   'import.preview', 'import.commit', 'review.save', 'review.delete', 'review.score', 'plan.save', 'plan.delete',
   'snapshot.save', 'backup.export', 'backup.restore',
   'market.status', 'market.configure', 'market.scan', 'market.search', 'market.bars',
@@ -21,6 +21,17 @@ const METHODS = new Set(['workspace', 'account.save', 'account.archive', 'accoun
 const MAX_BYTES = 32 * 1024 * 1024;
 
 function pythonCommand() {
+  // A released folder always uses its own runtime, even when the host exports
+  // a developer override or has another Python installed.
+  if (fs.existsSync(path.join(__dirname, '../portable-build.json'))) {
+    const bundled = path.join(__dirname, '../../python/python.exe');
+    if (!fs.existsSync(bundled)) {
+      const error = new Error('便携版运行环境不完整，请重新解压整个便携版文件夹。');
+      error.businessReason = error.message;
+      throw error;
+    }
+    return bundled;
+  }
   if (process.env.ATRADE_PYTHON) return process.env.ATRADE_PYTHON;
   const local = path.join(__dirname, '..', '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
   if (fs.existsSync(local)) return local;
@@ -44,12 +55,14 @@ class BusinessService {
     this.onProgress = onProgress;
     this.child = spawn(pythonCommand(), ['-B', '-u', path.join(__dirname, '../service/entry.py'), directory, mode], {
       windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1', PYTHONNOUSERSITE: '1', PYTHONDONTWRITEBYTECODE: '1' },
     });
     this.child.stdout.setEncoding('utf8');
     this.child.stdout.on('data', chunk => this.receive(chunk));
     this.child.stderr.on('data', () => {}); // Private pipe; no imported data or traceback in logs.
-    this.child.on('error', () => this.fail('账户服务启动失败。请安装 Python 3.11 或以上版本后重启。'));
+    this.child.on('error', () => this.fail(fs.existsSync(path.join(__dirname, '../portable-build.json'))
+      ? '内置服务启动失败，请重新解压整个便携版文件夹后重试。'
+      : '账户服务启动失败。请安装 Python 3.11 或以上版本后重启。'));
     this.child.on('exit', () => this.fail('账户服务已停止，请重启软件后重试。未完成的操作请先核对账本。'));
     this.child.stdin.on('error', () => this.fail('账户服务连接中断，请重启软件。'));
   }

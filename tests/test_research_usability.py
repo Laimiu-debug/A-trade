@@ -2,6 +2,7 @@
 from copy import deepcopy
 import tempfile
 import unittest
+from unittest.mock import patch
 from service.research_service import ResearchService, _pack, _unpack
 from test_portfolio_service import dataset_fixture, CONFIG
 
@@ -71,6 +72,50 @@ class ResearchUsabilityTests(unittest.TestCase):
         self.service.run_next()
         self.assertEqual(self.service.get({"id": other["id"]})["result"]["poolCounts"]["trend"], 0)
 
+    def test_pool_only_preview_create_and_run_ignore_unfinished_strategy_and_trading_inputs(self):
+        from service.portfolio_screen import PortfolioScreen
+        minimal = {"kind": "poolPreview", "config": {"lookbackDays": 39,
+                   "universe": {"minListingDays": 0, "minAmount20": 0},
+                   "poolSettings": {"trend": {"window": 5}}}}
+        preview = self.service.preview_settings(minimal)
+        self.assertNotIn("策略", preview["name"])
+        self.assertNotIn("fill", preview["execution"])
+        self.assertFalse(preview["execution"]["ordersGenerated"])
+        self.assertFalse(preview["execution"]["strategyScoring"])
+        changed = deepcopy(minimal)
+        changed["config"].update(strategies=[], combinations=[{"incomplete": True}],
+            allocation={"mode": "single", "strategyIds": []}, initialCapital=None, topN=1.5)
+        second_preview = self.service.preview_settings(changed)
+        self.assertEqual(second_preview["config"], preview["config"])
+        self.assertEqual(PortfolioScreen(self.data, preview["config"]).signature,
+                         PortfolioScreen(self.data, second_preview["config"]).signature)
+        self.assertEqual(PortfolioScreen(self.data, minimal["config"]).signature,
+                         PortfolioScreen(self.data, changed["config"]).signature,
+                         "screen signatures cannot depend on raw strategy or capital settings")
+        results = []
+        with patch("service.portfolio_signals.DailyScorer.daily", side_effect=AssertionError("pool-only tasks must not score strategies")):
+            for request in (minimal, changed):
+                task = self.service.create(request)
+                self.assertEqual(task["config"], preview["config"])
+                self.service.run_next()
+                actual = self.service.get({"id": task["id"], "poolPageSize": 200})
+                self.assertEqual(actual["task"]["status"], "completed", actual["task"]["error"])
+                results.append(actual["result"])
+        self.assertEqual(results[0]["poolCounts"]["base"], 136)
+        self.assertEqual(results[0]["screenPools"], results[1]["screenPools"])
+        expected = [row["symbol"] for row in sorted(self.data["securities"],
+                    key=lambda row: (-row["bars"][-1]["amount"], row["symbol"]))]
+        self.assertEqual([row["symbol"] for row in results[0]["screenPools"]["base"]], expected)
+
+    def test_pending_pool_task_update_ignores_unrelated_errors_but_validates_pool_rules(self):
+        task = self.service.create({"kind": "poolPreview", "config": {}})
+        updated = self.service.update({"id": task["id"], "kind": "poolPreview", "name": "仅按股票池条件",
+                    "config": {"strategies": [], "initialCapital": None, "universe": {"minAmount20": 35000000}}})["task"]
+        self.assertEqual(updated["config"]["universe"]["minAmount20"], 35000000)
+        with self.assertRaises(ValueError):
+            self.service.update({"id": task["id"], "kind": "poolPreview", "name": "无效池条件",
+                                 "config": {"strategies": [], "poolSettings": {"trend": {"window": 1}}}})
+
     def test_pending_configuration_edit_is_atomic_and_finished_result_is_immutable(self):
         task = self.service.create(self.request())
         self.assertTrue(self.service.list()["tasks"][0]["configEditable"])
@@ -92,6 +137,36 @@ class ResearchUsabilityTests(unittest.TestCase):
         with self.service._db() as db:
             self.assertEqual(before, db.execute("SELECT result FROM jobs WHERE id=?", (task["id"],)).fetchone()[0])
         self.assertFalse(self.service.get({"id": task["id"]})["task"]["configEditable"])
+
+    def test_pool_combination_query_uses_complete_saved_memberships_without_rewriting_or_rescoring(self):
+        task = self.service.create(self.request(kind="poolPreview"))
+        self.service.run_next()
+        with self.service._db() as db:
+            report = _unpack(db.execute("SELECT result FROM jobs WHERE id=?", (task["id"],)).fetchone()[0])
+            base = report["screenPools"]["base"]
+            report["screenPools"]["trend"] = base[:100]
+            report["screenPools"]["structure"] = base[50:]
+            report["screenPools"]["volume"] = base[::2]
+            report["poolCounts"] = {key: len(value) for key, value in report["screenPools"].items()}
+            saved = _pack(report)
+            db.execute("UPDATE jobs SET result=? WHERE id=?", (saved, task["id"]))
+        self.service.universe_loader = lambda *args: self.fail("result selection must not reload or rescore the universe")
+        selected = self.service.dispatch("research.get", {"id": task["id"], "pools": ["trend", "structure", "volume"],
+                                                         "poolMode": "intersection", "poolPageSize": 7})["result"]
+        self.assertEqual(selected["poolSelection"]["matchedCount"], 25)
+        self.assertEqual(len(selected["screenPools"]["combined"]), 7)
+        self.assertEqual(selected["poolPagination"]["combined"]["total"], 25)
+        target = base[98]
+        found = self.service.get({"id": task["id"], "pools": ["trend", "structure", "volume"],
+                                  "poolQuery": target["symbol"], "poolPageSize": 7})["result"]
+        self.assertEqual(found["poolPagination"]["combined"]["total"], 1)
+        self.assertEqual(found["poolSelection"]["matchedCount"], 25)
+        self.assertEqual(found["screenPools"]["combined"][0]["symbol"], target["symbol"])
+        self.assertEqual(found["screenPools"]["combined"][0]["memberships"], ["base", "trend", "structure", "volume"])
+        self.assertFalse(found["protocol"]["ordersGenerated"])
+        self.assertEqual(found["poolCounts"]["base"], 136)
+        with self.service._db() as db:
+            self.assertEqual(db.execute("SELECT result FROM jobs WHERE id=?", (task["id"],)).fetchone()[0], saved)
 
     def test_delete_rejects_inflight_and_preserves_holdout_usage_and_shared_snapshots(self):
         task = self.service.create(self.request())

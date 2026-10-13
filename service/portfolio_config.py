@@ -14,6 +14,38 @@ import re
 from service.strategies import catalogue as legacy_catalogue
 
 CONFIG_VERSION = "portfolio-config-v1"
+FILTER_POOLS = ("trend", "structure", "volume")
+POOL_LABELS = {"base": "基础可交易池", "trend": "趋势池", "structure": "回调结构池",
+               "volume": "量能活跃池", "combined": "叠加筛选池"}
+
+
+def pool_catalogue():
+    return [{"id": key, "name": label} for key, label in POOL_LABELS.items()]
+
+
+def pool_style_catalogue():
+    """Complete condition snapshots for explicit, style-specific editor actions.
+
+    Presets do not change normalization defaults or strategy entry rules. A
+    complete snapshot also clears optional filters left by a previous preset.
+    Saving the actual conditions rather than a style ID preserves custom and
+    old configurations if a later catalogue changes its starting hypotheses.
+    """
+    from service.portfolio_pool_styles import definitions
+
+    rows = definitions()
+    for row in rows:
+        row["poolSettings"] = normalize_config({"poolSettings": row["poolSettings"]})["poolSettings"]
+    return rows
+
+
+def apply_pool_style(raw, style_id):
+    """Replace only candidate-pool conditions; leave all other inputs untouched."""
+    raw = {} if raw is None else raw
+    _object(raw, "风格漏斗设置", CONFIG_FIELDS)
+    styles = {row["id"]: row for row in pool_style_catalogue()}
+    _choice(style_id, tuple(styles), "风格漏斗")
+    return {**deepcopy(raw), "poolSettings": styles[style_id]["poolSettings"]}
 
 
 def catalogue():
@@ -46,6 +78,11 @@ NUMBERS = {
     "slippageBps": (10, 0, 500, False),
     "maxParticipationRate": (.01, .0001, .1, False),
 }
+CONFIG_FIELDS = set(NUMBERS) | {
+    "startDate", "endDate", "stampDutyRate", "weighting", "rebalanceMode",
+    "strategies", "combinations", "allocation", "universe", "poolSettings", "study", "rotation", "rightsPolicy",
+}
+SCREEN_FIELDS = ("startDate", "endDate", "lookbackDays", "universe", "poolSettings")
 
 
 def number(value, label, low, high, integer=False):
@@ -54,6 +91,10 @@ def number(value, label, low, high, integer=False):
     if value < low or value > high or integer and int(value) != value:
         raise ValueError(f"{label} 必须在 {low} 至 {high} 范围内" + ("且为整数" if integer else ""))
     return int(value) if integer else float(value)
+
+
+def optional_number(value, label, low, high, integer=False):
+    return None if value is None else number(value, label, low, high, integer)
 
 
 def _object(value, label, keys):
@@ -95,10 +136,7 @@ def _identifier(value):
 
 def normalize_config(raw=None):
     raw = {} if raw is None else raw
-    _object(raw, "组合回测参数", set(NUMBERS) | {
-        "startDate", "endDate", "stampDutyRate", "weighting", "rebalanceMode",
-        "strategies", "combinations", "allocation", "universe", "poolSettings", "study", "rotation", "rightsPolicy",
-    })
+    _object(raw, "组合回测参数", CONFIG_FIELDS)
     config = {key: number(raw.get(key, default), key, low, high, integer)
               for key, (default, low, high, integer) in NUMBERS.items()}
     config["startDate"] = _date(raw.get("startDate"), "开始日期")
@@ -130,7 +168,7 @@ def normalize_config(raw=None):
         if kind == "trendPullback" and params["minDrawdown"] >= params["maxDrawdown"]:
             raise ValueError("回调最低幅度必须小于最高幅度")
         config["strategies"].append({"id": ident, "kind": kind, "params": params,
-                                    "pool": _choice(item.get("pool", "base"), ("base", "trend", "structure", "volume"), "策略股票池")})
+                                    "pool": _choice(item.get("pool", "base"), tuple(POOL_LABELS), "策略股票池")})
     combinations = raw.get("combinations", [])
     if not isinstance(combinations, list) or len(combinations) > 16:
         raise ValueError("组合策略最多 16 个")
@@ -178,31 +216,78 @@ def normalize_config(raw=None):
     rotation = _object(raw.get("rotation", {}), "策略轮动", rotation_defaults)
     config["rotation"] = {key: number(rotation.get(key, default), "rotation." + key, low, high, integer)
                           for key, (default, low, high, integer) in rotation_defaults.items()}
-    universe = _object(raw.get("universe", {}), "基础资格", {"strictHistory", "excludeSt", "minListingDays", "minAmount20"})
+    universe = _object(raw.get("universe", {}), "基础资格", {"strictHistory", "excludeSt", "minListingDays", "minAmount20", "minAmplitude20"})
     config["universe"] = {
         "strictHistory": _boolean(universe.get("strictHistory", False), "严格历史资格"),
         "excludeSt": _boolean(universe.get("excludeSt", True), "剔除 ST"),
         "minListingDays": number(universe.get("minListingDays", 60), "最少上市交易日", 0, 2500, True),
         "minAmount20": number(universe.get("minAmount20", 10000000), "20 日平均成交额下限", 0, 1e13),
+        "minAmplitude20": optional_number(universe.get("minAmplitude20"), "20 日平均振幅下限", 0, 10),
     }
-    pool_settings = _object(raw.get("poolSettings", {}), "分层股票池", {"trend", "structure", "volume"})
+    pool_settings = _object(raw.get("poolSettings", {}), "分层股票池", {*FILTER_POOLS, "combined"})
     pool_defaults = {
-        "trend": {"window": (60, 2, 500, True), "minReturn": (0, -1, 10, False)},
+        "trend": {"window": (60, 2, 500, True), "minReturn": (0, -1, 10, False),
+                  "rankWindow": (40, 2, 500, True), "rankStart": (1, 1, 100000, True), "rankEnd": (500, 1, 100000, True)},
         "structure": {"window": (20, 2, 500, True), "minDrawdown": (.02, 0, .99, False), "maxDrawdown": (.25, .001, 1, False)},
         "volume": {"window": (20, 2, 500, True), "minRatio": (1.2, .01, 20, False)},
     }
+    pool_optional = {
+        "structure": {"minMa10Above20Days": (0, 20, True), "minMa5Above10Days": (0, 20, True),
+                      "maxPeakAgeDays": (0, 499, True), "maxPriceVsMa20": (0, 5, False)},
+        "volume": {"minVolumeChange20": (-1, 20, False), "minUpDownVolumeRatio": (0, 100, False),
+                   "maxDownVolumeRatio": (0, 100, False)},
+    }
+    pool_booleans = {"trend": {"rankEnabled": False}, "structure": {"requireAboveMa20": False},
+                     "volume": {"excludeBlowoff": False, "excludeDivergence": False, "excludeUpperShadow": False}}
+    pool_choices = {"structure": {"peakBasis": ("close", ("close", "high")),
+                                  "maDaysMode": ("count", ("count", "consecutive"))}}
     config["poolSettings"] = {}
     for pool, defaults in pool_defaults.items():
-        values = _object(pool_settings.get(pool, {}), pool, defaults)
+        optional, booleans, choices = pool_optional.get(pool, {}), pool_booleans.get(pool, {}), pool_choices.get(pool, {})
+        values = _object(pool_settings.get(pool, {}), pool, set(defaults) | set(optional) | set(booleans) | set(choices))
         config["poolSettings"][pool] = {key: number(values.get(key, default), pool + "." + key, low, high, integer)
                                          for key, (default, low, high, integer) in defaults.items()}
+        config["poolSettings"][pool].update({key: optional_number(values.get(key), pool + "." + key, low, high, integer)
+                                             for key, (low, high, integer) in optional.items()})
+        config["poolSettings"][pool].update({key: _boolean(values.get(key, default), pool + "." + key)
+                                             for key, default in booleans.items()})
+        config["poolSettings"][pool].update({key: _choice(values.get(key, default), options, pool + "." + key)
+                                             for key, (default, options) in choices.items()})
+    if config["poolSettings"]["trend"]["rankStart"] > config["poolSettings"]["trend"]["rankEnd"]:
+        raise ValueError("趋势池排名起点须小于或等于终点")
     if config["poolSettings"]["structure"]["minDrawdown"] >= config["poolSettings"]["structure"]["maxDrawdown"]:
         raise ValueError("结构池最低回撤须小于最高回撤")
+    structure = config["poolSettings"]["structure"]
+    if structure["maxPeakAgeDays"] is not None and structure["maxPeakAgeDays"] >= structure["window"]:
+        raise ValueError("距窗口峰值最多交易日须小于结构窗口")
+    combined = _object(pool_settings.get("combined", {}), "叠加筛选池", {"pools", "mode"})
+    selected = combined.get("pools", list(FILTER_POOLS))
+    if (not isinstance(selected, list) or any(not isinstance(pool, str) or pool not in FILTER_POOLS for pool in selected)
+            or len(selected) != len(set(selected))):
+        raise ValueError("叠加筛选池请选择不重复的趋势、结构或量能条件；空列表表示基础池")
+    config["poolSettings"]["combined"] = {
+        "pools": [pool for pool in FILTER_POOLS if pool in selected],
+        "mode": _choice(combined.get("mode", "intersection"), ("intersection", "union"), "股票池叠加方式"),
+    }
     if "study" in raw:
         if not isinstance(raw["study"], dict):
             raise ValueError("验证设置必须是对象")
         config["study"] = deepcopy(raw["study"])
     return config
+
+
+def normalize_screen_config(raw=None):
+    """Validate only pool/date inputs; unrelated editor settings never gate screening.
+
+    The fixed strategy/allocation exists solely for legacy storage/date consumers.
+    Pool screening must not evaluate it or use it for membership or ordering.
+    """
+    raw = {} if raw is None else raw
+    _object(raw, "股票池筛选参数", CONFIG_FIELDS)
+    settings = {key: deepcopy(raw[key]) for key in SCREEN_FIELDS if key in raw}
+    settings.update(strategies=[{"id": "momentum", "kind": "momentum", "pool": "base"}],
+                    combinations=[], allocation={"mode": "equal", "strategyIds": ["momentum"]})
+    return normalize_config(settings)
 
 
 def default_config():

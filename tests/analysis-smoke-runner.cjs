@@ -16,6 +16,15 @@ const fill=(group,key,value)=>evaluate(`(()=>{const el=document.querySelector('[
 const submit=type=>evaluate(`document.querySelector('[data-analysis-form="${type}"]').requestSubmit()`);
 const navigate=async page=>{await evaluate(`AT.navigate(${JSON.stringify(page)});true`);await wait(`AT.state.page===${JSON.stringify(page)}&&!!document.querySelector('[data-analysis-page="${page}"]')`,`打开${page}`);};
 async function screenshot(name){await fs.mkdir(path.join(root,'artifacts'),{recursive:true});await win.webContents.capturePage(undefined,{stayHidden:true,stayAwake:true});await new Promise(resolve=>setTimeout(resolve,130));await fs.writeFile(path.join(root,'artifacts',name),(await win.webContents.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG());}
+async function trendKlines(expectedRows,cutoff){
+  await wait(`document.querySelectorAll('.analysis-tools-table tbody tr').length===${expectedRows}&&document.querySelectorAll('.analysis-tools-table [data-stock-kline]').length===${expectedRows}`,'趋势表 K 线列');
+  await evaluate('document.querySelector(".analysis-tools-table").scrollIntoView({block:"start",behavior:"instant"});window.scrollBy({top:-110,behavior:"instant"})');
+  await wait('document.querySelector(".analysis-tools-table [data-stock-kline]")?.querySelectorAll("[data-kline-candle]").length===30','趋势首行真实30根日K');
+  const state=await evaluate(`(()=>{const table=document.querySelector('.analysis-tools-table');return {cutoff:table.dataset.stockChartDate,headings:table.querySelectorAll('[data-stock-kline-heading]').length,columns:table.tHead.rows[0].cells.length,rows:[...table.tBodies[0].rows].map(row=>{const button=row.querySelector('[data-stock-kline]');return {cells:row.cells.length,previews:row.querySelectorAll('[data-stock-kline]').length,symbol:button?.dataset.stockKline,stock:row.querySelector('[data-stock]')?.dataset.stock,date:button?.dataset.stockKlineDate,candles:[...button.querySelectorAll('[data-kline-candle]')].map(candle=>candle.dataset.klineCandle)};})};})()`);
+  assert.equal(state.cutoff,cutoff);assert.equal(state.headings,1,'重绘只保留一个日K表头');assert.equal(state.columns,9,'新增一个日K列');
+  for(const row of state.rows){assert.equal(row.cells,state.columns);assert.equal(row.previews,1,'每股只保留一个日K预览');assert.equal(row.symbol,row.stock);assert.equal(row.date,cutoff);assert.ok(row.candles.every(date=>date<=cutoff),'不显示研究截止日之后的K线');if(row.candles.length)assert.equal(row.candles.at(-1),cutoff);}
+  return state;
+}
 
 const providerFixture=String.raw`
 import io,json,re,datetime,urllib.request,urllib.parse
@@ -108,6 +117,7 @@ async function fixture(){
   const dates=[];
   for(let day=new Date('2026-05-01T00:00:00Z');day<=new Date('2026-09-30T00:00:00Z');day.setUTCDate(day.getUTCDate()+1)){if(day.getUTCDay()!==0&&day.getUTCDay()!==6)dates.push(day.toISOString().slice(0,10));}
   const entries={sh:[['600900','POWER FIXTURE'],['600001','MISSING CAP'],['881001','SECTOR ONE'],['881002','SECTOR TWO'],['881003','SECTOR THREE'],['881004','SECTOR FOUR'],['881005','SECTOR FIVE']],sz:[['000001','BANK FIXTURE']]};
+  entries.sh.push(...Array.from({length:21},(_,index)=>[String(603000+index),`PAGING FIXTURE ${index+1}`]));
   for(const [market,rows]of Object.entries(entries)){
     await fs.mkdir(path.join(fixtureDirectory,'vipdoc',market,'lday'),{recursive:true});
     const tnf=Buffer.alloc(50+rows.length*360);
@@ -115,7 +125,7 @@ async function fixture(){
       tnf.write(code,50+position*360,'ascii');tnf.write(name,50+position*360+31,'ascii');
       const bytes=Buffer.alloc(dates.length*32);let close=1000;
       for(let i=0;i<dates.length;i++){
-        const previous=close;let rate=code==='000001'?-.001:.004;
+        const previous=close;let rate=code==='000001'||code.startsWith('603')?-.001:.004;
         if(code==='600900'){if([dates.length-6,dates.length-5,dates.length-2].includes(i))rate=.10;else if(i===dates.length-4)rate=-.02;}
         if(code==='600001'&&i>=dates.length-3)rate=.10;
         close=Math.round(close*(1+rate));const at=i*32,volume=i>=dates.length-2?350000:100000;
@@ -142,7 +152,7 @@ app.whenReady().then(async()=>{
   await wait('!!AT.analysisTools','分析工具加载');
   if(phase==='write'){
     const configured=await evaluate(`atradeDesktop.market('market.configure',{path:${JSON.stringify(fixtureDirectory)}})`);assert.equal(configured.ok,true,configured.error);
-    const scanned=await evaluate("atradeDesktop.market('market.scan')");assert.equal(scanned.ok,true,scanned.error);assert.equal(scanned.data.symbolCount,4);
+    const scanned=await evaluate("atradeDesktop.market('market.scan')");assert.equal(scanned.ok,true,scanned.error);assert.equal(scanned.data.symbolCount,25);
     await evaluate('AT.marketUI.refresh()');
     await navigate('T01');await wait('document.querySelector(".analysis-tools-metrics").innerText.includes("2026-09-30")','本地研究概览');
     assert.doesNotMatch(await evaluate('document.querySelector("main").innerText'),/示例候选|合成样本|参数均为演示值/);await screenshot('analysis-overview.png');
@@ -153,6 +163,30 @@ app.whenReady().then(async()=>{
     await wait('document.querySelectorAll("[data-funds-activity-line]").length===2','龙头候选成交额走势');
     assert.equal(await evaluate('document.querySelector("[data-funds-activity-panel]").dataset.activityKind'),'stock');
     assert.match(await evaluate('document.querySelector("[data-funds-activity-panel]").innerText'),/不能表示主力净流入/);
+    await trendKlines(2,'2026-09-30');
+    const defaultOrder=await evaluate('[...document.querySelectorAll(".analysis-tools-table tbody [data-stock]")].map(button=>button.dataset.stock)');
+    await click('[data-analysis-sort="return60"]');await wait('document.querySelector(".analysis-tools-col-return60[aria-sort=ascending]")','趋势升序');await trendKlines(2,'2026-09-30');
+    assert.notDeepEqual(await evaluate('[...document.querySelectorAll(".analysis-tools-table tbody [data-stock]")].map(button=>button.dataset.stock)'),defaultOrder);
+    await click('[data-analysis-sort="return60"]');await wait('document.querySelector(".analysis-tools-col-return60[aria-sort=descending]")','趋势降序');await trendKlines(2,'2026-09-30');
+    await click('[data-analysis-sort="return60"]');await wait('!document.querySelector("[data-analysis-action=sort-reset]")','趋势复原排序');await trendKlines(2,'2026-09-30');
+    await fill('trends','minReturn20','-100');await fill('trends','minReturn60','-100');
+    await click('[data-analysis-chip="requireAboveMA20"]');await click('[data-analysis-chip="requireAboveMA60"]');await submit('research');
+    await trendKlines(20,'2026-09-30');
+    const firstPage=await evaluate('[...document.querySelectorAll(".analysis-tools-table tbody [data-stock]")].map(button=>button.dataset.stock)');
+    await click('[data-analysis-action="research-next"]');await trendKlines(4,'2026-09-30');
+    assert.equal(await evaluate('document.querySelector("[data-analysis-action=research-next]").disabled'),true);
+    const secondPage=await evaluate('[...document.querySelectorAll(".analysis-tools-table tbody [data-stock]")].map(button=>button.dataset.stock)');
+    assert.ok(secondPage.every(symbol=>!firstPage.includes(symbol)),'翻页读取不同股票');
+    await click('[data-analysis-action="research-previous"]');await trendKlines(20,'2026-09-30');
+    await fill('trends','minReturn20','0');await fill('trends','minReturn60','0');
+    await click('[data-analysis-chip="requireAboveMA20"]');await click('[data-analysis-chip="requireAboveMA60"]');await submit('research');
+    await trendKlines(2,'2026-09-30');
+    const trendDay=(await fs.readFile(path.join(directory,'event-date'),'utf8')).trim();
+    await fill('research','asOf',trendDay);await click('[data-analysis-action="apply-research"]');
+    await wait(`document.querySelector('.analysis-tools-table')?.dataset.stockChartDate===${JSON.stringify(trendDay)}`,'趋势历史截止日');await trendKlines(2,trendDay);
+    await wait('[...document.querySelectorAll(".analysis-tools-table [data-stock-kline]")].every(button=>button.querySelectorAll("[data-kline-candle]").length===30)','两只趋势股票K线全部加载');await screenshot('analysis-trends-kline.png');
+    await click('.analysis-tools-table [data-stock-kline]');await wait(`AT.state.page==='G01'&&document.querySelector('[data-market-date]')?.value===${JSON.stringify(trendDay)}`,'表格K线点击定位历史日');
+    await navigate('T04');await click('[data-analysis-action="latest"]');await wait('document.querySelector(".analysis-tools-table")?.dataset.stockChartDate==="2026-09-30"','趋势返回最新日');
 
     await navigate('T06');await wait('document.querySelectorAll("[data-regulatory-row]").length===3','监管来源名单');
     assert.doesNotMatch(await evaluate('document.querySelector("main").innerText'),/ORDINARY EXCLUDED|放量触发|涨跌幅触发/);

@@ -14,7 +14,7 @@ from statistics import stdev
 
 from service.strategies import (FORCE_VERSION, FORCE_WARMUP, evaluate,
                                prepare_bars, _force_state, _positive_ratio, _ratio_score)
-from service.portfolio_config import catalogue, normalize_config
+from service.portfolio_config import POOL_LABELS, catalogue, normalize_config, normalize_screen_config
 
 SCORER_VERSION = "portfolio-causal-reference-adjusted-midrank-v2"
 KINDS = {s["id"] for s in catalogue()} | {"forcePurpleToYellow"}
@@ -31,6 +31,50 @@ def _valid_day(value):
 
 def _finite(value, positive=False):
     return type(value) in (int, float) and math.isfinite(value) and (value > 0 if positive else value >= 0)
+
+
+def _same_ma_price(left, right):
+    # Prefix-sum subtraction can leave roundoff on mathematically equal MAs.
+    return math.isclose(left, right, rel_tol=1e-12, abs_tol=1e-12)
+
+
+def _ma_above(left, right):
+    return left > right and not _same_ma_price(left, right)
+
+
+def _condition(key, label, actual, operator, threshold, unit="", *, enabled=True, stable_gt=False):
+    if not enabled:
+        passed = True
+    elif actual is None or threshold is None:
+        passed = None
+    elif operator == ">":
+        passed = _ma_above(actual, threshold) if stable_gt else actual > threshold
+    elif operator == ">=":
+        passed = actual >= threshold
+    elif operator == "<=":
+        passed = actual <= threshold
+    elif operator == "<":
+        passed = actual < threshold
+    elif operator == "between":
+        passed = threshold[0] <= actual <= threshold[1]
+    else:
+        passed = actual == threshold
+    return {"key": key, "label": label, "actual": actual, "operator": operator,
+            "threshold": threshold, "unit": unit, "enabled": enabled, "required": enabled, "passed": passed,
+            "status": "unknown" if passed is None else "pass" if passed else "fail"}
+
+
+def _combine_conditions(values, mode="intersection"):
+    if mode == "intersection":
+        return False if False in values else None if None in values else True
+    return True if True in values else None if None in values else False
+
+
+def _pool_evidence(conditions, *, mode="intersection", passed=None):
+    if passed is None:
+        passed = _combine_conditions([item["passed"] for item in conditions], mode)
+    return {"status": "unknown" if passed is None else "pass" if passed else "fail",
+            "passed": passed, "inPool": passed is True, "conditions": conditions}
 
 
 def rank_normalize(rows):
@@ -181,18 +225,19 @@ class _Series:
 
 
 class DailyScorer:
-    def __init__(self, dataset, config, *, _prepared=None):
-        self.dataset, self.config = dataset, normalize_config(config)
-        self.strategies = list(self.config.get("strategies", []))
-        self.combinations = list(self.config.get("combinations", []))
-        defaults = {s["id"]: {p["key"]: p["default"] for p in s["parameters"]} for s in catalogue()}
+    def __init__(self, dataset, config, *, _prepared=None, pools_only=False):
+        self.pools_only = pools_only
+        self.dataset, self.config = dataset, (normalize_screen_config(config) if pools_only else normalize_config(config))
+        self.strategies = [] if pools_only else list(self.config.get("strategies", []))
+        self.combinations = [] if pools_only else list(self.config.get("combinations", []))
+        defaults = {} if pools_only else {s["id"]: {p["key"]: p["default"] for p in s["parameters"]} for s in catalogue()}
         self.nodes, self.order = {}, []
         for strategy in self.strategies:
             sid, kind = strategy.get("id"), strategy.get("kind")
             if not isinstance(sid, str) or not sid or sid in self.nodes or kind not in KINDS:
                 raise ValueError("策略 ID 或类型无效")
             node = {**strategy, "params": {**defaults[kind], **strategy.get("params", {})}, "pool": strategy.get("pool", "base")}
-            if node["pool"] not in {"base", "trend", "structure", "volume"}:
+            if node["pool"] not in POOL_LABELS:
                 raise ValueError("策略入口池无效")
             self.nodes[sid] = node
             self.order.append(sid)
@@ -232,7 +277,7 @@ class DailyScorer:
             self.order.append(sid)
         for combination in self.combinations:
             visit(combination["id"])
-        if not self.strategies:
+        if not self.strategies and not pools_only:
             raise ValueError("至少配置一个单策略")
         need_force = any(s["kind"] in FORCE_KINDS for s in self.strategies)
         self.series, self.load_errors = {}, {}
@@ -249,12 +294,15 @@ class DailyScorer:
                       **self.config.get("universe", {})}
         self.pool_settings = {"trend": {"window": 60, "minReturn": 0},
                               "structure": {"window": 20, "minDrawdown": .02, "maxDrawdown": .25},
-                              "volume": {"window": 20, "minRatio": 1.2}}
+                              "volume": {"window": 20, "minRatio": 1.2},
+                              "combined": {"pools": ["trend", "structure", "volume"], "mode": "intersection"}}
         for key, settings in self.config.get("poolSettings", {}).items():
             if key in self.pool_settings:
                 self.pool_settings[key].update(settings)
         benchmark = dataset.get("benchmark")
-        if _prepared is not None:
+        if pools_only:
+            self.benchmark = None
+        elif _prepared is not None:
             self.benchmark = _prepared.benchmark
         elif isinstance(benchmark, dict) and benchmark.get("bars"):
             # An index only needs closes for regime recognition. These defaults
@@ -265,13 +313,35 @@ class DailyScorer:
             self.benchmark = None
         self._last_date, self._last_result = None, None
 
-    def _eligibility(self, series, day, index, members=None):
+    def _base_values(self, series, day, index, members=None, *, evidence=False):
         security = series.security
-        unknown = []
         member = security.get("memberHistory", security.get("memberByDate", {})).get(day)
         if members is not None:
             member = security["symbol"] in members
         listing = security.get("listingDate")
+        status = security.get("tradeStatusByDate", {}).get(day)
+        status = {"0": 0, "1": 1}.get(status, status) if isinstance(status, str) else status
+        observed = series.offset + index + 1 if index is not None else None
+        if listing and observed is not None:
+            # Calendar days only cap the observed-history count; this is not a
+            # claim that missing historical observations are exchange sessions.
+            observed = min(observed, (dt.date.fromisoformat(day) - dt.date.fromisoformat(listing)).days + 1)
+        amplitude = None
+        if index is not None and index >= 19 and (evidence or self.rules.get("minAmplitude20") is not None):
+            amplitude = sum((bar["high"] - bar["low"]) / bar["close"]
+                            for bar in series.signal_bars[index - 19:index + 1]) / 20
+        return {"member": member, "listing": listing, "status": status,
+                "historicalSt": security.get("stByDate", security.get("stHistory", {})).get(day),
+                "observedDays": observed,
+                "volume": series.bars[index]["volume"] if index is not None else None,
+                "amount20": series.mean("amount", index - 19, index + 1) if index is not None and index >= 19 else None,
+                "amplitude20": amplitude}
+
+    def _eligibility(self, series, day, index, members=None, *, values=None):
+        security = series.security
+        values = self._base_values(series, day, index, members) if values is None else values
+        member, listing = values["member"], values["listing"]
+        unknown = []
         if security.get("delistDate") and day >= security["delistDate"]:
             return {"eligible": False, "reason": "delisted", "unknown": []}
         if member is False:
@@ -281,7 +351,7 @@ class DailyScorer:
         if index is None:
             first = security.get("historyWindow", {}).get("sourceFirstDate") or (series.dates[0] if series.dates else None)
             return {"eligible": False, "reason": "notObservedYet" if first and day < first else "missingDailyBar", "unknown": []}
-        historical_st = security.get("stByDate", security.get("stHistory", {})).get(day)
+        historical_st = values["historicalSt"]
         if type(historical_st) is not bool:
             unknown.append("historicalSt")
         if type(member) is not bool:
@@ -296,47 +366,209 @@ class DailyScorer:
             return {"eligible": False, "reason": "notListed", "unknown": unknown}
         if self.rules["excludeSt"] and historical_st is True:
             return {"eligible": False, "reason": "historicalSt", "unknown": unknown}
-        status = security.get("tradeStatusByDate", {}).get(day)
-        status = {"0": 0, "1": 1}.get(status, status) if isinstance(status, str) else status
-        if status == 0 or series.bars[index]["volume"] <= 0:
+        status = values["status"]
+        if status == 0 or values["volume"] <= 0:
             return {"eligible": False, "reason": "suspendedOrZeroVolume", "unknown": unknown}
         if status not in (0, 1):
             unknown.append("historicalTradeStatus")
             if self.rules["strictHistory"]:
                 return {"eligible": False, "reason": "strictHistoryMissing", "unknown": unknown}
-        observed = series.offset + index + 1
-        if listing:
-            # Calendar days form an upper bound: never let recent listing pass
-            # merely because a malformed snapshot contains earlier observations.
-            observed = min(observed, (dt.date.fromisoformat(day) - dt.date.fromisoformat(listing)).days + 1)
+        observed = values["observedDays"]
         if observed < self.rules["minListingDays"]:
             return {"eligible": False, "reason": "insufficientListingHistory", "unknown": unknown, "observedDays": observed}
-        average = series.mean("amount", index - 19, index + 1) if index >= 19 else None
+        average = values["amount20"]
         if self.rules["minAmount20"] > 0 and (average is None or average < self.rules["minAmount20"]):
             return {"eligible": False, "reason": "amount20BelowMinimum", "unknown": unknown, "amount20": average}
+        minimum_amplitude = self.rules.get("minAmplitude20")
+        if minimum_amplitude is not None and (values["amplitude20"] is None or values["amplitude20"] < minimum_amplitude):
+            return {"eligible": False, "reason": "amplitude20BelowMinimum", "unknown": unknown, "amplitude20": values["amplitude20"]}
         return {"eligible": True, "reason": "eligible", "unknown": unknown, "observedDays": observed, "amount20": average,
                 "listingAgeBasis": "observed-history-lower-bound"}
 
-    def _pools(self, series, index):
-        result = {"base": True, "trend": False, "structure": False, "volume": False}
-        close = series.signal_bars[index]["close"]
+    def _base_evidence(self, series, day, index, state, values):
+        security = series.security
+        known_st = values["historicalSt"] if type(values["historicalSt"]) is bool else None
+        member = values["member"] if type(values["member"]) is bool else None
+        status = values["status"] if values["status"] in (0, 1) else None
+        conditions = [
+            _condition("dailyBar", "截止日有有效日线", index is not None, "==", True),
+            _condition("notDelisted", "未到已知退市日", not security.get("delistDate") or day < security["delistDate"], "==", True),
+            _condition("historicalMember", "属于当日历史股票池", member, "==", True),
+            _condition("listingDate", "上市日期不晚于截止日", values["listing"], "<=", day, "date"),
+            _condition("historicalSt", "剔除已知历史 ST", known_st, "==", False, enabled=self.rules["excludeSt"]),
+            _condition("tradeStatus", "当日可交易状态", status, "==", 1),
+            _condition("positiveVolume", "当日成交量大于零", values["volume"], ">", 0, "股"),
+            _condition("listingDays", "已观测上市历史达到下限", values["observedDays"], ">=", self.rules["minListingDays"], "日"),
+            _condition("amount20", "20 日平均成交额达到下限", values["amount20"], ">=", self.rules["minAmount20"], "元", enabled=self.rules["minAmount20"] > 0),
+            _condition("amplitude20", "20 日平均振幅达到下限", values["amplitude20"], ">=", self.rules.get("minAmplitude20"), "ratio", enabled=self.rules.get("minAmplitude20") is not None),
+        ]
+        missing = [item["key"] for item in conditions if item["key"] in ("historicalMember", "listingDate", "historicalSt", "tradeStatus") and item["actual"] is None]
+        for item in conditions:
+            if item["key"] in missing:
+                if self.rules["strictHistory"]:
+                    item.update(required=True, passed=None, status="unknown", note="严格历史资格要求提供该历史字段。")
+                else:
+                    item.update(required=False, passed=None, status="unknown", note="历史字段缺失；未启用严格历史资格，不因此排除。")
+        conditions.append(_condition("strictHistory", "严格历史资格字段完整", len(missing), "==", 0, "项", enabled=self.rules["strictHistory"]))
+        evidence = _pool_evidence(conditions, passed=state["eligible"])
+        evidence.update(reason=state["reason"], inPool=state["eligible"], unknownFields=missing,
+                        strictHistory=self.rules["strictHistory"], listingAgeBasis="observed-history-lower-bound")
+        if (state["reason"] == "strictHistoryMissing"
+                or state["reason"] == "amount20BelowMinimum" and values["amount20"] is None
+                or state["reason"] == "amplitude20BelowMinimum" and values["amplitude20"] is None):
+            evidence.update(status="unknown", passed=None)
+        return evidence
+
+    def _pools(self, series, index, *, evidence=False, ranking=None):
+        """One set of conditions drives both membership and human-readable evidence."""
+        known = series is not None and index is not None
+        close = series.signal_bars[index]["close"] if known else None
+        details, values = {}, {}
         p = self.pool_settings["trend"]
         window = int(p["window"])
-        if index >= window:
-            average = series.mean("close", index - window + 1, index + 1)
-            previous = series.mean("close", index - window, index)
-            result["trend"] = close > average > previous and close / series.signal_bars[index - window]["close"] - 1 >= p["minReturn"]
+        ready = known and index >= window
+        average = series.mean("close", index - window + 1, index + 1) if ready else None
+        previous = series.mean("close", index - window, index) if ready else None
+        change = close / series.signal_bars[index - window]["close"] - 1 if ready else None
+        details["trend"] = _pool_evidence([
+            _condition("closeAboveAverage", "收盘价高于趋势窗口均线", close, ">", average, "元"),
+            _condition("averageRising", "趋势窗口均线高于前一日均线", average, ">", previous, "元"),
+            _condition("windowReturn", "趋势窗口涨幅达到下限", change, ">=", p["minReturn"], "ratio"),
+            _condition("returnRank", "完整基础池有效样本涨幅排名在范围内", ranking.get("rank") if ranking else None, "between",
+                       [p.get("rankStart", 1), p.get("rankEnd", 500)], "名", enabled=p.get("rankEnabled", False)),
+        ])
+        details["trend"].update(window=window, requiredObservations=window + 1,
+                                observedObservations=index + 1 if known else 0,
+                                priceBasis="causalReferenceAdjustedSignals",
+                                rankWindow=p.get("rankWindow", 40), rankUniverseCount=ranking.get("universeCount", 0) if ranking else 0,
+                                rankUnavailableCount=ranking.get("unavailableCount", 0) if ranking else 0,
+                                tiePolicy="return-desc-symbol-asc")
+        if ranking and ranking.get("note"):
+            details["trend"]["conditions"][-1]["note"] = ranking["note"]
+        values["trendReturnPct"] = change * 100 if change is not None else None
+        values["returnRank"] = ranking.get("rank") if ranking else None
+        values["rankReturnPct"] = ranking["return"] * 100 if ranking and ranking.get("return") is not None else None
         p = self.pool_settings["structure"]
         window = int(p["window"])
-        if index >= window - 1:
-            drawdown = 1 - close / series.peak("close", window, index)
-            result["structure"] = p["minDrawdown"] <= drawdown <= p["maxDrawdown"]
+        ready = known and index >= window - 1
+        peak_basis = p.get("peakBasis", "close")
+        peak = series.peak(peak_basis, window, index) if ready else None
+        drawdown = 1 - close / peak if ready else None
+        peak_age = None
+        if ready and (evidence or p.get("maxPeakAgeDays") is not None):
+            peak_index = max(range(index - window + 1, index + 1), key=lambda i: (series.signal_bars[i][peak_basis], i))
+            peak_age = index - peak_index
+        ma20 = series.mean("close", index - 19, index + 1) if known and index >= 19 else None
+        price_vs_ma20 = (0. if _same_ma_price(close, ma20) else close / ma20 - 1) if ma20 else None
+        ma_counts = [None, None]
+        if known and index >= 38 and (evidence or p.get("minMa10Above20Days") is not None or p.get("minMa5Above10Days") is not None):
+            for position, (fast, slow) in enumerate(((10, 20), (5, 10))):
+                checks = [_ma_above(series.mean("close", i-fast+1, i+1), series.mean("close", i-slow+1, i+1))
+                          for i in range(index - 19, index + 1)]
+                if p.get("maDaysMode", "count") == "consecutive":
+                    count = 0
+                    for passed in reversed(checks):
+                        if not passed:
+                            break
+                        count += 1
+                    ma_counts[position] = count
+                else:
+                    ma_counts[position] = sum(checks)
+        details["structure"] = _pool_evidence([
+            _condition("drawdown", "距窗口最高" + ("收盘价" if peak_basis == "close" else "价") + "的回撤在范围内", drawdown, "between",
+                       [p["minDrawdown"], p["maxDrawdown"]], "ratio"),
+            _condition("peakAgeDays", "所选窗口峰值距今交易日数不超过上限", peak_age, "<=", p.get("maxPeakAgeDays"), "日", enabled=p.get("maxPeakAgeDays") is not None),
+            _condition("ma10Above20Days", "MA10 严格高于 MA20 的天数达到下限", ma_counts[0], ">=", p.get("minMa10Above20Days"), "日", enabled=p.get("minMa10Above20Days") is not None),
+            _condition("ma5Above10Days", "MA5 严格高于 MA10 的天数达到下限", ma_counts[1], ">=", p.get("minMa5Above10Days"), "日", enabled=p.get("minMa5Above10Days") is not None),
+            _condition("priceAboveMa20", "收盘价严格高于 MA20", close, ">", ma20, "元", enabled=p.get("requireAboveMa20", False), stable_gt=True),
+            _condition("absPriceVsMa20", "价格相对 MA20 的绝对偏离不超过上限", abs(price_vs_ma20) if price_vs_ma20 is not None else None, "<=", p.get("maxPriceVsMa20"), "ratio", enabled=p.get("maxPriceVsMa20") is not None),
+        ])
+        details["structure"].update(window=window, requiredObservations=window,
+                                    observedObservations=index + 1 if known else 0,
+                                    peakClose=peak if peak_basis == "close" else None, peakValue=peak, peakBasis=peak_basis,
+                                    peakTiePolicy="most-recent", maDaysMode=p.get("maDaysMode", "count"), maObservationWindow=20,
+                                    maRequiredObservations=39, ma20=ma20, priceVsMa20=price_vs_ma20,
+                                    priceBasis="causalReferenceAdjustedSignals")
+        for item in details["structure"]["conditions"]:
+            if item["key"] in ("ma10Above20Days", "ma5Above10Days"):
+                item["note"] = "近 20 个交易日累计满足天数；需要完整 39 根日线。" if p.get("maDaysMode", "count") == "count" else "截至当日连续满足天数，上限 20 日；需要完整 39 根日线。"
+        values["drawdownPct"] = drawdown * 100 if drawdown is not None else None
         p = self.pool_settings["volume"]
         window = int(p["window"])
-        if index >= window:
-            previous_volume = series.mean("volume", index - window, index)
-            result["volume"] = previous_volume > 0 and series.bars[index]["volume"] / previous_volume >= p["minRatio"]
-        return result
+        ready = known and index >= window
+        previous_volume = series.mean("volume", index - window, index) if ready else None
+        volume = series.bars[index]["volume"] if known else None
+        ratio = volume / previous_volume if previous_volume else None
+        quality = {key: None for key in ("volumeChange20", "upDownVolumeRatio", "downVolumeRatio", "blowoffRisk", "divergenceRisk", "upperShadowRisk")}
+        quality_notes, counts = {}, {"upOrFlatDays": None, "downDays": None}
+        needs_quality = evidence or any(p.get(key) is not None for key in ("minVolumeChange20", "minUpDownVolumeRatio", "maxDownVolumeRatio")) or any(p.get(key, False) for key in ("excludeBlowoff", "excludeDivergence", "excludeUpperShadow"))
+        if known and needs_quality:
+            bars = series.signal_bars
+            if index >= 19:
+                sample = bars[index - 19:index + 1]
+                average_volume20 = sum(bar["volume"] for bar in sample) / 20
+                first_volume = sample[0]["volume"]
+                quality["volumeChange20"] = volume / first_volume - 1 if first_volume > 0 else None
+                if first_volume <= 0:
+                    quality_notes["volumeChange20"] = "20 日窗口首日成交量为零，首尾变化无有效分母。"
+                quality["blowoffRisk"] = any(bar["volume"] > average_volume20 * 2.5 and bar["close"] <= bar["open"] for bar in sample)
+            if index >= 20:
+                up = [bars[i]["volume"] for i in range(index-19, index+1) if bars[i]["close"] >= bars[i-1]["close"]]
+                down = [bars[i]["volume"] for i in range(index-19, index+1) if bars[i]["close"] < bars[i-1]["close"]]
+                counts = {"upOrFlatDays": len(up), "downDays": len(down)}
+                mean_up = sum(up) / len(up) if up else None
+                mean_down = sum(down) / len(down) if down else None
+                quality["upDownVolumeRatio"] = mean_up / mean_down if mean_up is not None and mean_down is not None and mean_down > 0 else None
+                quality["downVolumeRatio"] = mean_down / average_volume20 if mean_down is not None and average_volume20 > 0 else None
+                if not down:
+                    quality_notes["upDownVolumeRatio"] = quality_notes["downVolumeRatio"] = "近 20 个交易日无下跌日；下跌日平均成交量未知，不填造量比。"
+                elif not up:
+                    quality_notes["upDownVolumeRatio"] = "近 20 个交易日无上涨或平盘日；上涨日平均成交量未知。"
+                elif mean_down <= 0:
+                    quality_notes["upDownVolumeRatio"] = "下跌日平均成交量为零，上涨/下跌量比无有效分母。"
+                if average_volume20 <= 0:
+                    quality_notes["downVolumeRatio"] = "20 日平均成交量为零，下跌日量比无有效分母。"
+            if index >= 9:
+                recent = sum(bar["volume"] for bar in bars[index-4:index+1]) / 5
+                earlier = sum(bar["volume"] for bar in bars[index-9:index-4]) / 5
+                quality["divergenceRisk"] = bars[index]["close"] > bars[index-5]["close"] and recent < earlier * .9
+            if index >= 4:
+                quality["upperShadowRisk"] = any(
+                    bar["high"] > bar["low"] and (bar["high"] - max(bar["open"], bar["close"])) / (bar["high"] - bar["low"]) > .5
+                    and bar["close"] <= bar["open"] for bar in bars[index-4:index+1])
+        details["volume"] = _pool_evidence([
+            _condition("previousMeanPositive", "此前窗口平均成交量大于零", previous_volume, ">", 0, "股"),
+            _condition("volumeRatio", "当日成交量与此前均量之比达到下限", ratio, ">=", p["minRatio"], "倍"),
+            _condition("volumeChange20", "20 日窗口首尾成交量变化达到下限", quality["volumeChange20"], ">=", p.get("minVolumeChange20"), "ratio", enabled=p.get("minVolumeChange20") is not None),
+            _condition("upDownVolumeRatio", "上涨或平盘日均量与下跌日均量之比达到下限", quality["upDownVolumeRatio"], ">=", p.get("minUpDownVolumeRatio"), "倍", enabled=p.get("minUpDownVolumeRatio") is not None),
+            _condition("downVolumeRatio", "下跌日均量与全 20 日均量之比不超过上限", quality["downVolumeRatio"], "<=", p.get("maxDownVolumeRatio"), "倍", enabled=p.get("maxDownVolumeRatio") is not None),
+            _condition("blowoffRisk", "排除近 20 日放量收阴或平盘风险", quality["blowoffRisk"], "==", False, enabled=p.get("excludeBlowoff", False)),
+            _condition("divergenceRisk", "排除价格上涨而近 5 日均量明显下降", quality["divergenceRisk"], "==", False, enabled=p.get("excludeDivergence", False)),
+            _condition("upperShadowRisk", "排除近 5 日长上影且收阴或平盘风险", quality["upperShadowRisk"], "==", False, enabled=p.get("excludeUpperShadow", False)),
+        ])
+        required = {"volumeChange20": 20, "upDownVolumeRatio": 21, "downVolumeRatio": 21,
+                    "blowoffRisk": 20, "divergenceRisk": 10, "upperShadowRisk": 5}
+        for item in details["volume"]["conditions"]:
+            if item["key"] in required:
+                item["requiredObservations"] = required[item["key"]]
+                if item["key"] in quality_notes:
+                    item["note"] = quality_notes[item["key"]]
+                elif item["actual"] is None:
+                    item["note"] = f"至少需要 {required[item['key']]} 根完整日线。"
+        details["volume"].update(window=window, requiredObservations=window + 1,
+                                 observedObservations=index + 1 if known else 0,
+                                 volume=volume, previousMeanVolume=previous_volume, **counts)
+        values["volumeRatio"] = ratio
+        combined = self.pool_settings["combined"]
+        selected = combined["pools"]
+        details["combined"] = _pool_evidence([
+            _condition(key, POOL_LABELS[key] + "条件通过", details[key]["passed"], "==", True)
+            for key in selected], mode=combined["mode"])
+        if not selected:
+            details["combined"] = _pool_evidence([], passed=True)
+        details["combined"].update(mode=combined["mode"], pools=selected[:])
+        result = {"base": True, **{key: item["passed"] is True for key, item in details.items()}}
+        return (result, details, values) if evidence else result
 
     def _signal(self, series, index, node):
         kind, params = node["kind"], node["params"]
@@ -389,27 +621,97 @@ class DailyScorer:
                 "annualizedVolatility20": volatility, "ma60": ma, "close": close,
                 "affectsWeights": False, "source": series.security.get("source", "supplied-real-index")}
 
-    def daily(self, day):
+    def _qualified_universe(self, day, *, evidence=False):
         _valid_day(day)
-        if day == self._last_date:
-            return copy.deepcopy(self._last_result)
-        base, pools = {}, {key: [] for key in ("base", "trend", "structure", "volume")}
-        indices, by_pool, unknown = {}, {}, Counter()
+        base, pools = {}, {key: [] for key in POOL_LABELS}
+        indices, by_pool, unknown, base_values = {}, {}, Counter(), {}
+        evidence_by_symbol, values_by_symbol = {}, {}
         members = self.dataset.get("membershipByDate", {}).get(day)
         members = set(members) if isinstance(members, (list, tuple, set)) else None
         for symbol in sorted(self.series):
             series = self.series[symbol]
             index = series.by_date.get(day)
             indices[symbol] = index
-            base[symbol] = self._eligibility(series, day, index, members)
+            values = self._base_values(series, day, index, members, evidence=evidence)
+            base_values[symbol] = values
+            base[symbol] = self._eligibility(series, day, index, members, values=values)
             unknown.update(base[symbol]["unknown"])
+        # Rank the complete eligible cross-section before applying any trend,
+        # structure or volume conditions. Pagination never enters this path.
+        rank_settings = self.pool_settings["trend"]
+        rank_window = rank_settings.get("rankWindow", 40)
+        ranked = []
+        if evidence or rank_settings.get("rankEnabled", False):
+            for symbol, state in base.items():
+                index = indices[symbol]
+                if state["eligible"] and index is not None and index >= rank_window:
+                    bars = self.series[symbol].signal_bars
+                    ranked.append((symbol, bars[index]["close"] / bars[index-rank_window]["close"] - 1))
+            ranked.sort(key=lambda item: (-item[1], item[0]))
+        ranks = {symbol: {"rank": position + 1, "return": change} for position, (symbol, change) in enumerate(ranked)}
+        unavailable = sum(state["eligible"] for state in base.values()) - len(ranked)
+        for symbol, state in base.items():
+            series, index, values = self.series[symbol], indices[symbol], base_values[symbol]
+            rank = {**ranks.get(symbol, {}), "universeCount": len(ranked), "unavailableCount": unavailable}
+            if symbol not in ranks:
+                rank["note"] = "基础资格未通过，不参与排名。" if not state["eligible"] else f"排名需要 {rank_window + 1} 根完整日线；该股不计入有效排名分母。"
+            if evidence:
+                flags, details, metrics = self._pools(series, index, evidence=True, ranking=rank)
+                details["base"] = self._base_evidence(series, day, index, base[symbol], values)
+                for item in details.values():
+                    item["inPool"] = base[symbol]["eligible"] and item["passed"] is True
+                    item["baseEligible"] = base[symbol]["eligible"]
+                evidence_by_symbol[symbol] = details
+                values_by_symbol[symbol] = {**metrics, "amount20": values["amount20"], "amplitude20": values["amplitude20"]}
+                by_pool[symbol] = flags
+            elif base[symbol]["eligible"]:
+                by_pool[symbol] = self._pools(series, index, ranking=rank)
             if base[symbol]["eligible"]:
-                by_pool[symbol] = self._pools(series, index)
                 for key, passed in by_pool[symbol].items():
                     if passed:
                         pools[key].append(symbol)
         for symbol, error in self.load_errors.items():
             base[symbol] = {"eligible": False, "reason": "invalidHistory", "unknown": [], "detail": error}
+            if evidence:
+                _, details, metrics = self._pools(None, None, evidence=True, ranking={
+                    "universeCount": len(ranked), "unavailableCount": unavailable,
+                    "note": "原始日线无效，不参与排名。"})
+                details["base"] = {"status": "unknown", "passed": None, "conditions": [], "reason": "invalidHistory"}
+                for item in details.values():
+                    item.update(inPool=False, baseEligible=False)
+                evidence_by_symbol[symbol] = details
+                values_by_symbol[symbol] = {**metrics, "amount20": None, "amplitude20": None}
+        coverage = {"totalSecurities": len(base), "eligibleSecurities": len(pools["base"]),
+                    "reasons": dict(Counter(v["reason"] for v in base.values())),
+                    "unknownHistoricalFields": dict(unknown), "failedSecurities": copy.deepcopy(self.load_errors),
+                    "sourceCoverage": copy.deepcopy(self.dataset.get("universeCoverage", {})),
+                    "normalization": "same-day-full-eligible-signal-midrank/n", "batchTruncation": False,
+                    "strictHistory": self.rules["strictHistory"],
+                    "pointInTimeComplete": self.dataset.get("dataQuality", {}).get("pointInTimeComplete") is True and not unknown and not self.load_errors,
+                    "qualityReasons": list(self.dataset.get("dataQuality", {}).get("reasons", [])) + (["historical-fields-unknown"] if unknown else [])}
+        if evidence or rank_settings.get("rankEnabled", False):
+            coverage["returnRanking"] = {"window": rank_window, "enabled": rank_settings.get("rankEnabled", False),
+                "rankedCount": len(ranked), "unavailableCount": unavailable,
+                "basis": "base-eligible-complete-return-window", "tiePolicy": "return-desc-symbol-asc"}
+        return {"indices": indices, "byPool": by_pool, "eligibilityBySymbol": base, "pools": pools,
+                "coverage": coverage, "poolEvidenceBySymbol": evidence_by_symbol, "poolValuesBySymbol": values_by_symbol}
+
+    def screen(self, day):
+        """Pool conditions only: no strategy evaluation, score, or regime."""
+        qualified = self._qualified_universe(day, evidence=True)
+        qualified["coverage"]["normalization"] = "none-pool-conditions-only"
+        return {"date": day, **{key: qualified[key] for key in
+                ("eligibilityBySymbol", "pools", "coverage", "poolEvidenceBySymbol", "poolValuesBySymbol")}}
+
+    def daily(self, day):
+        if self.pools_only:
+            raise ValueError("股票池筛选实例不运行策略评分")
+        _valid_day(day)
+        if day == self._last_date:
+            return copy.deepcopy(self._last_result)
+        universe = self._qualified_universe(day)
+        base, pools = universe["eligibilityBySymbol"], universe["pools"]
+        indices, by_pool = universe["indices"], universe["byPool"]
         strategies, eligibility = {}, {}
         for sid in self.order:
             node = self.nodes[sid]
@@ -448,16 +750,9 @@ class DailyScorer:
                                                        "matched": symbol in child_rows[c["id"]]} for c in children]}})
             strategies[sid] = rank_normalize(candidates)
             eligibility[sid] = states
-        reasons = dict(Counter(v["reason"] for v in base.values()))
         result = {"date": day, "version": SCORER_VERSION, "strategies": strategies,
                   "eligibilityBySymbol": base, "strategyEligibility": eligibility, "pools": pools,
-                  "coverage": {"totalSecurities": len(base), "eligibleSecurities": len(pools["base"]), "reasons": reasons,
-                               "unknownHistoricalFields": dict(unknown), "failedSecurities": copy.deepcopy(self.load_errors),
-                               "sourceCoverage": copy.deepcopy(self.dataset.get("universeCoverage", {})),
-                               "normalization": "same-day-full-eligible-signal-midrank/n", "batchTruncation": False,
-                               "strictHistory": self.rules["strictHistory"],
-                               "pointInTimeComplete": self.dataset.get("dataQuality", {}).get("pointInTimeComplete") is True and not unknown and not self.load_errors,
-                               "qualityReasons": list(self.dataset.get("dataQuality", {}).get("reasons", [])) + (["historical-fields-unknown"] if unknown else [])},
+                  "coverage": universe["coverage"],
                   "regime": self._regime(day)}
         self._last_date, self._last_result = day, result
         return copy.deepcopy(result)

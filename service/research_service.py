@@ -28,7 +28,8 @@ MAX_SYMBOLS = 50
 MAX_BARS = 150000
 MAX_WORKERS = 2
 ACTIVE = {"queued", "running", "pausing", "stopping"}
-PORTFOLIO_KINDS = {"portfolio", "comparison", "walkForward", "systemPlateau", "poolPreview"}
+PORTFOLIO_KINDS = {"portfolio", "comparison", "walkForward", "systemPlateau", "poolPreview",
+                   "singleBacktest", "singlePlateau", "frozenValidation"}
 
 
 def _now():
@@ -65,7 +66,7 @@ def _version():
     for name in ("backtest_engine.py", "strategies.py", "plateau.py", "research_service.py",
                  "portfolio_config.py", "portfolio_universe.py", "portfolio_signals.py",
                  "portfolio_engine.py", "portfolio_study.py", "portfolio_rotation.py",
-                 "portfolio_experiment.py", "portfolio_history.py", "portfolio_actions.py", "portfolio_regions.py", "portfolio_continuous.py", "portfolio_prepared.py", "portfolio_screen.py", "research_names.py"):
+                 "portfolio_experiment.py", "portfolio_history.py", "portfolio_actions.py", "portfolio_regions.py", "portfolio_continuous.py", "portfolio_prepared.py", "portfolio_screen.py", "research_names.py", "research_pipeline.py", "portfolio_pool_styles.py"):
         digest.update(name.encode())
         digest.update((Path(__file__).parent / name).read_bytes())
     return digest.hexdigest()
@@ -144,6 +145,9 @@ class ResearchService:
                     job_id TEXT NOT NULL, family TEXT NOT NULL, start_date TEXT NOT NULL, end_date TEXT NOT NULL,
                     config_signature TEXT NOT NULL, fingerprint TEXT NOT NULL,
                     PRIMARY KEY(job_id,start_date,end_date));
+                CREATE TABLE IF NOT EXISTS research_freezes (id TEXT PRIMARY KEY, signature TEXT UNIQUE NOT NULL, record TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS development_usage (
+                    job_id TEXT PRIMARY KEY, family TEXT NOT NULL, start_date TEXT NOT NULL, end_date TEXT NOT NULL);
             """)
             for row in db.execute("SELECT id,meta FROM jobs").fetchall():
                 meta = json.loads(row["meta"])
@@ -179,6 +183,7 @@ class ResearchService:
                   "research.update": lambda: self.update(payload),
                   "research.delete": lambda: self.delete(payload),
                   "research.control": lambda: self.control(payload)}
+        routes.update({"research.freeze": lambda: self.freeze(payload), "research.freezes": self.freezes})
         routes.update({"research.history.status": self.history_status,
                        "research.history.import": lambda: self.import_history(payload),
                        "research.history.importFile": lambda: self.import_history_file(payload),
@@ -192,7 +197,12 @@ class ResearchService:
                 "limits": {"maxSymbols": MAX_SYMBOLS, "maxCombinations": 125, "workers": self.workers},
                 "portfolio": {"version": portfolio_config.CONFIG_VERSION,
                     "strategies": portfolio_config.catalogue(), "defaults": portfolio_config.default_config(),
+                    "pools": portfolio_config.pool_catalogue(),
                     "selection": portfolio_config.normalize_selection(),
+                    "poolStyles": portfolio_config.pool_style_catalogue(),
+                    "singleExperimentDefaults": {"axes": [], "minNeighborPositiveFraction": .7,
+                        "minNeighborhoodSize": 3, "maxNeighborhoodStdPct": 10, "minClosedTrades": 3, "maxDrawdownPct": 30},
+                    "singleExperimentLimits": {"maxAxes": 3, "maxValuesPerAxis": 5, "maxTrials": 27},
                     "historySources": self.history_status()["sources"],
                     "experimentDefaults": {"trainDays": 140, "testDays": 39, "stepDays": 39,
                         "capitalMode": "independent",
@@ -250,7 +260,7 @@ class ResearchService:
             tasks = []
             for row in db.execute("SELECT meta,dataset_id,result IS NULL AS unstarted FROM jobs"):
                 meta = json.loads(row["meta"])
-                meta["configEditable"] = bool(row["unstarted"] and row["dataset_id"].startswith("pending-")
+                meta["configEditable"] = bool(meta["kind"] != "frozenValidation" and row["unstarted"] and row["dataset_id"].startswith("pending-")
                     and meta["status"] in ("queued", "paused") and meta["id"] not in self.inflight)
                 tasks.append(meta)
         tasks = [t for t in tasks if (status == "all" or t["status"] == status) and (not query or query.lower() in
@@ -263,9 +273,12 @@ class ResearchService:
         if meta["kind"] == "poolPreview":
             from service.portfolio_screen import PortfolioScreen
             return PortfolioScreen(dataset, meta["config"], state=state)
-        if meta["kind"] == "portfolio":
+        if meta["kind"] in ("portfolio", "singleBacktest", "frozenValidation"):
             from service.portfolio_engine import PortfolioEngine
             return PortfolioEngine(dataset, meta["config"], state=state)
+        if meta["kind"] == "singlePlateau":
+            from service.research_pipeline import SinglePlateau
+            return SinglePlateau(dataset, meta["config"], meta["experiment"], state=state)
         if meta["kind"] == "comparison":
             from service.portfolio_study import PortfolioStudy
             return PortfolioStudy(dataset, meta["config"], state=state)
@@ -282,7 +295,8 @@ class ResearchService:
             raise ValueError("不支持的研究类型")
         name = payload.get("name") or {"plateau": "收益平原研究", "backtest": "日线组合回测",
                                       "portfolio": "股票池组合回测", "comparison": "多策略比较与持续性检验",
-                                      "walkForward": "滚动样本外验证", "systemPlateau": "全系统收益平原", "poolPreview": "股票池筛选预览"}[kind]
+                                      "walkForward": "滚动样本外验证", "systemPlateau": "全系统收益平原", "poolPreview": "股票池筛选预览",
+                                      "singleBacktest": "单策略固定参数回测", "singlePlateau": "关键参数平原", "frozenValidation": "冻结方案新时段验证"}[kind]
         if not isinstance(name, str) or len(name.strip()) > 100:
             raise ValueError("研究名称最多 100 字")
         request_id = payload.get("requestId")
@@ -293,6 +307,8 @@ class ResearchService:
                 old = db.execute("SELECT meta FROM jobs WHERE request_id=?", (request_id,)).fetchone()
                 if old:
                     return json.loads(old[0])
+        if kind == "frozenValidation":
+            return self._create_validation(payload, name.strip(), request_id)
         if kind in PORTFOLIO_KINDS:
             return self._create_portfolio(payload, kind, name.strip(), request_id)
         config = normalize_config(payload.get("config", {}))
@@ -315,7 +331,95 @@ class ResearchService:
         self.wake.set()
         return meta
 
-    def _create_portfolio(self, payload, kind, name, request_id):
+    def freezes(self):
+        with self.lock, self._db() as db:
+            records = [json.loads(row[0]) for row in db.execute("SELECT record FROM research_freezes")]
+        for item in records:
+            item["versionCompatible"] = item["codeVersion"] == self.version
+        return {"freezes": sorted(records, key=lambda item: (item["createdAt"], item["id"]), reverse=True)}
+
+    def freeze(self, payload):
+        """Freeze only observed development evidence, never a client-supplied config."""
+        if not isinstance(payload, dict) or set(payload) - {"id", "candidateId", "name"}:
+            raise ValueError("冻结只接受已完成任务编号、参数点编号和名称")
+        name = payload.get("name")
+        if name is not None and (not isinstance(name, str) or not name.strip() or len(name.strip()) > 100):
+            raise ValueError("冻结方案名称须为 1 至 100 字")
+        with self.lock, self._db() as db:
+            row = db.execute("SELECT * FROM jobs WHERE id=?", (payload.get("id"),)).fetchone()
+            if not row:
+                raise ValueError("开发任务不存在")
+            meta, report = json.loads(row["meta"]), _unpack(row["result"])
+            if meta["kind"] not in ("singleBacktest", "singlePlateau") or meta["status"] != "completed" or not report:
+                raise ValueError("请先完成单策略固定参数回测或关键参数平原，再冻结方案")
+            if row["version"] != self.version:
+                raise ValueError("计算版本已变化，请重新完成开发研究后冻结")
+            config = copy.deepcopy(meta["config"])
+            candidate_id = payload.get("candidateId")
+            evidence = {"certified": False, "developmentStableRegion": False,
+                        "selectionSource": "fixedSingleBacktest", "label": "固定参数开发回测；尚未独立验证"}
+            if meta["kind"] == "singlePlateau":
+                point = next((item for item in report.get("candidates", []) if item["candidateId"] == candidate_id), None)
+                if not point:
+                    raise ValueError("请明确选择一个已完成的参数点；系统不会自动冻结最高收益点")
+                from service.portfolio_experiment import apply_parameters
+                config = apply_parameters(config, point["params"])
+                stable = any(region.get("intervalEligible") and candidate_id in region["candidateIds"] for region in report.get("regions", []))
+                evidence.update(selectionSource="manualPlateauCandidate", developmentStableRegion=stable,
+                                label="人工选择开发期稳定区内参数；尚未独立验证" if stable else "人工选择参数点；未形成稳定开发区，尚未独立验证",
+                                metrics=point["metrics"], neighborhood=point["neighborhood"], qualityFailures=point.get("qualityFailures", []), params=point["params"])
+            elif candidate_id is not None:
+                raise ValueError("固定参数回测没有候选参数点")
+            else:
+                evidence["metrics"] = report.get("metrics", {})
+            from service.research_pipeline import single_config
+            config = single_config(config)
+            parameter_config = {key: value for key, value in config.items() if key not in ("startDate", "endDate")}
+            parameter_hash = hashlib.sha256(_dump({"config": parameter_config, "selection": meta["selection"], "version": self.version}).encode()).hexdigest()
+            signature = hashlib.sha256(_dump({"source": meta["id"], "candidate": candidate_id, "parameters": parameter_hash}).encode()).hexdigest()
+            old = db.execute("SELECT record FROM research_freezes WHERE signature=?", (signature,)).fetchone()
+            if old:
+                return {"freeze": json.loads(old[0])}
+            record = {"id": str(uuid.uuid4()), "name": name.strip() if name else (meta["name"][:80] + " · 冻结方案"),
+                      "createdAt": _now(), "sourceTaskId": meta["id"], "sourceKind": meta["kind"],
+                      "candidateId": candidate_id, "developmentStart": config["startDate"], "developmentEnd": config["endDate"],
+                      "config": config, "selection": copy.deepcopy(meta["selection"]), "parameterHash": parameter_hash,
+                      "codeVersion": self.version, "sourceFingerprint": meta["fingerprint"],
+                      "validationFamily": meta.get("validationFamily"), "sourceIdentity": meta.get("sourceIdentity"),
+                      "evidence": evidence, "immutable": True}
+            db.execute("INSERT INTO research_freezes VALUES (?,?,?)", (record["id"], signature, _dump(record)))
+        return {"freeze": record}
+
+    def _validation_settings(self, payload):
+        allowed = {"kind", "freezeId", "startDate", "endDate", "name", "requestId"}
+        if set(payload) - allowed:
+            raise ValueError("冻结验证只接受冻结方案编号和新时段，不能修改策略、漏斗、费用或仓位参数")
+        with self.lock, self._db() as db:
+            row = db.execute("SELECT record FROM research_freezes WHERE id=?", (payload.get("freezeId"),)).fetchone()
+        if not row:
+            raise ValueError("请选择已保存的冻结方案")
+        frozen = json.loads(row[0])
+        if frozen["codeVersion"] != self.version:
+            raise ValueError("冻结方案的计算版本已变化；请重新研究并冻结，不能把不同版本结果当作同一方案验证")
+        for key in ("startDate", "endDate"):
+            value = payload.get(key)
+            try:
+                if not isinstance(value, str) or dt.date.fromisoformat(value).isoformat() != value:
+                    raise ValueError()
+            except ValueError:
+                raise ValueError("新时段日期须为 YYYY-MM-DD") from None
+        if payload["startDate"] <= frozen["developmentEnd"]:
+            raise ValueError("验证开始日期必须严格晚于冻结方案的开发截止日期")
+        from service.research_pipeline import single_config
+        config = single_config({**frozen["config"], "startDate": payload["startDate"], "endDate": payload["endDate"]})
+        return frozen, config
+
+    def _create_validation(self, payload, name, request_id):
+        frozen, config = self._validation_settings(payload)
+        return self._create_portfolio({"name": payload.get("name"), "config": config, "selection": frozen["selection"]},
+                                      "frozenValidation", name, request_id, frozen=frozen)
+
+    def _create_portfolio(self, payload, kind, name, request_id, *, frozen=None):
         """Accept quickly; source loading is cancellable background work, not IPC."""
         config, selection, experiment = self._portfolio_settings(payload, kind)
         if not (payload.get("name") or "").strip():
@@ -329,6 +433,11 @@ class ResearchService:
                 "fingerprint": None, "error": None}
         if experiment is not None:
             meta["experiment"] = experiment
+        if kind in ("singleBacktest", "singlePlateau", "frozenValidation"):
+            meta["workflow"] = {"version": 1, "stage": kind, "developmentOnly": kind != "frozenValidation"}
+        if frozen is not None:
+            meta["freeze"] = frozen
+            meta["workflow"].update(freezeId=frozen["id"], sourceTaskId=frozen["sourceTaskId"], parameterHash=frozen["parameterHash"])
         with self.lock, self._db() as db:
             if request_id:
                 old = db.execute("SELECT meta FROM jobs WHERE request_id=?", (request_id,)).fetchone()
@@ -341,13 +450,20 @@ class ResearchService:
 
     @staticmethod
     def _portfolio_settings(payload, kind):
-        config = portfolio_config.normalize_config(payload.get("config", {}))
+        normalize = portfolio_config.normalize_screen_config if kind == "poolPreview" else portfolio_config.normalize_config
+        config = normalize(payload.get("config", {}))
+        if kind in ("singleBacktest", "singlePlateau", "frozenValidation"):
+            from service.research_pipeline import single_config
+            config = single_config(config)
         selection = portfolio_config.normalize_selection(payload.get("selection", {}))
         selection["lookbackDays"] = config["lookbackDays"]
         if kind == "comparison":
             from service.portfolio_study import normalize_study
             normalize_study(config)  # Validate before accepting costly work.
         experiment = None
+        if kind == "singlePlateau":
+            from service.research_pipeline import normalize_single_experiment
+            experiment = normalize_single_experiment(payload.get("experiment", {}), config)
         if kind in ("walkForward", "systemPlateau"):
             from service.portfolio_experiment import normalize_experiment
             raw_experiment = payload.get("experiment", {})
@@ -361,19 +477,27 @@ class ResearchService:
     @staticmethod
     def _portfolio_name(kind, config):
         labels = {"portfolio": "组合回测", "comparison": "策略比较", "walkForward": "滚动验证",
-                  "systemPlateau": "系统收益平原", "poolPreview": "股票池筛选"}
+                  "systemPlateau": "系统收益平原", "poolPreview": "股票池筛选", "singleBacktest": "单策略固定参数回测",
+                  "singlePlateau": "关键参数平原", "frozenValidation": "冻结方案新时段验证"}
+        period = (config["startDate"] + " — " + config["endDate"] if config["startDate"] and config["endDate"]
+                  else "截至" + config["endDate"] if kind == "poolPreview" and config["endDate"]
+                  else "最近" + str(config["lookbackDays"]) + "个交易日")
+        if kind == "poolPreview":
+            return (labels[kind] + " · " + period)[:100]
         names = {s["id"]: s["name"] for s in portfolio_config.catalogue()}
         strategies = config["allocation"]["strategyIds"]
         title = names.get(strategies[0], "组合策略")
         if len(strategies) > 1:
             title += "等" + str(len(strategies)) + "个策略"
-        period = (config["startDate"] + " — " + config["endDate"] if config["startDate"] and config["endDate"]
-                  else "最近" + str(config["lookbackDays"]) + "个交易日")
         return (labels[kind] + " · " + title + " · " + period)[:100]
 
     def preview_settings(self, payload):
         """Validate exactly as creation does, without creating a job or loading prices."""
         kind = payload.get("kind", "portfolio")
+        if kind == "frozenValidation":
+            frozen, config = self._validation_settings(payload)
+            return {"kind": kind, "freeze": frozen, "config": config, "selection": frozen["selection"],
+                    "name": payload.get("name") or self._portfolio_name(kind, config), "execution": {"parametersFrozen": True, "holdoutAfter": frozen["developmentEnd"]}}
         if kind not in PORTFOLIO_KINDS:
             raise ValueError("请选择股票池研究任务类型")
         name = payload.get("name", "")
@@ -386,6 +510,10 @@ class ResearchService:
                                 "poolRefresh": "每个交易日", "datesResolvedAfterSnapshot": not bool(config["startDate"])}}
         if experiment is not None:
             result["experiment"] = experiment
+        if kind == "poolPreview":
+            result["execution"] = {"screen": "截止交易日收盘", "poolRefresh": "仅所选截止日",
+                                   "ordersGenerated": False, "strategyScoring": False,
+                                   "datesResolvedAfterSnapshot": not bool(config["endDate"])}
         return result
 
     def rename(self, payload):
@@ -404,6 +532,8 @@ class ResearchService:
     def update(self, payload):
         task_id = payload.get("id")
         kind = payload.get("kind")
+        if kind == "frozenValidation":
+            raise ValueError("冻结验证任务不可编辑参数；如需调整日期，请以同一冻结方案另建验证任务")
         if kind not in PORTFOLIO_KINDS:
             raise ValueError("请编辑股票池研究任务；旧版任务保留其原始结果")
         config, selection, experiment = self._portfolio_settings(payload, kind)
@@ -415,6 +545,8 @@ class ResearchService:
             if not row:
                 raise ValueError("任务不存在")
             meta = json.loads(row["meta"])
+            if meta["kind"] == "frozenValidation":
+                raise ValueError("冻结验证任务不可改写成其他研究类型")
             if meta["status"] not in ("queued", "paused") or task_id in self.inflight or row["result"] is not None or not row["dataset_id"].startswith("pending-"):
                 raise ValueError("任务已冻结行情或开始计算；请复制设置另存新任务，原结果不能被改写")
             meta.update(name=name.strip(), kind=kind, config=config, selection=selection, updatedAt=_now(), error=None)
@@ -449,6 +581,33 @@ class ResearchService:
                 outcomes.append({"id": task_id, "ok": True})
         return {"tasks": self.list()["tasks"], "outcomes": outcomes}
 
+    def _source_identity(self, selection):
+        """Stable source identity, deliberately independent of newly added bars.
+
+        Local snapshots name their source generically, so the declared family
+        alone cannot notice a settings change to another TDX installation. Only
+        store a hash of its normalized path, never disclose that path in reports.
+        Injected test/custom loaders declare their identity in the dataset family.
+        """
+        if selection.get("source") == "history":
+            identity = {"kind": "history", "sourceId": selection.get("sourceId")}
+        elif self.universe_loader is not None:
+            return None
+        else:
+            cache = self.directory / "market.sqlite3"
+            if not cache.exists():
+                raise ValueError("请先在设置中选择通达信目录并读取行情")
+            db = sqlite3.connect(cache.as_uri() + "?mode=ro", uri=True, timeout=10)
+            try:
+                row = db.execute("SELECT value FROM meta WHERE key='path'").fetchone()
+            finally:
+                db.close()
+            if not row:
+                raise ValueError("行情库尚未保存通达信目录")
+            root = tdx.normalize_directory(json.loads(row[0]))
+            identity = {"kind": "local", "root": os.path.normcase(os.path.realpath(root))}
+        return hashlib.sha256(_dump(identity).encode()).hexdigest()
+
     def _prepare_portfolio(self, meta, pending):
         from service.portfolio_universe import snapshot_universe, UniversePreparationInterrupted
         loader = self.universe_loader or snapshot_universe
@@ -475,8 +634,17 @@ class ResearchService:
                     db.execute("UPDATE jobs SET meta=? WHERE id=?", (_dump(current), meta["id"]))
 
             try:
+                # Source identity is a new-workflow freeze invariant. Legacy
+                # portfolio preparation keeps its loader contract (including
+                # cancellable custom loaders that do not use market.sqlite3).
+                binds_source = meta["kind"] in ("singleBacktest", "singlePlateau", "frozenValidation")
+                source_identity = self._source_identity(pending["selection"]) if binds_source else None
+                if meta.get("freeze") and meta["freeze"].get("sourceIdentity") != source_identity:
+                    raise ValueError("当前行情来源与冻结方案不一致，请恢复原来源；不同来源不能作为同一冻结方案的新时段验证")
                 options = {"progress": progress, "cancelled": cancelled} if self.universe_loader is None else {}
                 dataset = loader(self.directory, pending["selection"], meta["config"].get("endDate"), meta["config"].get("startDate"), **options)
+                if binds_source and self._source_identity(pending["selection"]) != source_identity:
+                    raise ValueError("读取行情期间数据来源发生变化，请确认设置后重新创建任务")
             except UniversePreparationInterrupted:
                 with self.lock, self._db() as db:
                     current = json.loads(db.execute("SELECT meta FROM jobs WHERE id=?", (meta["id"],)).fetchone()[0])
@@ -493,6 +661,12 @@ class ResearchService:
             config["startDate"] = config["startDate"] or eligible[-min(config["lookbackDays"], len(eligible))]
             dataset["fingerprint"] = dataset.get("fingerprint") or hashlib.sha256(_dump(dataset).encode()).hexdigest()
             meta["config"] = config
+            family = {"source": dataset.get("historyDeclaration", {}).get("source", dataset.get("source")),
+                      "universe": dataset.get("historyDeclaration", {}).get("universe", "local-file-coverage"),
+                      "scope": "declared source; overlapping dates tracked even when the selected stock subset changes"}
+            validation_family = hashlib.sha256(_dump(family).encode()).hexdigest()
+            if meta.get("freeze") and meta["freeze"].get("validationFamily") != validation_family:
+                raise ValueError("当前数据声明的来源或历史股票范围与冻结方案不一致，请恢复原来源后验证新时段")
             runner = self._runner(dataset, meta)
             # The public research identity ignores operational batch size. A
             # stored snapshot includes that metadata, so address its complete
@@ -507,10 +681,8 @@ class ResearchService:
                 current.update(config=config, symbols=symbols if pending["selection"]["mode"] == "explicit" else [],
                                symbolCount=len(symbols), fingerprint=dataset["fingerprint"],
                                universeCoverage=dataset.get("universeCoverage"), phase="股票池已冻结，开始计算", updatedAt=_now())
-                family = {"source": dataset.get("historyDeclaration", {}).get("source", dataset.get("source")),
-                          "universe": dataset.get("historyDeclaration", {}).get("universe", "local-file-coverage"),
-                          "scope": "declared source; overlapping dates tracked even when the selected stock subset changes"}
-                current["validationFamily"] = hashlib.sha256(_dump(family).encode()).hexdigest()
+                current["validationFamily"] = validation_family
+                current["sourceIdentity"] = source_identity
                 if current["status"] in ("pausing", "stopping") or self.closing.is_set():
                     current["status"] = "stopped" if current["status"] == "stopping" else "paused"
                 db.execute("INSERT OR IGNORE INTO datasets VALUES (?,?)", (storage_id, dataset_blob))
@@ -542,19 +714,8 @@ class ResearchService:
             if names:
                 result["securityNames"] = names
             if isinstance(result.get("screenPools"), dict):
-                pool, offset, limit, query = payload.get("pool", "base"), payload.get("poolOffset", 0), payload.get("poolPageSize", 100), payload.get("poolQuery", "")
-                if pool not in result["screenPools"] or type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 200 or not isinstance(query, str) or len(query) > 100:
-                    raise ValueError("股票池分页或搜索条件无效")
-                pagination = {}
-                for key, rows in result["screenPools"].items():
-                    for item in rows:
-                        if not item.get("name") or item["name"] in (item["symbol"], item["symbol"][2:]):
-                            item["name"] = names.get(item["symbol"])
-                    filtered = [item for item in rows if not query or query.lower() in (item["symbol"]+" "+(item.get("name") or "")).lower()] if key == pool else rows
-                    position = offset if key == pool else 0
-                    result["screenPools"][key] = filtered[position:position+limit]
-                    pagination[key] = {"offset": position, "total": len(filtered), "unfilteredTotal": len(rows), "pageSize": limit, "hasMore": position+limit < len(filtered)}
-                result["poolPagination"] = pagination
+                from .portfolio_screen import paginate_screen
+                result.update(paginate_screen(result, payload, names))
         result_path = payload.get("resultPath")
         event_date = payload.get("eventDate")
         if event_date is not None:
@@ -697,6 +858,11 @@ class ResearchService:
                 "taskComplete": report["task"]["status"] == "completed"}
 
     def _validation_audit(self, meta, result):
+        family = meta.get("validationFamily", meta.get("fingerprint"))
+        if meta["kind"] in PORTFOLIO_KINDS - {"poolPreview", "frozenValidation"} and meta["config"].get("startDate") and meta["config"].get("endDate"):
+            with self.lock, self._db() as db:
+                db.execute("INSERT OR IGNORE INTO development_usage VALUES (?,?,?,?)",
+                           (meta["id"], family, meta["config"]["startDate"], meta["config"]["endDate"]))
         intervals = set()
         def visit(value):
             if not isinstance(value, dict):
@@ -715,14 +881,31 @@ class ResearchService:
                     if curve:
                         intervals.add((curve[0]["date"], curve[-1]["date"]))
         visit(result)
+        if meta["kind"] == "frozenValidation" and result.get("curve"):
+            intervals.add((meta["config"]["startDate"], meta["config"]["endDate"]))
         if not intervals:
             return
-        family = meta.get("validationFamily", meta.get("fingerprint"))
         signature = hashlib.sha256(_dump({"config": meta["config"], "experiment": meta.get("experiment")}).encode()).hexdigest()
-        reused, reproductions = [], []
+        reused, reproductions, developed = [], [], []
         with self.lock, self._db() as db:
             previous = db.execute("SELECT * FROM validation_usage WHERE family=? AND job_id<>?", (family, meta["id"])).fetchall()
+            development = db.execute("SELECT * FROM development_usage WHERE family=? AND job_id<>?", (family, meta["id"])).fetchall()
+            # Also recognize reports created before the development-use ledger was
+            # added. Deleted legacy reports and external inspection remain unknown.
+            legacy_development = []
+            if meta["kind"] == "frozenValidation":
+                known_ids = {item["job_id"] for item in development}
+                for old_row in db.execute("SELECT id,meta FROM jobs WHERE result IS NOT NULL AND id<>?", (meta["id"],)):
+                    old = json.loads(old_row["meta"])
+                    config = old.get("config", {})
+                    if (old_row["id"] not in known_ids and old.get("validationFamily", old.get("fingerprint")) == family
+                            and old["kind"] not in ("poolPreview", "frozenValidation") and config.get("startDate") and config.get("endDate")):
+                        legacy_development.append({"job_id": old_row["id"], "start_date": config["startDate"], "end_date": config["endDate"]})
             for start, end in sorted(intervals):
+                if meta["kind"] == "frozenValidation":
+                    for old in [*development, *legacy_development]:
+                        if start <= old["end_date"] and end >= old["start_date"]:
+                            developed.append({"priorJobId": old["job_id"], "startDate": max(start, old["start_date"]), "endDate": min(end, old["end_date"])})
                 for old in previous:
                     if start <= old["end_date"] and end >= old["start_date"]:
                         item = {"priorJobId": old["job_id"], "startDate": max(start, old["start_date"]), "endDate": min(end, old["end_date"])}
@@ -731,11 +914,14 @@ class ResearchService:
                         else:
                             reused.append(item)
                 db.execute("INSERT OR IGNORE INTO validation_usage VALUES (?,?,?,?,?,?)", (meta["id"], family, start, end, signature, meta["fingerprint"]))
-        result["validationAudit"] = {"status": "developmentSample" if reused else "reproduction" if reproductions else "fresh",
+        result["validationAudit"] = {"status": "developmentSample" if reused or developed else "reproduction" if reproductions else "fresh",
                                      "reusedIntervals": reused, "reproductionIntervals": reproductions,
+                                     "priorDevelopmentIntervals": developed,
+                                     "independent": not (reused or reproductions or developed),
+                                     "reasons": (["previously_used_development_period"] if developed else []) + (["holdout_reused_with_changed_settings"] if reused else []) + (["same_period_reproduction"] if reproductions else []),
                                      "trackedIntervals": [list(pair) for pair in sorted(intervals)],
-                                     "scope": "same declared source/universe within this workspace; external prior use cannot be detected"}
-        if reused:
+                                     "scope": "same declared source/universe within this workspace; external prior use and deleted legacy development reports cannot be detected"}
+        if reused or developed:
             message = "该样本外区间此前已用不同设置计算，现在标记为开发样本；正式验证请使用未使用区间。"
             result.setdefault("warnings", []).append(message)
             if isinstance(result.get("rotationGate"), dict):
@@ -762,6 +948,8 @@ class ResearchService:
             parent, report = json.loads(row["meta"]), _unpack(row["result"])
             if row["version"] != self.version:
                 raise ValueError("引擎版本已变化，不能把新运行当作原参数点复现")
+            if parent["kind"] == "singlePlateau":
+                return self._replay_single(row, parent, report, candidate_id)
             if parent["kind"] != "plateau" or parent["status"] != "completed" or not report:
                 raise ValueError("请等待收益平原完成后复核参数路径")
             candidate = next((c for c in report["candidates"] if c["id"] == candidate_id), None)
@@ -782,6 +970,31 @@ class ResearchService:
         runner = self._runner(dataset, meta)
         with self.lock, self._db() as db:
             db.execute("INSERT INTO jobs VALUES (?,?,?,?,?,?,?)", (meta["id"], None, _dump(meta), dataset["fingerprint"],
+                       self.version, _pack(runner.checkpoint()), None))
+        self.wake.set()
+        return meta
+
+    def _replay_single(self, row, parent, report, candidate_id):
+        if parent["status"] != "completed" or not report:
+            raise ValueError("请等待关键参数平原完成后复核参数路径")
+        candidate = next((item for item in report.get("candidates", []) if item["candidateId"] == candidate_id), None)
+        if not candidate:
+            raise ValueError("参数点不存在")
+        from service.portfolio_experiment import apply_parameters
+        config = apply_parameters(parent["config"], candidate["params"])
+        with self.lock, self._db() as db:
+            dataset = _unpack(db.execute("SELECT data FROM datasets WHERE id=?", (row["dataset_id"],)).fetchone()[0])
+            meta = {"id": str(uuid.uuid4()), "name": parent["name"][:65] + " · 参数路径 " + candidate_id,
+                    "kind": "singleBacktest", "status": "queued", "phase": "等待计算资源", "progress": 0,
+                    "createdAt": _now(), "updatedAt": _now(), "config": config, "selection": parent["selection"],
+                    "symbols": parent["symbols"], "symbolCount": parent.get("symbolCount"), "fingerprint": parent["fingerprint"],
+                    "error": None, "parentId": parent["id"], "candidateId": candidate_id,
+                    "validationFamily": parent.get("validationFamily"),
+                    "sourceIdentity": parent.get("sourceIdentity"),
+                    "workflow": {"version": 1, "stage": "singleBacktest", "developmentOnly": True, "sourceTaskId": parent["id"]},
+                    "replayNote": "同一冻结行情与开发区间的单参数明细复现，不属于新验证样本。"}
+            runner = self._runner(dataset, meta)
+            db.execute("INSERT INTO jobs VALUES (?,?,?,?,?,?,?)", (meta["id"], None, _dump(meta), row["dataset_id"],
                        self.version, _pack(runner.checkpoint()), None))
         self.wake.set()
         return meta
@@ -895,6 +1108,11 @@ class ResearchService:
                 done = runner.step(days=5)
                 result = runner.result()
                 result["kind"] = meta["kind"]
+                if meta.get("workflow"):
+                    result["workflow"] = copy.deepcopy(meta["workflow"])
+                if meta["kind"] == "frozenValidation":
+                    result["freeze"] = copy.deepcopy(meta["freeze"])
+                    result.setdefault("warnings", []).append("本次仅验证已冻结方案，不会依据新时段收益重新选择参数；样本是否盈利与是否独立分别判断。")
                 if names:
                     result["securityNames"] = names
                 self._validation_audit(meta, result)

@@ -7,6 +7,7 @@ historical membership, adjusted prices, or an external popularity ranking.
 from __future__ import annotations
 
 from bisect import bisect_right
+from array import array
 import datetime as dt
 import json
 import math
@@ -19,13 +20,14 @@ from statistics import median
 
 from service import tdx
 from service.leader_research import Leadership, limit_flags
+from service.market_style import profile as style_profile, RULES as PROFILE_RULES
 
 
-VERSION = "local-market-research-v5-aligned"
+VERSION = "local-market-research-v6-multidimensional"
 SNAPSHOT_VERSION = "local-market-snapshot-v1"
 TAIL_RECORDS = 120
 HISTORY_CHOICES = (60, 120, 250, 500, 1000)
-WARMUP_RECORDS = 80
+WARMUP_RECORDS = 100
 MIN_MARKET_SYMBOLS = 1000
 MIN_COVERAGE = .7
 CONFIRM_DAYS = 2
@@ -40,6 +42,7 @@ LIMITATIONS = [
     "名义限价按前收四舍五入到分：主板普通 10%；主板 ST 在 2026-07-06 前 5%、起 10%；创业板在 2020-08-24 起 20%（此前普通 10%、ST 5%）；科创板 20%、北交所 30%。",
     "仅校验各证券最近 120 根日线；缺日不补值，排名统一交易日，旧日证券不参与当日榜单与风格。",
     "本地数据不含可靠行业、市值与外部人气字段；热门池只能按实际成交额、涨幅或放量规则观察。",
+    "六维风格仅使用量价证据，不能据此判定成长/价值、大小盘、机构/游资或资金净流入；量价观察分档未经收益优化。",
 ]
 
 
@@ -271,7 +274,10 @@ def build_snapshot(inputs, *, total, failures=0, source="", computed_at=None,
     else:
         dates = list(calendar)
     date_indexes = {day: i for i, day in enumerate(dates)}
-    stats = [{"expected": 0, "returns": [], "above": 0, "up": 0, "down": 0, "flat": 0,
+    stats = [{"expected": 0, "returns": array("d"), "returns5": array("d"), "changes": array("d"),
+              "amountRatios": array("d"), "preferenceAmountCount": 0,
+              "pairedBreadthCount": 0, "pairedAboveNow": 0, "pairedAboveBefore": 0,
+              "above": 0, "up": 0, "down": 0, "flat": 0,
               "limitUp": 0, "limitDown": 0, "multi": 0, "height": 0,
               "wild": 0, "wildAmount": 0, "amount": 0} for _ in dates]
     leadership = Leadership(dates)
@@ -287,15 +293,16 @@ def build_snapshot(inputs, *, total, failures=0, source="", computed_at=None,
         base = _current_item(security, aligned, as_of)
         observations = [row[0] for row in rows]
         leadership.add(security, aligned, board)
-        height = 0
+        height, positive_volume_run = 0, 0
         for i, day in enumerate(dates):
             count = bisect_right(observations, day)
             if kind == "stock" and count >= 60:
                 stats[i]["expected"] += 1
             row = aligned[i]
             if row is None:
-                height = 0
+                height, positive_volume_run = 0, 0
                 continue
+            positive_volume_run = positive_volume_run + 1 if row[2] > 0 else 0
             previous = aligned[i - 1] if i else None
             change = row[1] / previous[1] - 1 if previous else None
             def period_return(period):
@@ -311,6 +318,19 @@ def build_snapshot(inputs, *, total, failures=0, source="", computed_at=None,
             if usable:
                 stat = stats[i]
                 stat["returns"].append(ret20)
+                stat["returns5"].append(period_return(5))
+                stat["changes"].append(change * 100)
+                stat["preferenceAmountCount"] += int(positive_volume_run >= 60 and row[3] > 0)
+                previous_amounts = aligned[i - 20:i]
+                if row[3] > 0 and all(value[2] > 0 and value[3] > 0 for value in previous_amounts):
+                    stat["amountRatios"].append(row[3] / (sum(value[3] for value in previous_amounts) / 20))
+                # Current usable has 60 aligned rows. Five earlier rows prove
+                # that this SAME security was also usable five sessions ago.
+                if i >= 64 and all(aligned[i - 64:i - 59]) and aligned[i - 5][2] > 0:
+                    previous_ma20 = sum(value[1] for value in aligned[i - 24:i - 4]) / 20
+                    stat["pairedBreadthCount"] += 1
+                    stat["pairedAboveNow"] += int(row[1] > ma20)
+                    stat["pairedAboveBefore"] += int(aligned[i - 5][1] > previous_ma20)
                 stat["above"] += int(row[1] > ma20)
                 stat["up"] += int(change > 0)
                 stat["down"] += int(change < 0)
@@ -334,7 +354,16 @@ def build_snapshot(inputs, *, total, failures=0, source="", computed_at=None,
         metrics = {"sampleCount": count, "expectedCount": stat["expected"],
                    "coverage": _rounded(count / stat["expected"]) if stat["expected"] else 0,
                    "breadth": _rounded(stat["above"] / count) if count else None,
+                   "advanceRatio": _rounded(stat["up"] / count) if count else None,
+                   "declineRatio": _rounded(stat["down"] / count) if count else None,
+                   "medianChangePercent": _rounded(median(stat["changes"])) if count else None,
+                   "medianReturn5": _rounded(median(stat["returns5"])) if count else None,
                    "medianReturn20": _rounded(median(stat["returns"])) if count else None,
+                   "medianAmountRatio20": _rounded(median(stat["amountRatios"])) if stat["amountRatios"] else None,
+                   "amountRatio20Count": len(stat["amountRatios"]),
+                   "preferenceAmountCount": stat["preferenceAmountCount"],
+                   "breadthComparableCount": stat["pairedBreadthCount"],
+                   "breadthChange5": _rounded((stat["pairedAboveNow"] - stat["pairedAboveBefore"]) / stat["pairedBreadthCount"] * 100) if stat["pairedBreadthCount"] else None,
                    "advanceCount": stat["up"], "declineCount": stat["down"], "flatCount": stat["flat"],
                    "limitUpApprox": leader_rows[day]["metrics"]["limitUpCount"], "limitDownApprox": leader_rows[day]["metrics"]["risk"]["limitDownCount"],
                    "multiBoardApprox": leader_rows[day]["metrics"]["multiBoardCount"], "maxBoardHeight": leader_rows[day]["metrics"]["maxHeight"],
@@ -342,20 +371,24 @@ def build_snapshot(inputs, *, total, failures=0, source="", computed_at=None,
         metrics["leadership"] = leader_rows[day]["metrics"]
         metric_rows.append(metrics)
     timeline = []
+    previous_profile = None
     for day, metrics, state in zip(dates, metric_rows, confirm_styles(_raw_style(metrics) for metrics in metric_rows)):
+        current_profile = style_profile(metrics, previous_profile, min_market_symbols=MIN_MARKET_SYMBOLS, min_coverage=MIN_COVERAGE)
         timeline.append({"date": day, **state, "label": LABELS[state["key"]],
                          "confirmationDays": CONFIRM_DAYS,
                          "reason": _reason(state["key"], metrics, state["pendingKey"], state["pendingCount"]),
-                         "metrics": metrics,
+                         "metrics": metrics, "profile": current_profile,
                          "leadership": {"scope": "all_stocks", "asOf": day, "metrics": metrics["leadership"],
                                         "rotationEvents": [leader_rows[day]["rotationEvent"]] if leader_rows[day]["rotationEvent"] else []}})
+        previous_profile = current_profile
     empty_metrics = {"sampleCount": 0, "expectedCount": 0, "coverage": 0, "breadth": None,
                      "medianReturn20": None, "advanceCount": 0, "declineCount": 0, "flatCount": 0,
                      "limitUpApprox": 0, "limitDownApprox": 0, "multiBoardApprox": 0,
                      "maxBoardHeight": 0, "wildCount": 0, "wildAmountShare": 0}
     current = {key: value for key, value in timeline[-1].items() if key != "date"} if timeline else {
         "key": "insufficient", "label": LABELS["insufficient"], "rawKey": "insufficient", "pendingKey": None,
-        "pendingCount": 0, "confirmationDays": CONFIRM_DAYS, "reason": "请先下载并扫描本地日线。", "metrics": empty_metrics}
+        "pendingCount": 0, "confirmationDays": CONFIRM_DAYS, "reason": "请先下载并扫描本地日线。", "metrics": empty_metrics,
+        "profile": style_profile(empty_metrics, min_market_symbols=MIN_MARKET_SYMBOLS, min_coverage=MIN_COVERAGE)}
     valid = sum(item["kind"] == "stock" for item in items)
     stale = sum(item["kind"] == "stock" for item in stale_items)
     return {"items": sort_items(items), "staleItems": sorted(stale_items, key=lambda item: item["symbol"]),
@@ -372,6 +405,7 @@ def build_snapshot(inputs, *, total, failures=0, source="", computed_at=None,
                       "leadershipScope": "全市场股票，包括当前名称 ST；连板指标与分析工具同口径，广度概况仍需 60 日日线样本",
                       "trendStrength": "连续 60 个市场日有成交、站上 MA20 与 MA60，且最近 5 日的 20 日收益均为正",
                       "promotion": "昨日连板且今日可核验为分母；缺日、无成交、超名义涨跌幅单列未观测；分母为零返回空值",
+                      "profile": PROFILE_RULES,
                       "volumeRatio5": "当日成交量 / 前五个市场交易日平均成交量；不含当日，缺日则不计算"}}
 
 

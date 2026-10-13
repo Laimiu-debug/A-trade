@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { PAGE_PROMPT_VERSION, PagePromptError, requestId, redactText, pageRequest } = require('./page-assistant-prompt.cjs');
 
 const PROMPT_VERSION = 'account-assistant-v1';
 const AI_TARGETS = ['text', 'vision'];
@@ -63,6 +64,7 @@ class AIService {
     this.fetch = options.fetch || globalThis.fetch;
     this.timeoutMs = options.timeoutMs || 90000;
     this.controllers = new Set();
+    this.pageRequests = new Map();
     this.config = { version: 2, profiles: { text: emptyProfile(), vision: emptyProfile() } };
     try {
       if (fs.existsSync(this.file)) {
@@ -114,7 +116,7 @@ class AIService {
     this.config = next; this.loadWarning = null;
     return this.publicConfig();
   }
-  async completion(messages, target) {
+  async completion(messages, target, options = {}) {
     const label = targetName(target);
     const config = this.config.profiles[target];
     const model = config.model;
@@ -122,14 +124,18 @@ class AIService {
     let key;
     try { key = this.secureStorage.decryptString(Buffer.from(config.encryptedKey, 'base64')); }
     catch { throw new AIError('当前 Windows 用户无法解密 API Key，请重新输入密钥。'); }
-    const controller = new AbortController();
+    const controller = options.controller || new AbortController();
     this.controllers.add(controller);
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    let timedOut = false;
+    const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, this.timeoutMs);
     try {
+      if (controller.signal.aborted) throw new Error('Aborted');
+      const sentMessages = options.page && key ? messages.map(message => ({...message,
+        content:typeof message.content === 'string' ? message.content.split(key).join('[已移除密钥]') : message.content})) : messages;
       const response = await this.fetch(`${config.baseUrl}/chat/completions`, {
         method: 'POST', redirect: 'error', signal: controller.signal,
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-        body: JSON.stringify({ model, messages, stream: false, store: false }),
+        body: JSON.stringify({ model, messages:sentMessages, stream: false, store: false }),
       });
       if (!response.ok) {
         await response.body?.cancel();
@@ -141,17 +147,21 @@ class AIService {
       while (true) {
         const { value, done } = await reader.read(); if (done) break;
         length += value.length;
-        if (length > 2 * 1024 * 1024) { await reader.cancel(); throw new AIError('AI 返回内容过大，请缩短复盘范围。'); }
+        if (length > 2 * 1024 * 1024) { await reader.cancel(); throw new AIError(options.page ? 'AI 返回内容过大，请缩短问题或页面范围后重试。' : 'AI 返回内容过大，请缩短复盘范围。'); }
         chunks.push(Buffer.from(value));
       }
       let body;
       try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new AIError('AI 服务返回的格式无效。'); }
       const message = body.choices?.[0]?.message;
-      if (message?.refusal) throw new AIError('模型未能处理本次请求，可调整截图或手工填写。');
-      return { content: message?.content, model, promptVersion: PROMPT_VERSION, generatedAt: new Date().toISOString() };
+      if (message?.refusal) throw new AIError(options.page ? '模型未能回答本次问题，可调整问题或减少页面内容后重试。' : '模型未能处理本次请求，可调整截图或手工填写。');
+      // The page assistant never returns an echoed authorization key, even if a provider includes it in its answer.
+      const content = options.page && key ? typeof message?.content === 'string' ? message.content.split(key).join('[已移除密钥]')
+        : Array.isArray(message?.content) ? message.content.map(part => part?.type === 'text' && typeof part.text === 'string' ? {...part, text:part.text.split(key).join('[已移除密钥]')} : part) : message?.content : message?.content;
+      if (controller.signal.aborted) throw new Error('Aborted');
+      return { content, model, promptVersion: options.page ? PAGE_PROMPT_VERSION : PROMPT_VERSION, generatedAt: new Date().toISOString() };
     } catch (error) {
       if (error instanceof AIError) throw error;
-      if (controller.signal.aborted) throw new AIError('AI 请求已超时或取消，原始记录未更改。');
+      if (controller.signal.aborted) throw new AIError(options.page ? timedOut ? '页面问答已超时，问题仍保留，可稍后重试。' : '本次页面问答已取消，问题仍保留。' : 'AI 请求已超时或取消，原始记录未更改。');
       throw new AIError('无法连接 AI 服务，请检查网络、API 地址及模型配置。');
     } finally { clearTimeout(timeout); this.controllers.delete(controller); key = ''; }
   }
@@ -198,6 +208,25 @@ class AIService {
     const suggestedScores = Object.fromEntries(Object.entries(parsed.suggestedScores || {}).slice(0, 100).filter(([key, value]) => /^[\w.-]{1,100}$/.test(key) && value && typeof value === 'object').map(([key, value]) => [key, { score: Number.isInteger(value.score) && value.score >= 0 && value.score <= 4 ? value.score : null, comment: safeText(value.comment, 2000) }]));
     return { draft: { summary: safeText(parsed.summary), fields, suggestedScores, missingData: (Array.isArray(parsed.missingData) ? parsed.missingData : []).map(item => safeText(item, 1000)).slice(0, 60) }, model: result.model, promptVersion: result.promptVersion, generatedAt: result.generatedAt };
   }
+  async pageAsk(payload) {
+    const request = pageRequest(payload);
+    if (this.pageRequests.has(request.requestId)) throw new AIError('这条页面问题正在处理中，请等待回答或先取消。');
+    if (this.pageRequests.size >= 2) throw new AIError('正在处理其他页面问题，请完成或取消后重试。');
+    const controller = new AbortController();
+    this.pageRequests.set(request.requestId, controller);
+    try {
+      const result = await this.completion(request.messages, 'text', {controller, page:true});
+      const content = Array.isArray(result.content) ? result.content.filter(part => part?.type === 'text' && typeof part.text === 'string').map(part => part.text).join('\n') : result.content;
+      if (typeof content !== 'string' || !content.trim()) throw new AIError('模型没有返回可读回答，请检查文本模型或修改问题后重试。');
+      if (content.length > 60000) throw new AIError('模型回答过长，请缩短问题或页面范围后重试。');
+      return {requestId:request.requestId, answer:redactText(content.trim()), model:result.model, promptVersion:result.promptVersion, generatedAt:result.generatedAt};
+    } finally { this.pageRequests.delete(request.requestId); }
+  }
+  pageCancel(payload) {
+    const id = requestId(payload?.requestId), controller = this.pageRequests.get(id);
+    controller?.abort();
+    return {requestId:id, cancelled:!!controller};
+  }
   async dispatch(method, payload = {}) {
     try {
       let data;
@@ -210,9 +239,11 @@ class AIService {
           message: payload.target === 'vision' ? '连接成功；截图识别能力需用实际成交截图验证。' : '文本 AI 连接成功。' };
       } else if (method === 'recognize') data = await this.recognize(payload);
       else if (method === 'review') data = await this.review(payload);
+      else if (method === 'page.ask') data = await this.pageAsk(payload);
+      else if (method === 'page.cancel') data = this.pageCancel(payload);
       else throw new AIError('不支持此 AI 操作。');
       return { ok: true, data };
-    } catch (error) { return { ok: false, error: error instanceof AIError ? error.message : 'AI 配置或处理失败，请检查本地权限和输入内容。' }; }
+    } catch (error) { return { ok: false, error: error instanceof AIError || error instanceof PagePromptError ? error.message : 'AI 配置或处理失败，请检查本地权限和输入内容。' }; }
   }
   close() { for (const controller of this.controllers) controller.abort(); }
 }

@@ -109,12 +109,18 @@ class ContinuousRunner:
         # next-open intent must match the actual order, not the superseded one.
         s["daily"][-1].update(strategyWeights=strategy_weights, strategyBudgetWeights=strategy_weights,
             targetWeights=deepcopy(weights), targetSignalDate=day, selectedCandidatesByStrategy=details,
-            targetPriorityBySymbol=priorities, policyChange="walkForwardRetrain",
+            selectedByStrategy=deepcopy(selected), targetPriority=engine._priority_order(weights, priorities),
+            targetPriorityBySymbol=deepcopy(priorities), clippedTargets=deepcopy(clipped), policyChange="walkForwardRetrain",
+            strategyWeightMeaning="nextOpenTargetBudgetNotRealizedHoldingAttribution" if engine.rotation_enabled else "fixedEntryBudgetNotRealizedHoldingAttribution",
             topNByStrategy={key: [{**deepcopy(row), "rank": i + 1} for i, row in enumerate(rows[:engine.config["topN"]])]
                             for key, rows in scored["strategies"].items()})
         for symbol in weights:
             engine._decision(day, symbol, "target", "queued", "walkForwardRetrain", targetWeight=weights[symbol], signalEquity=equity)
         s["daily"][-1].setdefault("activities", []).extend(deepcopy(s["decisions"][decision_start:]))
+        holdings = engine._daily_holdings(day, equity)
+        s["daily"][-1].update(holdings=holdings, actualStockWeights={row["symbol"]: row["weight"] for row in holdings},
+            positionControl=engine._position_control(day, s["curve"][-1], False),
+            nextSessionPlan=engine._next_session_plan(day, holdings))
         self.state["retrainLog"].append({"account": ACCOUNTS[self.state["accountIndex"]], "signalDate": day,
             "firstExecutionDate": engine.dates[0], "fold": self.state["segmentIndex"] + 1,
             "configSignature": _digest(engine.config), "cashCarried": s["cash"],

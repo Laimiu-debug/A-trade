@@ -2,7 +2,9 @@ const { app, dialog, protocol } = require('electron');
 const path = require('node:path');
 
 app.setName('A-trade');
-app.setPath('userData', path.join(app.getPath('appData'), 'A-trade'));
+const customData = process.env.ATRADE_USER_DATA;
+if (customData && !path.isAbsolute(customData)) throw new Error('ATRADE_USER_DATA 必须是完整路径。');
+app.setPath('userData', customData || path.join(app.getPath('appData'), 'A-trade'));
 protocol.registerSchemesAsPrivileged([
   { scheme: 'atrade', privileges: { standard: true, secure: true, supportFetchAPI: true } },
 ]);
@@ -22,6 +24,7 @@ if (!app.requestSingleInstanceLock()) {
     const { createDesktop } = require('./runtime.cjs');
     mainWindow = await createDesktop({
       dataDirectory: path.join(app.getPath('userData'), 'workspace'),
+      show: !process.argv.includes('--start-hidden'),
     });
   }).catch(error => {
     dialog.showErrorBox('A-trade 启动失败',

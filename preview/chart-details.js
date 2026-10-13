@@ -34,7 +34,7 @@
   };
   AT.researchRecordsTable=(context=AT.chartContext('research'))=>{
     const records=AT.researchTrace(context);
-    return `<div class="table-wrap"><table class="data-table"><thead><tr><th>收盘信号</th><th>次日执行</th><th>股票名称 / 代码</th><th>操作</th><th class="num">数量</th><th></th></tr></thead><tbody>${records.map(t=>`<tr><td>${t.signal}</td><td>${t.date}</td><td>${AT.stockLink(t.code)}</td><td>${t.action}</td><td class="num">${M(t.qty,0)}</td><td><button class="text-button" data-research-day="${t.date}" data-context="${E(JSON.stringify(context))}">当天详情</button></td></tr>`).join('')||'<tr><td colspan="6">暂无可执行的策略记录示例</td></tr>'}</tbody></table></div>`;
+    return `<div class="table-wrap"><table class="data-table"><thead><tr><th>收盘信号</th><th>次日执行</th><th>股票名称 / 代码</th><th>操作</th><th class="num">数量</th><th></th></tr></thead><tbody>${records.map(t=>`<tr data-stock-chart-date="${E(t.date)}"><td>${t.signal}</td><td>${t.date}</td><td>${AT.stockLink(t.code)}</td><td>${t.action}</td><td class="num">${M(t.qty,0)}</td><td><button class="text-button" data-research-day="${t.date}" data-context="${E(JSON.stringify(context))}">当天详情</button></td></tr>`).join('')||'<tr><td colspan="6">暂无可执行的策略记录示例</td></tr>'}</tbody></table></div>`;
   };
   AT.pathView=()=>{const context=AT.ui.pathContext||AT.chartContext('research');return AT.head('完整操作路径','当前研究配置 · 收盘判断与次日执行分别追溯',AT.button('返回研究','back','data-nav="R03"'))+`<section class="panel"><div class="panel-head"><h2>${E(context.title)}</h2><span class="tag">独立策略演示记录</span></div>${AT.researchRecordsTable(context)}</section><div class="section-space">${AT.panelChart('研究收益与操作位置',context.source==='plateau'?'plateau':'research',242,context)}</div>`};
 })();

@@ -28,7 +28,7 @@
     rebounds:{minBoards:'2',minGap:'1',maxGap:'10',lookbackDays:'60'}, ladder:{historyDays:'250',board:'all',minHeight:'2',excludeST:true}, funds:{mode:'activity',period:'today',id:'',name:'',limit:'60',field:'mainNetInflow'},
     watch:{symbol:'',note:'',tags:'',status:'watching'}, financeInput:symbol(AT.state.stock)
   };
-  const button = (label, action, attrs='', primary=false) => `<button type="button" class="analysis-tools-button${primary?' analysis-tools-primary':''}" data-analysis-action="${action}" ${attrs}>${E(label)}</button>`;
+  const button = (label, action, attrs='', primary=false) => `<button type="button" class="analysis-tools-button${primary?' analysis-tools-primary':''}${['watch-delete','watch-delete-confirm','preset-delete'].includes(action)?' analysis-tools-danger':''}" data-analysis-action="${action}" ${attrs}>${E(label)}</button>`;
   const chip = (label, field, value, active, scope='ui') => `<button type="button" class="analysis-tools-chip${active?' analysis-tools-selected':''}" data-analysis-chip="${field}" data-analysis-value="${E(String(value))}" data-analysis-scope="${scope}" aria-pressed="${!!active}">${E(label)}</button>`;
   const field = (label, group, key, value, type='number', extra='') => `<label class="analysis-tools-field"><span>${E(label)}</span><input type="${type}" data-analysis-group="${group}" data-analysis-field="${key}" value="${E(String(value??''))}" ${extra}></label>`;
   const textField = (label,group,key,value,extra='') => field(label,group,key,value,'text',extra);
@@ -128,7 +128,7 @@
     return `<footer class="analysis-tools-source"><span>来源 ${E(data.sourceName||data.source||data.provider||'本机记录')}</span>${data.asOf?`<span>数据日 ${timestamp(data.asOf)}</span>`:''}${data.receivedAt||data.computedAt?`<span>${data.receivedAt?'采集于':'计算于'} ${timestamp(data.receivedAt||data.computedAt)}</span>`:''}${coverage?`<span>有效 ${num(coverage.valid??coverage.eligible??coverage.total,0)}${finite(coverage.excluded)?` · 排除 ${num(coverage.excluded,0)}`:''}${finite(coverage.stale)?` · 旧日 ${num(coverage.stale,0)}`:''}</span>`:''}${data.sourceUrl?`<button type="button" data-analysis-url="${E(data.sourceUrl)}">查看来源</button>`:''}${notes.length?`<div class="analysis-tools-source-notes">${notes.map(text=>`<p>${E(text)}</p>`).join('')}</div>`:''}</footer>`;
   }
   function empty(entry,text='没有符合条件的记录') {return `<div class="analysis-tools-empty" role="status"><strong>${entry.busy?'正在读取真实数据…':entry.error?'暂时无法读取':text}</strong><p>${entry.busy?'首次整理数据可能需要一点时间。':entry.error?'可以保留当前筛选条件后重试。':'更换日期或筛选条件，或检查数据源覆盖。'}</p>${button('重新读取','refresh')}</div>`;}
-  function dateControls() {return `<div class="analysis-tools-date">${field('研究日期（留空为最新）','research','asOf',draft.research.asOf,'date')} ${button('读取','apply-research')} ${draft.research.asOf?button('最新交易日','latest'):''}</div>`;}
+  function dateControls() {return `<div class="analysis-tools-date">${field('研究日期（留空为最新）','research','asOf',draft.research.asOf,'date')} ${button('读取','apply-research','',true)} ${draft.research.asOf?button('最新交易日','latest'):''}</div>`;}
   function sortRows(items,state) {
     const key=state.sort||state.defaultSort,order=state.order||state.defaultOrder;
     return [...items].sort((a,b)=>{const text=['name','industry','status','updatedAt','eventDate','priorEndDate','reportDate','asOf'].includes(key),av=text?String(a[key]||''):n(a[key]),bv=text?String(b[key]||''):n(b[key]);if(av===null||av==='')return bv===null||bv===''?0:1;if(bv===null||bv==='')return -1;const diff=text?av.localeCompare(bv,'zh-CN'):av-bv;return order==='asc'?diff:-diff;});
@@ -144,7 +144,7 @@
     const visible=remote?filtered:filtered.slice(state.offset,state.offset+size);
     if(!visible.length)return empty(entry);
     const effectiveSort=state.sort||state.defaultSort,effectiveOrder=state.order||state.defaultOrder;
-    return `<p class="analysis-tools-sort-hint">点击列名：正序 → 倒序 → 复原${state.sort?` · ${button('复原排序','sort-reset')}`:' · 当前为默认顺序'}</p><table class="analysis-tools-table"><thead><tr>${columns.map(column=>`<th class="analysis-tools-col-${column.key}" ${column.sort===false?'':`aria-sort="${effectiveSort===column.key?effectiveOrder==='asc'?'ascending':'descending':'none'}"`}>${column.sort===false?E(column.label):`<button type="button" data-analysis-sort="${column.key}" title="点击切换正序、倒序、复原">${E(column.label)} <span aria-hidden="true">${effectiveSort===column.key?effectiveOrder==='asc'?'↑':'↓':'↕'}</span></button>`}</th>`).join('')}</tr></thead><tbody>${visible.map(item=>`<tr>${columns.map(column=>`<td class="analysis-tools-col-${column.key}">${column.render?column.render(item):E(item[column.key]??'—')}</td>`).join('')}</tr>`).join('')}</tbody></table>${remote?'':`<div class="analysis-tools-pagination"><span>${state.offset+1}–${Math.min(state.offset+size,filtered.length)} / ${num(filtered.length,0)} 项</span><div>${button('上一页','previous',state.offset===0?'disabled':'')}${button('下一页','next',state.offset+size>=filtered.length?'disabled':'')}</div></div>`}`;
+    return `<p class="analysis-tools-sort-hint">点击列名：正序 → 倒序 → 复原${state.sort?` · ${button('复原排序','sort-reset')}`:' · 当前为默认顺序'}</p><table class="analysis-tools-table"${/^\d{4}-\d{2}-\d{2}$/.test(entry.data?.asOf||'')?` data-stock-chart-date="${E(entry.data.asOf)}"`:''}><thead><tr>${columns.map(column=>`<th class="analysis-tools-col-${column.key}" ${column.sort===false?'':`aria-sort="${effectiveSort===column.key?effectiveOrder==='asc'?'ascending':'descending':'none'}"`}>${column.sort===false?E(column.label):`<button type="button" data-analysis-sort="${column.key}" title="点击切换正序、倒序、复原">${E(column.label)} <span aria-hidden="true">${effectiveSort===column.key?effectiveOrder==='asc'?'↑':'↓':'↕'}</span></button>`}</th>`).join('')}</tr></thead><tbody>${visible.map(item=>`<tr>${columns.map(column=>`<td class="analysis-tools-col-${column.key}">${column.render?column.render(item):E(item[column.key]??'—')}</td>`).join('')}</tr>`).join('')}</tbody></table>${remote?'':`<div class="analysis-tools-pagination"><span>${state.offset+1}–${Math.min(state.offset+size,filtered.length)} / ${num(filtered.length,0)} 项</span><div>${button('上一页','previous',state.offset===0?'disabled':'')}${button('下一页','next',state.offset+size>=filtered.length?'disabled':'')}</div></div>`}`;
   }
   const stockColumn={key:'name',label:'证券',render:stockLink};
   const changeColumn={key:'changePercent',label:'涨跌幅',render:item=>`<span class="${tone(item.changePercent)}">${pct(item.changePercent)}</span>`};
@@ -464,5 +464,48 @@
     else{const current=rows.findIndex(item=>item.date===fundsWindow.focus),index=event.key==='Home'?0:event.key==='End'?rows.length-1:Math.max(0,Math.min(rows.length-1,(current>=0?current:view.end-1)+(event.key==='ArrowLeft'?-1:1)));fundsWindow.focus=rows[index].date;if(index<view.start)fundsWindow.start=index;if(index>=view.end)fundsWindow.start=index-view.count+1;}
     refresh('T05');queueMicrotask(()=>$('[data-analysis-flow-chart]')?.focus({preventScroll:true}));
   });
-  AT.analysisTools={render,openLeaders,invalidateSource,updateShell,computeValuation,flowSeries,async flush(){let successful=true;while(pendingWrites.size){const results=await Promise.allSettled([...pendingWrites]);successful=successful&&results.every(result=>result.status==='fulfilled'&&result.value!==false);}return successful;}};
+  function getAIContext() {
+    const page=AT.state.page;if(!pages.has(page))return null;
+    const request=requestFor(page),key=request?`${version}|${page}|${JSON.stringify(request)}`:'',entry=resources.get(key),data=entry?.data;
+    const pick=(value,keys)=>Object.fromEntries(keys.filter(key=>value?.[key]!==undefined).map(key=>[key,value[key]]));
+    const safeText=value=>String(value??'').replace(/(?:[a-z]:[\\/]|\\\\)[^\s<>"']+/gi,'[本地路径已省略]').slice(0,600);
+    const state=localUI(page),parameters=request?.[1]||{},asOf=/^\d{4}-\d{2}-\d{2}$/.test(data?.asOf||'')?data.asOf:'';
+    const requested=draft.research.asOf&&['T01','T04','T07','T08'].includes(page)?draft.research.asOf:'';
+    const cutoff=requested&&asOf?requested<asOf?requested:asOf:requested||asOf;
+    const stock=row=>({...pick(row,['symbol','code','name','date','close','changePercent','return20','return60','amount','volumeRatio5','board','boardHeight','height','boardStartDate','boardRunReturn','sequenceComplete','previousHeight','currentHeight','status','missingReason','eventDate','priorEndDate','priorBoards','gapDays'])});
+    const bucket=value=>pick(value,['eligible','observed','promoted','broken','missing','rate']);
+    const metrics=value=>({ ...pick(value,['observedCount','maxHeight','limitUpCount','multiBoardCount','leaderBreakCount']),promotion:bucket(value?.promotion?.all),firstToSecond:bucket(value?.promotion?.firstToSecond),secondToThird:bucket(value?.promotion?.secondToThird),highPromotion:bucket(value?.highBoardPromotion||value?.promotion?.high),trend:pick(value?.trend,['eligible','count','amountShare','aboveMA20Ratio','aboveMA60Ratio']),premium:pick(value?.premium,['eligible','observed','missing','mean','median'])});
+    const loaded=data?.items||[],offset=Number(parameters.offset??((parameters.page||1)-1)*(parameters.pageSize||20))||0;
+    const limitations=['仅使用当前页面已经载入的数据，不会额外联网；当前候选或分页结果不代表全市场所有股票。'];
+    const context={pageId:page,status:entry?.busy?(data?'refreshing':'loading'):entry?.error?(data?'stale':'error'):data?'ready':'not-loaded',dataDates:[asOf].filter(Boolean),filters:{...pick(parameters,['asOf','query','board','minHeight','excludeST','historyDays','minReturn20','minReturn60','requireAboveMA20','requireAboveMA60','minVolumeRatio','minAmount','minBoards','minGap','maxGap','lookbackDays','period','industry','positive','maxPe','below']),sort:state.sort||state.defaultSort,order:state.order||state.defaultOrder},summary:data?`当前页面数据截至 ${asOf||'来源未提供统一日期'}${entry?.busy?'，正在刷新':''}。`:'当前页面尚无已载入数据。',evidence:{source:{provider:safeText(data?.provider||''),name:safeText(data?.sourceName||''),asOf,requestedAsOf:requested,computedAt:data?.computedAt||null,cached:!!data?.cached,stale:!!data?.stale||!!entry?.error},coverage:pick(data?.coverage,['total','valid','excluded','stale','notYetObserved']),pagination:{totalRows:Number.isFinite(data?.total)?data.total:null,loadedRows:loaded.length,offset,from:loaded.length?offset+1:0,to:offset+loaded.length,hasMore:!!data?.hasMore},warnings:(data?.warnings||[]).slice(0,12).map(value=>safeText(typeof value==='string'?value:value?.message||value?.code))},limitations};
+    if(requested&&asOf&&asOf>requested){context.status='date-mismatch';context.summary='已载入数据晚于所选研究截止日，本次不附带候选或历史指标。';limitations.push('数据日期与当前研究日期不一致，不能用后续行情解释所选历史日。');return context;}
+    if(!data){if(page==='T05'&&draft.funds.mode==='activity')limitations.push('成交额与热度由独立图表模块保存；这里只能读取当前可见图表摘要，不能据此声称拥有完整历史序列。');return context;}
+    if(['T04','T07'].includes(page)) {
+      context.evidence.currentRows=loaded.filter(row=>!cutoff||!(row.eventDate||row.date)||(row.eventDate||row.date)<=cutoff).slice(0,30).map(stock);
+      limitations.push(`当前筛选共 ${Number.isFinite(data.total)?data.total:'未知'} 项，已载入第 ${loaded.length?offset+1:0}—${offset+loaded.length} 项；单股20/60日收益是截止日指标，不是逐股逐日行情或全量候选历史。`);
+    }
+    if(page==='T08'||page==='T01') {
+      if(page==='T08')Object.assign(context.filters,{sort:'boardHeight_then_amount',order:'desc'});
+      context.evidence.metricUnits={promotionRate:'0—1比例；乘100后为百分比',trendAmountShare:'0—1比例；成交额占比，不是净流入',trendAboveMARatio:'0—1比例',premium:'百分数，1表示1%',changePercent:'百分数，1表示1%',amount:'元',height:'板',sampleCounts:'只'};
+      const all=(data.timeline||[]).filter(row=>/^\d{4}-\d{2}-\d{2}$/.test(row.date||'')&&(!cutoff||row.date<=cutoff)).sort((a,b)=>a.date.localeCompare(b.date));
+      const recent=all.slice(-60),current=all.at(-1),leaders=(data.leaders||[]).filter(row=>!row.date||!cutoff||row.date<=cutoff),yesterday=data.yesterdayLeaders||[];
+      context.evidence.rules=Object.fromEntries(Object.entries(pick(data.rules,['timelineScope','leaderScope','ladderScope','trendScope','promotion','trend'])).map(([key,value])=>[key,safeText(value)]));
+      context.evidence.metrics=metrics(current?.metrics||data.leadership?.metrics);
+      context.evidence.currentLeaders={totalRows:leaders.length,shownRows:Math.min(30,leaders.length),rows:leaders.slice(0,30).map(stock)};
+      context.evidence.yesterdayLeaders={totalRows:yesterday.length,shownRows:Math.min(30,yesterday.length),rows:yesterday.slice(0,30).map(stock)};
+      context.evidence.timeline={scope:'全市场日线代理指标；不受候选榜单的交易板、ST或最低高度筛选影响',loadedDays:all.length,shownDays:recent.length,from:recent[0]?.date||null,to:recent.at(-1)?.date||null,rows:recent.map(row=>({date:row.date,...metrics(row.metrics||row),leaders:(row.metrics?.leaders||[]).slice(0,8).map(stock)}))};
+      context.evidence.rotations=(data.leadership?.rotationEvents||[]).filter(row=>!cutoff||row.date<=cutoff).slice(-20).map(row=>({...pick(row,['date','previousDate','previousMaxHeight','maxHeight','reason','incomplete','coverageNote']),leaders:(row.leaders||[]).slice(0,8).map(stock),previousLeaders:(row.previousLeaders||[]).slice(0,8).map(stock)}));
+      context.dataDates=[...new Set([asOf,recent[0]?.date,recent.at(-1)?.date].filter(Boolean))];
+      limitations.push(`历史证据已载入 ${all.length} 个实际交易日，本次仅附最近 ${recent.length} 日；缺失观察保留缺失计数，不补成0，也不把缺失算作断板。`,'连板为未复权日线和名义涨跌幅规则的近似观察；趋势成交额占比不是资金净流入；最高板候选不等于已确认龙头。');
+    }
+    if(page==='T05'&&draft.funds.mode==='net') {
+      const historyRequest=/^BK\d{4,6}$/.test(draft.funds.id)?['market.funds.history',{id:draft.funds.id,limit:Number(draft.funds.limit)}]:null;
+      const history=historyRequest?resources.get(`${version}|fund-history|${JSON.stringify(historyRequest)}`)?.data:null;
+      const rows=(history?.items||[]).filter(row=>/^\d{4}-\d{2}-\d{2}$/.test(row.date||'')&&(!cutoff||row.date<=cutoff));
+      context.evidence.fundsHistory={id:draft.funds.id,name:safeText(draft.funds.name),field:draft.funds.field,loadedDays:rows.length,shownDays:Math.min(rows.length,60),rows:rows.slice(-60).map(row=>pick(row,['date','mainNetInflow','superLargeNetInflow','largeNetInflow','mediumNetInflow','smallNetInflow','changePercent']))};
+      limitations.push('主力、大单是来源按成交规模的分类，不推断交易者身份；仅含当前选中板块的已载入历史。');
+    }
+    return context;
+  }
+  AT.analysisTools={render,openLeaders,invalidateSource,updateShell,computeValuation,flowSeries,getAIContext,async flush(){let successful=true;while(pendingWrites.size){const results=await Promise.allSettled([...pendingWrites]);successful=successful&&results.every(result=>result.status==='fulfilled'&&result.value!==false);}return successful;}};
 })();

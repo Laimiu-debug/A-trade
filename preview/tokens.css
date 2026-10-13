@@ -5,6 +5,8 @@
   --color-border:#DCE3ED; --color-control-border:#7C8BA1;
   --color-primary:#2457E5; --color-primary-hover:#1D46BE; --color-primary-pressed:#173A9C;
   --color-hover:#EEF3FF; --color-selected:#E8EFFF;
+  --color-action-bg:#EDF3FF; --color-action-border:#B8C9E8; --color-action-text:#2D5085;
+  --color-action-disabled-bg:#EDF0F5; --color-action-disabled-border:#D8DFE9;
   --color-up:#C7383F; --color-up-bg:#FFF2F2;
   --color-down:#15803D; --color-down-bg:#EDF9F0;
   --color-warning:#A16207; --color-warning-bg:#FFFBEB;

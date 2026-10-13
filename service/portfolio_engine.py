@@ -275,7 +275,14 @@ class PortfolioEngine:
             json.dumps(state, allow_nan=False)
         except (TypeError, ValueError):
             raise ValueError("恢复状态含非法值") from None
-        for key in ("engineVersion", "rulesVersion", "scorerVersion", "dataDigest", "datasetFingerprint", "config"):
+        # Old snapshots may omit newly introduced defaults. Compare their
+        # effective configuration, without relaxing any version/data checks.
+        if not isinstance(state["config"], dict):
+            raise ValueError("恢复配置无效")
+        restored_config = normalize_config(state["config"])
+        if restored_config != self.config:
+            raise ValueError("配置、数据或引擎版本已改变，不能恢复")
+        for key in ("engineVersion", "rulesVersion", "scorerVersion", "dataDigest", "datasetFingerprint"):
             if state[key] != self.state[key]:
                 raise ValueError("配置、数据或引擎版本已改变，不能恢复")
         cursor = state["cursor"]
@@ -320,6 +327,7 @@ class PortfolioEngine:
                 _finite(priority.get("budgetWeight"), "priority.budgetWeight", 0, 1.000001)
                 _finite(priority.get("weightedScore"), "priority.weightedScore", 0, 1.000001)
         self.state = deepcopy(state)
+        self.state["config"] = restored_config
 
     @property
     def progress(self):
@@ -533,6 +541,7 @@ class PortfolioEngine:
         minimum, increment = lot_rule(symbol)
         capacity = math.floor(self.bars[symbol][index - 1]["volume"] * self.config["maxParticipationRate"])
         position = s["positions"].get(symbol)
+        quantity_before = position["quantity"] if position else 0
         pnl = None
         if side == "sell":
             sellable = sum(lot["quantity"] for lot in position["lots"] if lot["date"] < day and lot.get("unlockDate", lot["date"]) <= day)
@@ -601,10 +610,15 @@ class PortfolioEngine:
         fill = {"date": day, "signalDate": pending["signalDate"], "symbol": symbol, "side": side,
                 "quantity": quantity, "price": price, "openingPrice": bar["open"], "amount": quantity * price,
                 "fee": fee, "slippage": slippage, "cashAfter": s["cash"], "realizedPnl": pnl,
-                "reason": pending.get("reason", "targetRebalance"), "targetWeight": pending["weights"].get(symbol, 0.)}
+                "reason": pending.get("reason", "targetRebalance"), "targetWeight": pending["weights"].get(symbol, 0.),
+                "quantityBefore": quantity_before, "quantityAfter": s["positions"].get(symbol, {}).get("quantity", 0),
+                "positionAction": ("open" if not quantity_before else "add") if side == "buy" else ("exit" if quantity == quantity_before else "reduce"),
+                "unfilledQuantity": max(0, requested - quantity)}
+        risk_evidence = {"riskEvidence": deepcopy(pending["riskEvidence"])} if pending.get("riskEvidence") else {}
+        fill.update(risk_evidence)
         s["trades"].append(fill)
         self._decision(day, symbol, side, "filled", pending.get("reason", "targetRebalance"), signalDate=pending["signalDate"], quantity=quantity, price=price,
-                       unfilledQuantity=max(0, requested - quantity))
+                       unfilledQuantity=max(0, requested - quantity), **risk_evidence)
 
     def _affordable_quantity(self, ceiling, minimum, increment, price, budget, day):
         low, high, quantity = 0, ceiling // increment, 0
@@ -641,7 +655,16 @@ class PortfolioEngine:
                 elif c["maxHoldingDays"] and self.calendar_index[day] - self.calendar_index[position["entryDate"]] + 1 >= c["maxHoldingDays"]:
                     reason = "maxHoldingDays"
             if reason and symbol not in s["forcedExits"]:
-                s["forcedExits"][symbol] = {"signalDate": day, "reason": reason}
+                observed_close = bar["close"] if bar else None
+                risk_evidence = {"observedDate": day, "observedClose": observed_close,
+                                 "riskEntryPrice": position["riskEntryPrice"], "closePeak": position["closePeak"],
+                                 "gainPct": observed_close / position["riskEntryPrice"] - 1 if observed_close is not None else None,
+                                 "drawdownFromPeakPct": observed_close / position["closePeak"] - 1 if observed_close is not None else None,
+                                 "holdingDays": self.calendar_index[day] - self.calendar_index[position["entryDate"]] + 1,
+                                 "stopLossPct": c["stopLossPct"], "takeProfitPct": c["takeProfitPct"],
+                                 "trailingStopPct": c["trailingStopPct"], "maxHoldingDays": c["maxHoldingDays"],
+                                 "percentageUnit": "ratio"}
+                s["forcedExits"][symbol] = {"signalDate": day, "reason": reason, "riskEvidence": risk_evidence}
                 pending = s["pendingTarget"]
                 if pending is not None:
                     # A held rotation target may survive several closes. Drop
@@ -651,7 +674,7 @@ class PortfolioEngine:
                         pending.get(key, {}).pop(symbol, None)
                     pending["quantities"][symbol] = 0
                 self._decision(day, symbol, "sell", "queued", reason, signalDate=day,
-                               observedClose=bar["close"] if bar else None)
+                               observedClose=observed_close, riskEvidence=deepcopy(risk_evidence))
             elif eligibility.get(symbol, {}).get("reason") == "amount20BelowMinimum":
                 self._decision(day, symbol, "hold", "held", "liquidityFilterFailedButRiskHoldingRetained")
 
@@ -758,9 +781,138 @@ class PortfolioEngine:
             symbol, {"budgetWeight": 0., "weightedScore": 0.})) for symbol in target_weights}
         return target_weights, {symbol: quantity for symbol, quantity in retained.items() if quantity is not None}, carry_budgets, carry_dates, priorities
 
+    def _next_session(self, day):
+        index = self.calendar_index[day] + 1
+        return self.all_dates[index] if index < len(self.all_dates) else None
+
+    def _daily_holdings(self, day, equity):
+        """Close-time facts; future sellability uses only already recorded lots."""
+        s, next_day = self.state, self._next_session(day)
+        result = []
+        for symbol, position in sorted(s["positions"].items()):
+            quantity, cost = position["quantity"], position["costBasis"]
+            mark, price_date = s["lastPrices"][symbol], s["lastPriceDates"][symbol]
+            market_value = quantity * mark
+            row = {"symbol": symbol, "quantity": quantity, "costBasis": cost,
+                   "marketValue": market_value, "weight": market_value / equity if equity else 0.,
+                   "markPrice": mark, "priceDate": price_date, "costPrice": cost / quantity if quantity else None,
+                   "unrealizedPnl": market_value - cost, "unrealizedPnlPct": (market_value / cost - 1) * 100 if cost else None,
+                   "holdingDays": self.calendar_index[day] - self.calendar_index[position["entryDate"]] + 1}
+            if next_day:
+                row["nextSessionSellableQuantity"] = sum(lot["quantity"] for lot in position["lots"]
+                    if lot["date"] < next_day and lot.get("unlockDate", lot["date"]) <= next_day)
+            result.append(row)
+        return result
+
+    def _position_control(self, day, curve, rebalance):
+        s, c = self.state, self.config
+        next_day = self._next_session(day)
+        # A continuous handoff also snapshots the preceding close, before this
+        # engine's first date (relative day -1), while its cursor is already 0.
+        relative_day = self.calendar_index[day] - self.calendar_index[self.dates[0]]
+        next_rebalance = relative_day + c["rebalanceEvery"] - relative_day % c["rebalanceEvery"]
+        return {"equity": curve["equity"], "cash": s["cash"],
+                "availableCash": max(0., s["cash"] - s["reservedActionCash"]),
+                "reservedActionCash": s["reservedActionCash"],
+                "receivables": sum(row["amount"] for row in s["cashReceivables"]),
+                "payables": sum(row["amount"] for row in s["actionPayables"]),
+                "preExRightsValue": sum(row["amount"] for row in s["preExRights"].values()),
+                "stockMarketValue": curve["marketValue"],
+                "stockWeight": curve["marketValue"] / curve["equity"] if curve["equity"] else 0.,
+                "holdCount": len(s["positions"]), "maxPositions": c["maxPositions"],
+                "maxStockWeight": c["maxStockWeight"], "maxStockWeightMeaning": "newTargetWeightCapNotHardHoldingLimit",
+                "rebalanceMode": c["rebalanceMode"], "rebalanceEvery": c["rebalanceEvery"],
+                "rebalanceDueToday": rebalance,
+                "nextScheduledRebalanceDate": self.dates[next_rebalance] if next_rebalance < len(self.dates) else None,
+                "nextSessionDate": next_day,
+                "nextSessionInBacktest": bool(next_day and next_day <= self.dates[-1]),
+                "valuationReliable": curve["valuationReliable"]}
+
+    def _next_session_plan(self, day, holdings):
+        """Report the live close-time intention, without reading a future quote.
+
+        A frozen quantity wins over budget/weight drift, notably in risk mode.
+        Before the first opening, a budget determines only an estimated direction.
+        """
+        s, pending = self.state, self.state["pendingTarget"]
+        weights, quantities = (pending or {}).get("weights", {}), (pending or {}).get("quantities", {})
+        held = {row["symbol"]: row for row in holdings}
+        symbols = set(held) | set(weights) | set(quantities) | set(s["forcedExits"])
+        # Only live signal dates matter; do not rescan the entire completed ledger.
+        wanted = {(symbol, s["forcedExits"][symbol]["signalDate"] if symbol in s["forcedExits"] else
+                   pending.get("signalDates", {}).get(symbol, pending["signalDate"])) for symbol in symbols} if pending else {
+                       (symbol, order["signalDate"]) for symbol, order in s["forcedExits"].items()}
+        earliest = min((signal for _, signal in wanted), default=day)
+        attempts = {}
+        for record in reversed(s["decisions"]):
+            if record["date"] < earliest or not wanted:
+                break
+            key = (record["symbol"], record.get("signalDate"))
+            if key not in wanted or record["action"] not in ("buy", "sell", "rebalance") or record["status"] not in ("filled", "deferred"):
+                continue
+            attempts[key] = record
+            wanted.remove(key)
+        rows = []
+        for symbol in sorted(symbols):
+            current = held.get(symbol, {})
+            quantity = current.get("quantity", 0)
+            value = current.get("marketValue", 0.)
+            mark, price_date = current.get("markPrice"), current.get("priceDate")
+            if mark is None:
+                latest = next((bar for bar in reversed(self.bars[symbol]) if bar["date"] <= day and bar["volume"] > 0), None)
+                if latest:
+                    mark, price_date = latest["close"], latest["date"]
+            forced = s["forcedExits"].get(symbol)
+            if forced:
+                target, weight, budget = 0, 0., 0.
+                signal_date, reason, basis = forced["signalDate"], forced["reason"], "frozen"
+            elif pending:
+                weight, budget = weights.get(symbol, 0.), pending["budgets"].get(symbol, 0.)
+                target = quantities.get(symbol, 0 if weight == 0 else None)
+                signal_date = pending.get("signalDates", {}).get(symbol, pending["signalDate"])
+                reason, basis = pending["reason"], "frozen" if target is not None else "nextOpen"
+            else:
+                target, weight, budget = None, None, None
+                signal_date, reason, basis = None, "noPendingTarget", "holding"
+            estimated = target is None and pending is not None
+            delta = target - quantity if target is not None else None
+            if basis == "holding" or delta == 0:
+                action, outstanding = "hold", False
+            elif target is not None:
+                action = ("open" if not quantity else "add") if delta > 0 else ("exit" if target == 0 else "reduce")
+                outstanding = True
+            elif not quantity:
+                action, outstanding = "open", True
+            else:
+                # Equality at the close cannot prove tomorrow's opening lot count.
+                gap = budget - value
+                action = "rebalance" if math.isclose(budget, value, rel_tol=1e-12, abs_tol=1e-8) else "add" if gap > 0 else "reduce"
+                outstanding = True
+            attempt = attempts.get((symbol, signal_date)) if signal_date else None
+            execution = "completed" if not outstanding else "notAttempted" if attempt is None else (
+                "deferred" if attempt["status"] == "deferred" else "partial" if attempt.get("unfilledQuantity", 0) > 0 else "pending")
+            rows.append({"symbol": symbol, "action": action,
+                         "status": ("new" if signal_date == day else "carried") if outstanding else "holding" if basis == "holding" else "completed",
+                         "pending": outstanding, "currentQuantity": quantity,
+                         "currentWeight": current.get("weight", 0.), "currentMarketValue": value,
+                         "targetQuantity": target, "quantityDelta": delta,
+                         "targetWeight": weight, "targetBudget": budget, "signalDate": signal_date, "reason": reason,
+                         "lastBlockReason": attempt["reason"] if outstanding and attempt and attempt["status"] == "deferred" else None,
+                         "lastAttemptDate": attempt["date"] if attempt else None, "executionStatus": execution,
+                         "directionEstimated": estimated, "quantityBasis": basis,
+                         "valuationBasis": "close" if price_date == day else "lastAvailable",
+                         "markPrice": mark, "priceDate": price_date})
+            if forced and forced.get("riskEvidence"):
+                rows[-1]["riskEvidence"] = deepcopy(forced["riskEvidence"])
+        next_day = self._next_session(day)
+        return {"asOfDate": day, "nextSessionDate": next_day,
+                "nextSessionInBacktest": bool(next_day and next_day <= self.dates[-1]),
+                "hasPendingOrders": any(row["pending"] for row in rows), "rows": rows}
+
     def _step_day(self, day):
         s = self.state
         decision_start, fill_start = len(s["decisions"]), len(s["trades"])
+        action_start = len(s["actionLedger"])
         apply_actions(self, day)
         self._observe_actions(day)
         self._execute_target(day)
@@ -868,10 +1020,7 @@ class PortfolioEngine:
             for symbol in sorted(set(weights) | set(s["positions"])):
                 self._decision(day, symbol, "target", "queued", "strategyRotation" if rotation_changed else "scheduledRebalance", targetWeight=weights.get(symbol, 0.), signalEquity=equity)
         pending = s["pendingTarget"]
-        holdings = [{"symbol": symbol, "quantity": position["quantity"], "costBasis": position["costBasis"],
-                     "marketValue": position["quantity"] * s["lastPrices"][symbol],
-                     "weight": position["quantity"] * s["lastPrices"][symbol] / equity if equity else 0.}
-                    for symbol, position in sorted(s["positions"].items())]
+        holdings = self._daily_holdings(day, equity)
         s["daily"].append({"date": day, "rebalance": rebalance, "topNByStrategy": raw_top_n, "selectedCandidatesByStrategy": details,
                            "rotationDecision": rotation_decision,
                            "selectedByStrategy": deepcopy(s["selectedByStrategy"]), "strategyWeights": strategy_weights,
@@ -880,6 +1029,8 @@ class PortfolioEngine:
                            "targetPriority": self._priority_order(pending["weights"], pending["priorityBySymbol"]) if pending else [],
                            "targetPriorityBySymbol": deepcopy(pending["priorityBySymbol"] if pending else {}),
                            "holdings": holdings, "actualStockWeights": {row["symbol"]: row["weight"] for row in holdings},
+                           "positionControl": self._position_control(day, curve, rebalance),
+                           "nextSessionPlan": self._next_session_plan(day, holdings),
                            "coverage": deepcopy(scored.get("coverage", {})),
                            "poolCounts": {key: len(values) for key, values in scored.get("pools", {}).items()},
                            "regime": deepcopy(scored.get("regime")), "clippedTargets": clipped,
@@ -887,6 +1038,7 @@ class PortfolioEngine:
                            "targetSelectionPolicy": "aggregateBudgetBeforeCap;strategyBudgetWeightedScore;symbolTieBreak;maxPositionsTruncation;noRedistribution",
                            "cash": s["cash"], "equity": equity})
         capture_rights(self, day)
+        s["daily"][-1]["corporateActions"] = deepcopy(s["actionLedger"][action_start:])
 
     def result(self):
         s = self.state

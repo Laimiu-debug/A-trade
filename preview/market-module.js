@@ -100,6 +100,7 @@
     AT.analysisTools?.invalidateSource();
     AT.sectorTrends?.invalidate();
     AT.sectorComparison?.invalidate();
+    AT.stockTableCharts?.invalidate();
     version++; listSerial++; barsSerial++; quoteSerial++; intradaySerial++; overviewSerial++; sectorSerial++; sourceSerial++;
     sourceLoaded = false; sourcePending = null; sourceError = '';
     listKey = ''; listData = null; listError = ''; listBusy = false; listOffset = 0;
@@ -767,6 +768,11 @@
     pendingDay = null;
   }
   AT.marketUI = {get status() {return source ? structuredClone(source) : null;}, updateShell, refreshVisible,
+    getAIContext() {
+      if (AT.state.page !== 'M01') return null;
+      const {day} = AT.marketAnalysis.selectedObservation(researchData);
+      return AT.pageAIContext?.marketStyle({data: researchData, day, busy: researchBusy, error: researchError, historyDays: researchHistoryDays}) || null;
+    },
     diagnostics() {
       return {local: {loaded: sourceLoaded, configured: Boolean(source?.configured), available: Boolean(source?.available), lastScanAt: source?.lastScannedAt || null, error: Boolean(sourceError)},
         online: {enabled: Boolean(online?.enabled), connected: Boolean(online?.connected), available: Boolean(online?.available), lastCheckedAt: online?.lastCheckedAt || null, followLocal: online?.followLocal ?? null}};

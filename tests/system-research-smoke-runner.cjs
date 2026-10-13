@@ -22,7 +22,7 @@ async function fixture(){
 }
 async function complete(kind){
  await click('[data-pf-action="workflow-step"][data-pf-step="4"]');await wait('!!document.querySelector(".pf-config-ready")','effective '+kind,15000);
- await evaluate('document.querySelector("[data-pf-form]").requestSubmit()');await wait('AT.state.page==="R03"&&PortfolioWorkbench.currentStep()===5','create '+kind,15000);
+ await evaluate('document.querySelector("[data-pf-form]").requestSubmit()');await wait(`AT.state.page===${JSON.stringify(kind==='systemPlateau'?'R05':'R03')}&&PortfolioWorkbench.currentStep()===5`,'create '+kind,15000);
  const id=await evaluate('document.querySelector("[data-rs-task]").value');ids[kind]=id;
  await wait('document.querySelector(".rs-status-completed")','complete '+kind);
  const response=await evaluate(`atradeDesktop.business('research.get',{id:${JSON.stringify(id)}})`);assert.equal(response.ok,true,response.error);assert.equal(response.data.task.status,'completed');assert.equal(response.data.task.kind,kind);return response.data.result;
@@ -52,10 +52,15 @@ app.whenReady().then(async()=>{
  await navigate('R03');await click('[data-pf-action="workflow-step"][data-pf-step="4"]');await fill('kind','walkForward');for(const [name,value] of Object.entries({name:'Smoke · 滚动样本外','experiment.trainDays':'35','experiment.testDays':'10','experiment.stepDays':'10','experiment.maxFolds':'2'}))await fill(name,value);
  const walk=await complete('walkForward');assert.equal(walk.folds.length,2);assert.equal(walk.trialCount,1);assert.ok(walk.folds.every(f=>f.testing.fixed&&f.testing.equalWeight));assert.equal(walk.plateau.certified,false);
  await navigate('R06');await wait('!!document.querySelector("[data-rs-result-path]")','fold account selector');await evaluate('(()=>{const el=document.querySelector("[data-rs-result-path]");el.value="folds.1.testing.equalWeight";el.dispatchEvent(new Event("change",{bubbles:true}));})()');await wait('document.querySelector("[data-rs-result-path]").value==="folds.1.testing.equalWeight"','select second fold');
- await navigate('R03');await click('[data-pf-action="workflow-step"][data-pf-step="4"]');await fill('kind','systemPlateau');await fill('name','Smoke · 四层十六组合');await fill('combinations.weighted.enabled',true);
- const axes=[['strategies.momentum.params.lookback','5, 8'],['combinations.combo_weighted.method','union, weighted'],['rotation.lookbackDays','5, 8'],['topN','2, 3']];
- for(let i=0;i<axes.length;i++){await fill('scanAxes.'+i+'.path',axes[i][0]);await fill('scanAxes.'+i+'.text',axes[i][1]);}
- await screenshot('system-research-settings.png','[data-pf-field="experiment.trainDays"]');
+ await navigate('R05');await click('[data-pf-action="workflow-step"][data-pf-step="1"]');
+ for(const [name,value] of Object.entries({name:'Smoke · 四层十六组合','selection.mode':'explicit',symbols:'600000 600001 600002 600003 600004 600005','config.startDate':dates[260],'config.endDate':dates[315],'config.universe.minListingDays':'0','config.universe.minAmount20':'0'}))await fill(name,value);
+ await click('[data-pf-action="workflow-step"][data-pf-step="2"]');
+ const axes=[['strategies.momentum.params.lookback','5, 8'],['combinations.combo_union.method','union, weighted'],['rotation.lookbackDays','5, 8'],['topN','2, 3']];
+ for(let i=0;i<axes.length;i++){await fill('scanAxes.'+i+'.path',axes[i][0]);if(i!==1)await fill('scanAxes.'+i+'.text',axes[i][1]);}
+ for(const value of ['intersection','union','weighted'])await evaluate(`(()=>{const checkbox=document.querySelector('[data-pf-scan-method="1"][value="${value}"]');if(!checkbox)throw new Error('Missing combination candidate ${value}');const wanted=${JSON.stringify(['union','weighted'].includes(value))};if(checkbox.checked!==wanted){checkbox.checked=wanted;checkbox.dispatchEvent(new Event('change',{bubbles:true}));}})()`);
+ await screenshot('system-research-settings.png','[data-pf-step-panel="2"]');
+ await click('[data-pf-action="workflow-step"][data-pf-step="3"]');
+ for(const [name,value] of Object.entries({'params.momentum.trendWindow':'8','params.momentum.minReturn':'0','config.maxPositions':'3','config.maxStockWeight':'35','config.maxHoldingDays':'5','config.rotation.warmupDays':'40','experiment.trainDays':'35','experiment.testDays':'10','experiment.stepDays':'10','experiment.maxFolds':'2'}))await fill(name,value);
  const plateau=await complete('systemPlateau');assert.equal(plateau.trialCount,16);assert.equal(plateau.folds.length,2);assert.equal(plateau.plateau.heatmap.length,16);assert.equal(plateau.plateau.certified,false);assert.deepEqual(plateau.plateau.recommendedRanges,[]);assert.ok(plateau.engineRunCount>0);
  await navigate('R05');assert.equal(await evaluate('document.querySelectorAll(".pf-heat-cell").length'),4);assert.equal(await evaluate('document.querySelectorAll("[data-pf-heat-slice]").length'),2);await screenshot('system-plateau-grid.png','.pf-heatmap');
  await navigate('R03');await click('[data-pf-action="workflow-step"][data-pf-step="4"]');await fill('kind','portfolio');await fill('name','Smoke · 软配权执行诊断');await fill('config.allocation.mode','soft_rotation');await fill('config.rebalanceMode','rank');await fill('config.rotation.minWeightChange','0');await fill('config.rotation.cooldownDays','2');
