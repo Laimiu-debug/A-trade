@@ -28,6 +28,52 @@ print(json.dumps(dict(definition=dict(version=CONFIG_VERSION,strategies=catalogu
 assert.equal(generated.status,0,generated.stderr);
 const fixture=JSON.parse(generated.stdout);
 fixture.definition.defaults.startDate='2024-02-10';fixture.definition.defaults.endDate='2024-04-09';
+
+test('execution capacity failures and daily-only assumptions are visible in account reports',()=>{
+ const h=harness();
+ const invalid=structuredClone(fixture.result);
+ invalid.quality.openingCapacityVerified=false;
+ invalid.quality.executionCapacityIssues=[{date:'2024-02-11',symbol:'sh600001',filledQuantity:1000,observedDailyVolume:100}];
+ let html=h.module.result(invalid);
+ assert.match(html,/data-pf-execution-evidence/);assert.match(html,/账户路径不参与平原选择或认证/);assert.match(html,/模拟成交股数/);assert.match(html,/1,000/);
+ invalid.quality.executionCapacityIssues=[];html=h.module.result(invalid);
+ assert.match(html,/缺少开盘量证据/);assert.match(html,/下一交易日开盘才可支用/);
+});
+
+test('single scan submits explicit relative stability and exposure thresholds in backend units',()=>{
+ const h=harness();h.module.selectStrategy('momentum');h.submit();
+ const fixed=h.calls.find(row=>row[0]==='create')[1];h.module.startPlateau({...fixed,id:'fixed-integrity',status:'completed'});
+ h.field('scanAxes.0.path','strategies.momentum.params.lookback','text');h.field('scanAxes.0.text','15,20,25','text');
+ h.field('experiment.maxNeighborhoodRelativeStd','75');h.field('experiment.minNeighborhoodReturnRetention','60');h.field('experiment.minInvestedDays','4');h.submit();
+ const request=h.calls.filter(row=>row[0]==='create').at(-1)[1];
+ assert.equal(request.experiment.maxNeighborhoodRelativeStd,.75);assert.equal(request.experiment.minNeighborhoodReturnRetention,.6);assert.equal(request.experiment.minInvestedDays,4);
+ const html=h.module.plateau();assert.match(html,/最少不同交易路径/);assert.match(html,/中位收益 \/ 邻域峰值/);
+});
+
+test('unidentifiable scans and insufficient long-term evidence explain their failed criteria',()=>{
+ const h=harness();
+ const single={kind:'singlePlateau',status:'completed',config:fixture.result.config,experiment:{},axes:[{path:'topN',values:[1,2,3]}],
+   parameterIdentifiability:{distinctBehaviorCount:1,inactiveAxes:['topN']},candidates:[{candidateId:'c001',params:{topN:1},config:fixture.result.config,
+     metrics:{totalReturnPct:2,maxDrawdownPct:0,closedTradeCount:3},neighborhood:{passed:false,size:3,distinctBehaviorCount:1,failures:['unidentifiable_parameter_behavior','inactive_parameter_axes']}}]};
+ let html=h.module.result(single);assert.match(html,/data-pf-identifiability/);assert.match(html,/未生效参数/);assert.match(html,/参数变化尚不可识别/);assert.doesNotMatch(html,/pf-candidate is-stable/);
+ html=h.module.result({kind:'systemPlateau',experiment:{axes:[]},folds:[],plateau:{certified:false,recommendedRanges:[],
+   reasons:['insufficient_oos_trading_days','insufficient_oos_calendar_span'],oosCoverage:{tradingDays:45,minTradingDays:504,calendarSpanDays:61,minCalendarSpanDays:730,coveredYears:[]}}});
+ assert.match(html,/data-pf-oos-coverage/);assert.match(html,/45 个交易日 \/ 门槛 504/);assert.match(html,/跨年标签不能替代长期证据/);
+});
+
+test('increasing required years raises the persisted trading-day and calendar floors',()=>{
+ const live={'minOosTradingDays':{value:'504'},'minOosCalendarDays':{value:'730'}};
+ const h=harness(new Map(),{advanced:true,querySelector:selector=>live[selector.match(/experiment\.(\w+)/)?.[1]]});h.field('kind','systemPlateau','text');h.field('experiment.minOosYears','3');
+ const html=h.module.form();
+ assert.match(html,/data-pf-field="experiment.minOosTradingDays"[^>]*value="756"/);
+ assert.match(html,/data-pf-field="experiment.minOosCalendarDays"[^>]*value="1095"/);
+ assert.equal(live.minOosTradingDays.value,756);assert.equal(live.minOosCalendarDays.value,1095);
+ for(const [key,text]of h.storage){const saved=JSON.parse(text);if(saved.draft?.experiment){delete saved.draft.experiment.minOosTradingDays;delete saved.draft.experiment.minOosCalendarDays;h.storage.set(key,JSON.stringify(saved));}}
+ const reopened=harness(h.storage,{advanced:true});reopened.click('advanced-plateau');
+ const restored=reopened.module.plateau();
+ assert.match(restored,/data-pf-field="experiment.minOosTradingDays"[^>]*value="756"/);
+ assert.match(restored,/data-pf-field="experiment.minOosCalendarDays"[^>]*value="1095"/);
+});
 function harness(storage=new Map(),options={}){
  const listeners=new Map(),calls=[],errors=[];
  const document={addEventListener(type,fn){const handlers=listeners.get(type)||[];handlers.push(fn);listeners.set(type,handlers);},querySelector:selector=>options.querySelector?.(selector)||null};

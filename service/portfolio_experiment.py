@@ -8,9 +8,10 @@ or selected using those holdout returns.
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import date
 from itertools import product
 import math
-from statistics import mean, pstdev
+from statistics import mean
 
 from .portfolio_config import normalize_config, number
 from .portfolio_engine import PortfolioEngine
@@ -18,8 +19,10 @@ from .portfolio_study import (_digest, _number, _quality_failures, _slice, _summ
                               normalize_study, persistence_diagnostic, rotation_comparison)
 from .portfolio_regions import connected_regions, verified_ranges
 from .portfolio_prepared import PreparedCache
+from .plateau_validation import (neighborhood_statistics, risk_failures, behavior_fingerprint,
+                                 behavior_diagnostics, check_identifiability)
 
-VERSION = "portfolio-experiment-connected-regions-v2"
+VERSION = "portfolio-experiment-risk-and-coverage-v3"
 MAX_ENGINE_RUNS = 4000
 HOLDING_PATHS = {"topN", "maxPositions", "maxStockWeight", "switchThreshold", "rebalanceEvery",
                  "stopLossPct", "takeProfitPct", "trailingStopPct", "maxHoldingDays"}
@@ -63,7 +66,9 @@ def apply_parameters(config, parameters):
 def normalize_experiment(experiment, config):
     allowed = {"kind", "trainDays", "testDays", "stepDays", "expanding", "maxFolds", "axes", "maxTrials",
                "minNeighborPositiveFraction", "minNeighborhoodSize", "maxNeighborhoodStdPct",
-               "minOosYears", "minOosRegimes", "capitalMode"}
+               "minOosYears", "minOosRegimes", "capitalMode", "minClosedTrades", "maxDrawdownPct", "minInvestedDays",
+               "maxNeighborhoodRelativeStd", "minNeighborhoodReturnRetention",
+               "minOosTradingDays", "minOosCalendarDays", "minOosDaysPerYear"}
     if not isinstance(experiment, dict) or set(experiment) - allowed:
         raise ValueError("experiment 必须是对象且只包含支持的参数")
     kind = experiment.get("kind")
@@ -80,9 +85,16 @@ def normalize_experiment(experiment, config):
              "stepDays": (experiment.get("testDays", 39), 2, 2500, True), "maxFolds": (5, 1, 8, True),
              "maxTrials": (81, 1, 81, True), "minNeighborPositiveFraction": (.7, .5, 1, False),
              "minNeighborhoodSize": (3, 2, 81, True), "maxNeighborhoodStdPct": (10, 0, 1000, False),
-             "minOosYears": (2, 2, 10, True), "minOosRegimes": (2, 2, 8, True)}
+             "minOosYears": (2, 2, 10, True), "minOosRegimes": (2, 2, 8, True),
+             "minClosedTrades": (3, 1, 10000, True), "maxDrawdownPct": (30, 0, 100, False),
+             "minInvestedDays": (3, 1, 10000, True), "maxNeighborhoodRelativeStd": (1, 0, 10, False),
+             "minNeighborhoodReturnRetention": (.5, .1, 1, False)}
     for key, (default, low, high, integer) in specs.items():
         output[key] = number(experiment.get(key, default), "experiment." + key, low, high, integer)
+    coverage_specs = {"minOosTradingDays": 252 * output["minOosYears"],
+                      "minOosCalendarDays": 365 * output["minOosYears"], "minOosDaysPerYear": 126}
+    for key, minimum in coverage_specs.items():
+        output[key] = number(experiment.get(key, minimum), "experiment." + key, minimum, 36600, True)
     if output["stepDays"] < output["testDays"]:
         raise ValueError("stepDays 不得小于 testDays；样本外窗口禁止重叠")
     if type(experiment.get("expanding", False)) is not bool:
@@ -126,18 +138,6 @@ def normalize_experiment(experiment, config):
     for values in product(*(axis["values"] for axis in output["axes"])):
         apply_parameters(normalized, dict(zip((axis["path"] for axis in output["axes"]), values)))
     return output
-
-
-def neighborhood_statistics(values, settings):
-    valid = [value for value in values if _number(value)]
-    result = {"size": len(values), "validCount": len(valid), "meanNetReturnPct": mean(valid) if valid else None,
-              "stdNetReturnPct": pstdev(valid) if valid else None,
-              "positiveFraction": sum(value > 0 for value in valid) / len(valid) if valid else None, "passed": False}
-    result["passed"] = (len(valid) == len(values) and len(valid) >= settings["minNeighborhoodSize"]
-                        and result["meanNetReturnPct"] > 0
-                        and result["positiveFraction"] >= settings["minNeighborPositiveFraction"]
-                        and result["stdNetReturnPct"] <= settings["maxNeighborhoodStdPct"])
-    return result
 
 
 def _calendar(dataset):
@@ -269,10 +269,15 @@ class PortfolioExperiment:
     def _compact(self, result):
         return {"metrics": _summary(result, self.config["initialCapital"]),
                 "quality": deepcopy(result.get("quality", {})),
-                "qualityFailures": self._failures(result), "groups": _return_groups(result)}
+                "qualityFailures": self._failures(result), "groups": _return_groups(result),
+                "behaviorFingerprint": behavior_fingerprint(result),
+                "observedDates": [row["date"] for row in result.get("curve", []) if _number(row.get("dailyReturn"))]}
 
     def _failures(self, result):
-        return _quality_failures(result, self.fingerprint) + result.get("comparisonFailures", [])
+        failures = _quality_failures(result, self.fingerprint) + result.get("comparisonFailures", [])
+        if self.settings["kind"] == "systemPlateau":
+            failures += risk_failures(result, self.settings)
+        return failures
 
     def _complete_training_candidate(self, full_system):
         candidate, pending = self._candidate(), self.state["pendingTraining"]
@@ -316,11 +321,19 @@ class PortfolioExperiment:
 
     def _freeze_selection(self):
         training = self.state["current"]["training"]
+        fingerprints = {key: row["fullSystem"].get("behaviorFingerprint") for key, row in training.items()}
+        diagnostics = behavior_diagnostics(self.candidates, fingerprints, self.settings["axes"])
+        self.state["current"]["parameterIdentifiability"] = diagnostics
         for candidate in self.candidates:
             ids = self._neighbors(candidate)
             values = [training[key]["fullSystem"]["metrics"]["totalReturnPct"]
                       if not training[key]["qualityFailures"] else None for key in ids]
             stats = neighborhood_statistics(values, self.settings)
+            if self.settings["kind"] == "systemPlateau":
+                check_identifiability(stats, [fingerprints.get(key) for key in ids], self.settings)
+                if diagnostics["inactiveAxes"]:
+                    stats["passed"] = False
+                    stats["failures"].append("inactive_parameter_axes")
             if self.settings["kind"] == "systemPlateau" and not all(training[key]["rotationExecuted"] for key in ids):
                 stats["passed"] = False
             training[candidate["candidateId"]]["neighborhood"] = {**stats, "candidateIds": ids}
@@ -488,6 +501,15 @@ class PortfolioExperiment:
                 row["qualityFailures"] for row in frozen_oos) or any(
                 self._failures(row) for fold in folds for row in fold["testing"].values()):
             reasons.append("evidence_integrity_failed")
+        for row in frozen_training:
+            reasons.extend(risk_failures(row["fullSystem"], self.settings))
+        for row in frozen_oos:
+            reasons.extend(risk_failures(row, self.settings))
+        for fold in folds:
+            if fold.get("parameterIdentifiability", {}).get("inactiveAxes"):
+                reasons.append("inactive_parameter_axes")
+            for run in fold["testing"].values():
+                reasons.extend(risk_failures(run, self.settings))
         if any(not row["rotationExecuted"] for row in frozen_training):
             reasons.append("training_persistence_not_passed_for_frozen_region")
         if any(not all(_number(fold["comparison"].get(key)) and fold["comparison"][key] > 1e-12
@@ -536,8 +558,23 @@ class PortfolioExperiment:
                 group_checks[category].append({"label": label, "candidates": rows, "neighborhood": stats})
                 if not stats["passed"]:
                     reasons.append("frozen_neighborhood_failed_" + category)
-        if len(group_checks["years"]) < self.settings["minOosYears"]:
+        covered_years = [row["label"] for row in group_checks["years"]
+                         if row["neighborhood"]["passed"] and row["candidates"] and
+                         all(item["sampleDays"] >= self.settings["minOosDaysPerYear"] for item in row["candidates"])]
+        if len(covered_years) < self.settings["minOosYears"]:
             reasons.append("insufficient_out_of_sample_years")
+        observed_dates = set()
+        for fold in folds:
+            ids = (fold["selection"].get("neighborhood") or {}).get("candidateIds", [])
+            samples = [set(fold["oosCandidates"].get(key, {}).get("observedDates", [])) for key in ids]
+            if samples:
+                observed_dates.update(set.intersection(*samples))
+        ordered_dates = sorted(observed_dates)
+        span = (date.fromisoformat(ordered_dates[-1]) - date.fromisoformat(ordered_dates[0])).days + 1 if ordered_dates else 0
+        if len(ordered_dates) < self.settings["minOosTradingDays"]:
+            reasons.append("insufficient_oos_trading_days")
+        if span < self.settings["minOosCalendarDays"]:
+            reasons.append("insufficient_oos_calendar_span")
         if len(group_checks["regimes"]) < self.settings["minOosRegimes"]:
             reasons.append("insufficient_observed_market_regimes")
         for candidate in self.candidates:
@@ -575,6 +612,9 @@ class PortfolioExperiment:
                 "reasons": reasons, "recommendedRanges": recommended,
                 "frozenRegionCandidateIds": sorted(common or []), "heatmap": heatmap,
                 "foldValidation": validation, "yearValidation": group_checks["years"], "regimeValidation": group_checks["regimes"],
+                "oosCoverage": {"tradingDays": len(ordered_dates), "calendarSpanDays": span, "coveredYears": covered_years,
+                                "minTradingDays": self.settings["minOosTradingDays"], "minCalendarSpanDays": self.settings["minOosCalendarDays"],
+                                "minDaysPerYear": self.settings["minOosDaysPerYear"]},
                 "conclusion": "训练冻结的系统平原通过样本外、年份和环境检验。" if not reasons else "尚未确认收益平原，不输出推荐参数区间。",
                 "neighborhoodDefinition": "self plus one-axis immediate numeric neighbors; all alternatives for categorical method",
                 "selectionUsesOos": False, "axisRangeWarning": "推荐区间的全部离散网格交叉组合均已验证；未测试的连续插值不代表已验证。",

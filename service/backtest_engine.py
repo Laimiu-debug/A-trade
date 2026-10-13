@@ -17,8 +17,9 @@ from statistics import mean, stdev
 
 from .strategies import (STRATEGY_VERSION, FORCE_STRATEGIES, evaluate, normalize_config,
                          prepare_bars, required_history, strategy_conflicts)
+from .execution_evidence import opening_capacity, audit_opening_fills
 
-ENGINE_VERSION = "daily-next-open-v3"
+ENGINE_VERSION = "daily-next-open-v4-execution-evidence"
 RULES_VERSION = "ashare-conservative-2026-07-06"
 
 
@@ -159,6 +160,10 @@ class BacktestEngine:
                                       "precloseByDate": _date_price_map(original.get("precloseByDate"), "precloseByDate"),
                                       "factorByDate": _date_price_map(original.get("factorByDate"), "factorByDate"),
                                       "dataQuality": _quality_object(original.get("dataQuality"), "security.dataQuality")}
+            opening = original.get("openingVolumeByDate", {})
+            if not isinstance(opening, dict):
+                raise ValueError("openingVolumeByDate 须为日期到开盘成交股数的映射")
+            self.securities[symbol]["openingVolumeByDate"] = {_day(day): _finite(value, "opening volume") for day, value in opening.items()}
             self.bars[symbol], self.by_date[symbol] = clean, {bar["date"]: index for index, bar in enumerate(clean)}
         self.all_dates = sorted({bar["date"] for bars in self.bars.values() for bar in bars})
         self.calendar_index = {day: i for i, day in enumerate(self.all_dates)}
@@ -175,7 +180,7 @@ class BacktestEngine:
             "股票池由当前显式选择，缺乏历史成分、退市样本和完整历史ST/上市状态，存在生存者偏差与选择偏差。",
             "仅收盘形成信号，下一市场观测日开盘执行；不使用日内高低价推断成交，涨跌停采用保守拒单。",
             "历史ST状态未知时采用较严格价格边界；前5条观测、停牌、缺失后首日及无法解释价格断点拒绝新增成交。",
-            "成交量容量使用前一日成交股数；当日零量视为停牌。未模拟竞价队列和真实冲击，开盘成交仍是研究假设。",
+            "有开盘量证据时约束成交容量，缺失时采用昨日量近似并标记未验证；超出当日总量的成交阻止平原验收。未模拟竞价队列和真实冲击。",
             "基准为所选股票池首个回测日可交易证券等权买入并持有的原始价格理论组合，允许碎股且不计费用；不是市场指数。",
             "佣金、最低佣金、过户费和滑点使用配置中的统一假设；仅自动印花税按已支持历史日期切换，未完整还原历史费率。",
         ]
@@ -191,7 +196,8 @@ class BacktestEngine:
                       "lastPrices": {}, "lastPriceDates": {}, "quarantined": {}, "curve": [], "trades": [], "decisions": [],
                       "warnings": list(dict.fromkeys(warnings)), "peakEquity": self.config["initialCapital"], "totalFees": 0., "totalSlippage": 0.,
                       "benchmarkUnits": {}, "benchmarkCash": self.config["initialCapital"], "closedPnls": [], "warmupSkips": 0,
-                      "corporateActionDates": [], "actionExposures": []}
+                      "corporateActionDates": [], "actionExposures": [],
+                      "executionCapacityIssues": [], "unverifiedOpeningFills": []}
         if state is not None:
             if not isinstance(state, dict):
                 raise ValueError("回测恢复状态格式错误")
@@ -360,7 +366,7 @@ class BacktestEngine:
             else:
                 remaining = position["quantity"]
             order["remainingQuantity"] = remaining
-        capacity = math.floor(self.bars[symbol][index-1]["volume"] * self.config["maxParticipationRate"])
+        capacity = opening_capacity(self.securities[symbol], day, self.bars[symbol][index-1]["volume"], self.config["maxParticipationRate"])
         requested = min(remaining, position["quantity"])
         if requested <= capacity and requested == position["quantity"]:
             quantity = requested  # final odd-lot liquidation is allowed
@@ -414,7 +420,7 @@ class BacktestEngine:
             self._decision(day, symbol, "buy", "rejected", rejection, signalDate=order["signalDate"])
             return
         budget = min(order["budget"], self.state["cash"])
-        capacity = self.bars[symbol][index-1]["volume"] * self.config["maxParticipationRate"]
+        capacity = opening_capacity(self.securities[symbol], day, self.bars[symbol][index-1]["volume"], self.config["maxParticipationRate"])
         quantity = _quantity(min(budget / price, capacity), minimum, increment)
         # Binary search avoids a linear scan for tiny prices / very large cash.
         low, high, best = 0, quantity // increment, 0
@@ -486,6 +492,7 @@ class BacktestEngine:
 
     def _step_day(self, day):
         s = self.state
+        fill_start = len(s["trades"])
         self._observe_actions_before_open(day)
         sold_today = set()
         for symbol, order in list(sorted(s["pendingSells"].items())):
@@ -495,6 +502,13 @@ class BacktestEngine:
         s["pendingBuys"] = []
         for order in pending:
             self._buy(day, order, sold_today)
+        fills = s["trades"][fill_start:]
+        issues, unverified = audit_opening_fills(fills, self.securities,
+            {fill["symbol"]: self._bar(fill["symbol"], day)[0] for fill in fills})
+        s["executionCapacityIssues"].extend(issues)
+        s["unverifiedOpeningFills"].extend(unverified)
+        if issues:
+            self._warning("模拟成交超过当日总量或开盘量证据矛盾；本账户路径无效，不参与平原选择或验收。")
         if s["cursor"] == 0:
             allocation = self.config["initialCapital"] / len(self.securities)
             for symbol in sorted(self.securities):
@@ -521,7 +535,7 @@ class BacktestEngine:
         s["curve"].append({"date": day, "equity": round(equity, 8), "cash": round(s["cash"], 8), "marketValue": round(market_value, 8),
                            "drawdownPct": round((1-equity/s["peakEquity"]) * 100, 8), "benchmarkEquity": round(benchmark, 8),
                            "staleSymbols": stale, "benchmarkStaleSymbols": benchmark_stale,
-                           "valuationReliable": not stale and not any(symbol in s["quarantined"] for symbol in s["positions"]) and not any(event["strategyQuantity"] for event in s["actionExposures"]),
+                           "valuationReliable": not stale and not s["executionCapacityIssues"] and not any(symbol in s["quarantined"] for symbol in s["positions"]) and not any(event["strategyQuantity"] for event in s["actionExposures"]),
                            "benchmarkValuationReliable": not benchmark_stale and not any(symbol in s["quarantined"] for symbol in s["benchmarkUnits"]) and not any(event["benchmarkUnits"] for event in s["actionExposures"])})
         for symbol, position in sorted(s["positions"].items()):
             self._exit_signal(day, symbol, position)
@@ -567,6 +581,7 @@ class BacktestEngine:
                    "benchmarkReturnPct": benchmark_return, "excessReturnPct": total * 100 - benchmark_return,
                    "totalFees": round(s["totalFees"], 8), "totalSlippage": round(s["totalSlippage"], 8),
                    "tradingDays": len(curve), "exposurePct": mean(point["marketValue"] / point["equity"] * 100 if point["equity"] > 0 else 0 for point in curve) if curve else 0.,
+                   "investedDays": sum(point["marketValue"] > 0 for point in curve),
                    "staleValuationDays": sum(bool(point["staleSymbols"]) for point in curve), "warmupSkips": s["warmupSkips"]}
         positions = [{**deepcopy(position), "markPrice": s["lastPrices"][symbol], "markDate": s["lastPriceDates"][symbol],
                       "marketValue": position["quantity"] * s["lastPrices"][symbol], "unrealizedPnl": position["quantity"] * s["lastPrices"][symbol] - position["costBasis"]} for symbol, position in sorted(s["positions"].items())]
@@ -585,5 +600,9 @@ class BacktestEngine:
                 "quality": {"adjustment": "raw", "pointInTimeUniverse": False, "historicalStComplete": False,
                             "strategyConflicts": strategy_conflicts(c),
                             "quarantinedSymbols": deepcopy(s["quarantined"]), "validForPerformanceClaims": False,
+                            "executionCapacityIssues": deepcopy(s["executionCapacityIssues"]),
+                            "unverifiedOpeningFills": deepcopy(s["unverifiedOpeningFills"]),
+                            "openingCapacityVerified": not s["executionCapacityIssues"] and not s["unverifiedOpeningFills"],
+                            "unaccountedActionExposure": [deepcopy(event) for event in s["actionExposures"] if event["strategyQuantity"]],
                             "signalTiming": "closeThenNextSessionOpen", "combination": "intersection",
                             "executionAssumption": "openPriceWithConservativeLimitsAndPriorVolumeCap"}}

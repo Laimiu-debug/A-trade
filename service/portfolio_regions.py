@@ -1,6 +1,7 @@
 """Training-only connected grid regions and explicit Cartesian coverage."""
 from itertools import product
 from statistics import mean, pstdev
+from .plateau_validation import neighborhood_statistics, check_identifiability
 
 
 def adjacent(left, right, axes):
@@ -33,12 +34,15 @@ def connected_regions(candidates, training, settings):
         present = {tuple(lookup[key]["coordinates"]) for key in members}
         holes = [list(point) for point in box if point not in present]
         numeric_axes_vary = all(low < high for low, high in bounds)
-        stable = (len(members) >= settings["minNeighborhoodSize"] and mean(values) > 0
-                  and sum(value > 0 for value in values) / len(values) >= settings["minNeighborPositiveFraction"]
-                  and pstdev(values) <= settings["maxNeighborhoodStdPct"])
+        stats = neighborhood_statistics(values, settings)
+        check_identifiability(stats, [training[key]["fullSystem"].get("behaviorFingerprint") for key in members], settings)
+        stable = stats["passed"]
         regions.append({"regionId": "r" + str(len(regions) + 1).zfill(3), "candidateIds": members,
                         "meanNetReturnPct": mean(values), "stdNetReturnPct": pstdev(values),
                         "positiveFraction": sum(value > 0 for value in values) / len(values),
+                        "medianNetReturnPct": stats["medianNetReturnPct"], "relativeStd": stats["relativeStd"],
+                        "returnRetention": stats["returnRetention"], "failures": stats["failures"],
+                        "distinctBehaviorCount": stats["distinctBehaviorCount"],
                         "bounds": bounds, "cartesianPointCount": len(box), "holes": holes,
                         "completeCartesian": not holes, "allAxesVary": numeric_axes_vary,
                         "passed": stable, "intervalEligible": stable and not holes and numeric_axes_vary,

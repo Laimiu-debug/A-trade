@@ -13,9 +13,11 @@ import math
 from typing import Any
 
 from service.backtest_engine import BacktestEngine, normalize_config
+from .portfolio_regions import verified_ranges
+from .plateau_validation import neighborhood_statistics
 
 
-VERSION = "chronological-grid-plateau-v2"
+VERSION = "chronological-grid-plateau-v3-verified-ranges"
 RISK_AXES = {"stopLossPct", "takeProfitPct", "partialTakeProfitPct", "partialSellFraction",
              "trailingStopPct", "maxHoldingDays", "maxPositions", "positionFraction", "maxParticipationRate"}
 
@@ -61,7 +63,7 @@ def normalize_scan(scan: dict | None, config: dict) -> dict:
         raise ValueError("Plateau scan must be an object")
     raw = scan or {}
     unknown = set(raw) - {"axes", "holdoutFraction", "folds", "minTrades", "maxDrawdownPct", "minRegionSize",
-                          "minBlockDays", "minHoldoutDays", "neighborPassRate"}
+                          "minBlockDays", "minHoldoutDays", "neighborPassRate", "maxNeighborhoodRelativeStd", "minNeighborhoodReturnRetention"}
     if unknown:
         raise ValueError("Unknown scan fields: " + ", ".join(sorted(unknown)))
     axes = raw.get("axes", [{"path": "stopLossPct", "values": [.05, .08, .11]},
@@ -101,6 +103,8 @@ def normalize_scan(scan: dict | None, config: dict) -> dict:
         "minBlockDays": _bounded(raw.get("minBlockDays", 20), "minBlockDays", 5, 2520, True),
         "minHoldoutDays": _bounded(raw.get("minHoldoutDays", 20), "minHoldoutDays", 5, 2520, True),
         "neighborPassRate": _bounded(raw.get("neighborPassRate", .5), "neighborPassRate", .5, 1),
+        "maxNeighborhoodRelativeStd": _bounded(raw.get("maxNeighborhoodRelativeStd", 1), "maxNeighborhoodRelativeStd", 0, 10),
+        "minNeighborhoodReturnRetention": _bounded(raw.get("minNeighborhoodReturnRetention", .5), "minNeighborhoodReturnRetention", .1, 1),
     }
 
 
@@ -133,6 +137,8 @@ def _metrics_gate(metrics: dict, scan: dict, quality: dict | None = None) -> tup
         failures.append("dataQuality:unaccounted_corporate_action")
     if metrics.get("staleValuationDays", 0) > 0:
         failures.append("dataQuality:stale_valuation")
+    if (quality or {}).get("executionCapacityIssues"):
+        failures.append("dataQuality:invalid_execution_capacity")
     # No win-rate preference: positive-skew trend strategies need not win often.
     score = ret - .75 * dd
     if score <= 0:
@@ -207,8 +213,13 @@ def score_plateaus(candidates: list[dict], axes: list[dict], scan: dict) -> tupl
         row["neighborPassRate"] = round(sum(r["passes"] for r in neighbors) / len(neighbors), 8) if neighbors else 0
         row["localScore"] = round(_quantile(scores, .25) - .25 * roughness, 8)
         row["plateauScore"] = round(.35 * row["pointScore"] + .65 * row["localScore"], 8)
+        row["neighborhoodStability"] = neighborhood_statistics(scores, {
+            "minNeighborhoodSize": 1, "minNeighborPositiveFraction": scan["neighborPassRate"],
+            "maxNeighborhoodStdPct": 1e20,
+            "maxNeighborhoodRelativeStd": scan.get("maxNeighborhoodRelativeStd", 1),
+            "minNeighborhoodReturnRetention": scan.get("minNeighborhoodReturnRetention", .5)})
     qualified = {row["id"]: row for row in candidates if row["passes"] and row["localScore"] > 0
-                 and row["neighborPassRate"] >= scan["neighborPassRate"]}
+                 and row["neighborPassRate"] >= scan["neighborPassRate"] and row["neighborhoodStability"]["passed"]}
     visited, regions = set(), []
     for start in sorted(qualified):
         if start in visited:
@@ -229,12 +240,14 @@ def score_plateaus(candidates: list[dict], axes: list[dict], scan: dict) -> tupl
             sum(sum(abs(a - b) for a, b in zip(row["coordinates"], other["coordinates"])) for other in members),
             -row["plateauScore"], row["id"]))
         scores = [row["plateauScore"] for row in members]
+        ranges, interval_failure = verified_ranges(
+            [{**row, "candidateId": row["id"]} for row in candidates], axes, {row["id"] for row in members})
         regions.append({
             "id": "", "pointIds": sorted(row["id"] for row in members), "size": len(members),
             "score": round(_quantile(scores, .25), 8), "representativeId": representative["id"],
-            "parameterRanges": {axis["path"]: {"min": min(row["params"][axis["path"]] for row in members),
-                                                     "max": max(row["params"][axis["path"]] for row in members)}
-                                for axis in axes},
+            "parameterRanges": {row["path"]: {key: value for key, value in row.items() if key != "path"} for row in ranges},
+            "parameterValues": {axis["path"]: sorted({row["params"][axis["path"]] for row in members}) for axis in axes},
+            "intervalEligible": interval_failure is None, "intervalCoverageFailure": interval_failure,
         })
     regions.sort(key=lambda region: (-region["score"], -region["size"], region["representativeId"]))
     by_id = {row["id"]: row for row in candidates}

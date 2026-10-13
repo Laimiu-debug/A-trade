@@ -183,6 +183,8 @@ def _quality_failures(result, fingerprint):
         failures.append("stale_valuation")
     if quality.get("unaccountedActionExposure"):
         failures.append("unaccounted_corporate_action_exposure")
+    if quality.get("executionCapacityIssues"):
+        failures.append("invalid_execution_capacity")
     return failures
 
 
@@ -213,7 +215,7 @@ def _slice(dataset, end):
 def _summary(result, initial_capital):
     metrics = result.get("metrics", {})
     keys = ("totalReturnPct", "annualizedReturnPct", "maxDrawdownPct", "sharpe", "winRatePct",
-            "closedTradeCount", "sellFillWinRatePct", "tradeCount", "turnoverPct", "totalFees", "totalSlippage", "finalEquity", "winRateDefinition")
+            "closedTradeCount", "sellFillWinRatePct", "tradeCount", "investedDays", "turnoverPct", "totalFees", "totalSlippage", "finalEquity", "winRateDefinition")
     output = {key: metrics.get(key) for key in keys}
     output["costRatioPct"] = 100 * (float(metrics.get("totalFees") or 0) + float(metrics.get("totalSlippage") or 0)) / initial_capital
     output["costRatioDefinition"] = "(fees + slippage) / initial capital; already included in equity returns"

@@ -4,7 +4,7 @@ Cash dividends use explicitly supplied NET cash, a declared research tax model.
 No automatic inference of an individual's deferred dividend income tax is made.
 """
 from copy import deepcopy
-from datetime import date
+from datetime import date, datetime, time, timezone, timedelta
 import math
 
 
@@ -27,6 +27,7 @@ def normalize_actions(raw):
     keys = {"id", "type", "announcementDate", "recordDate", "exDate", "cashPayDate", "shareListingDate",
             "cashNetPerShare", "bonusSharesPerShare", "rightsSharesPerShare", "rightsPrice", "rightsPayDate",
             "source", "cashTaxModel"}
+    keys.add("cashAvailableAt")
     for item in raw:
         if not isinstance(item, dict) or set(item) - keys:
             raise ValueError("权益事件包含未知字段")
@@ -57,6 +58,14 @@ def normalize_actions(raw):
             row[key] = _day(item.get(key)) if required else None
             if required and key != "rightsPayDate" and row[key] < row["exDate"]:
                 raise ValueError(f"{key} 不得早于除权日")
+        row["cashAvailableAt"] = item.get("cashAvailableAt")
+        if row["cashAvailableAt"] is not None:
+            try:
+                stamp = datetime.fromisoformat(row["cashAvailableAt"])
+                if stamp.tzinfo is None or stamp.astimezone(timezone(timedelta(hours=8))).date().isoformat() != row["cashPayDate"]:
+                    raise ValueError()
+            except (ValueError, TypeError):
+                raise ValueError("cashAvailableAt 须为带时区的实际可用时间，且对应 cashPayDate") from None
         if row["rightsSharesPerShare"] and (row["rightsPrice"] <= 0 or row["rightsPayDate"] <= row["recordDate"] or (
                 row["shareListingDate"] is not None and row["rightsPayDate"] > row["shareListingDate"])):
             raise ValueError("配股须有正认购价，付款日不得晚于股份可交易日")
@@ -130,7 +139,7 @@ def apply_actions(engine, day):
         if row["type"] == "rights_refund":
             refund = (prepaid or {}).get("amount", 0.)
             if refund:
-                s["cashReceivables"].append({"eventKey": row["eventKey"], "symbol": symbol, "amount": refund, "payDate": row["cashPayDate"]})
+                s["cashReceivables"].append({"eventKey": row["eventKey"], "symbol": symbol, "amount": refund, "payDate": row["cashPayDate"], "availableAt": row["cashAvailableAt"]})
             s["processedActions"].append(row["eventKey"])
             _log(engine, day, row, "refundReceivable", amount=refund)
             continue
@@ -158,7 +167,7 @@ def apply_actions(engine, day):
             position["realizedPnl"] += cash
         if cash:
             s["cashReceivables"].append({"eventKey": row["eventKey"], "symbol": symbol,
-                                        "amount": cash, "payDate": row["cashPayDate"]})
+                                        "amount": cash, "payDate": row["cashPayDate"], "availableAt": row["cashAvailableAt"]})
         subscribe = bool((prepaid or {}).get("quantity")) if prepaid is not None else bool(rights and engine.config["rightsPolicy"] == "subscribe"
                          and s["cash"] - s["reservedActionCash"] >= rights * row["rightsPrice"] - 1e-8)
         payment = ((prepaid or {}).get("amount", 0.) if prepaid is not None else rights * row["rightsPrice"]) if subscribe else 0.
@@ -212,7 +221,14 @@ def apply_actions(engine, day):
     for key, sign in (("cashReceivables", 1), ("actionPayables", -1)):
         remaining = []
         for item in s[key]:
-            if item["payDate"] <= day:
+            available = item["payDate"] <= day
+            if sign > 0:
+                # Date-only cash is not presumed usable at that day's open.
+                # A dated, timezone-aware source timestamp can establish it.
+                stamp = item.get("availableAt")
+                opening = datetime.combine(date.fromisoformat(day), time(9, 30), timezone(timedelta(hours=8)))
+                available = datetime.fromisoformat(stamp) <= opening if stamp else item["payDate"] < day
+            if available:
                 s["cash"] += sign * item["amount"]
                 if sign < 0:
                     s["reservedActionCash"] -= item["amount"]

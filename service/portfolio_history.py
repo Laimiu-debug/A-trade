@@ -83,7 +83,7 @@ def normalize_package(raw, *, copy_data=True):
         security["symbol"] = sys.intern(symbol)
         for bar in security.get("bars", []):
             bar["date"] = date_pool.get(bar["date"], bar["date"])
-        for field in ("stByDate", "tradeStatusByDate", "precloseByDate", "memberByDate", "memberHistory", "factorByDate"):
+        for field in ("stByDate", "tradeStatusByDate", "precloseByDate", "openingVolumeByDate", "memberByDate", "memberHistory", "factorByDate"):
             if isinstance(security.get(field), dict):
                 security[field] = {date_pool.get(key, key): value for key, value in security[field].items()}
         listing = day(security.get("listingDate"))

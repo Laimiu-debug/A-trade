@@ -66,7 +66,7 @@ def _version():
     for name in ("backtest_engine.py", "strategies.py", "plateau.py", "research_service.py",
                  "portfolio_config.py", "portfolio_universe.py", "portfolio_signals.py",
                  "portfolio_engine.py", "portfolio_study.py", "portfolio_rotation.py",
-                 "portfolio_experiment.py", "portfolio_history.py", "portfolio_actions.py", "portfolio_regions.py", "portfolio_continuous.py", "portfolio_prepared.py", "portfolio_screen.py", "research_names.py", "research_pipeline.py", "portfolio_pool_styles.py"):
+                 "portfolio_experiment.py", "portfolio_history.py", "portfolio_actions.py", "portfolio_regions.py", "portfolio_continuous.py", "portfolio_prepared.py", "portfolio_screen.py", "research_names.py", "research_pipeline.py", "portfolio_pool_styles.py", "plateau_validation.py", "execution_evidence.py"):
         digest.update(name.encode())
         digest.update((Path(__file__).parent / name).read_bytes())
     return digest.hexdigest()
@@ -201,14 +201,18 @@ class ResearchService:
                     "selection": portfolio_config.normalize_selection(),
                     "poolStyles": portfolio_config.pool_style_catalogue(),
                     "singleExperimentDefaults": {"axes": [], "minNeighborPositiveFraction": .7,
-                        "minNeighborhoodSize": 3, "maxNeighborhoodStdPct": 10, "minClosedTrades": 3, "maxDrawdownPct": 30},
+                        "minNeighborhoodSize": 3, "maxNeighborhoodStdPct": 10, "minClosedTrades": 3, "maxDrawdownPct": 30,
+                        "minInvestedDays": 3, "maxNeighborhoodRelativeStd": 1, "minNeighborhoodReturnRetention": .5},
                     "singleExperimentLimits": {"maxAxes": 3, "maxValuesPerAxis": 5, "maxTrials": 27},
                     "historySources": self.history_status()["sources"],
                     "experimentDefaults": {"trainDays": 140, "testDays": 39, "stepDays": 39,
                         "capitalMode": "independent",
                         "expanding": False, "maxFolds": 5, "axes": [], "maxTrials": 81,
                         "minNeighborPositiveFraction": .7, "minNeighborhoodSize": 3,
-                        "maxNeighborhoodStdPct": 10, "minOosYears": 2, "minOosRegimes": 2},
+                        "maxNeighborhoodStdPct": 10, "minOosYears": 2, "minOosRegimes": 2,
+                        "minClosedTrades": 3, "maxDrawdownPct": 30, "minInvestedDays": 3,
+                        "maxNeighborhoodRelativeStd": 1, "minNeighborhoodReturnRetention": .5,
+                        "minOosTradingDays": 504, "minOosCalendarDays": 730, "minOosDaysPerYear": 126},
                     "experimentLimits": {"maxAxes": 8, "maxValuesPerAxis": 5, "maxTrials": 81,
                                          "maxFolds": 8, "maxEngineRuns": 4000},
                     "capabilities": {"wholeUniverse": True, "maxConcurrentPortfolioTasks": 1,

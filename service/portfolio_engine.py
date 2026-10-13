@@ -19,8 +19,9 @@ from .portfolio_config import normalize_config
 from .portfolio_signals import DailyScorer, SCORER_VERSION
 from .portfolio_rotation import ROTATION_MODES, decide_rotation, regime_label
 from .portfolio_actions import build_schedule, apply_actions, capture_rights, asset_adjustment
+from .execution_evidence import opening_capacity, audit_opening_fills
 
-ENGINE_VERSION = "portfolio-shared-ledger-v5-daily-activities"
+ENGINE_VERSION = "portfolio-shared-ledger-v6-execution-evidence"
 RULES_VERSION = "ashare-conservative-2026-07-06"
 
 
@@ -115,12 +116,13 @@ class PortfolioEngine:
             "actionEntitlements": {}, "processedActions": [], "actionLedger": [], "cashReceivables": [],
             "actionPayables": [], "reservedActionCash": 0., "observedBarCount": 0, "observedStCount": 0,
             "carriedHistoryDays": 0,
+            "executionCapacityIssues": [], "unverifiedOpeningFills": [],
             "preExRights": {},
             "rotationWeights": {key: 1. / len(identifiers) for key in identifiers},
             "rotationLastAdjustment": None, "rotationLog": [], "shadowStates": {},
             "warnings": [
                 "研究假设：收盘形成目标，下一交易日开盘先卖后买，共用现金；日内高低价不构成成交依据。",
-                "未模拟竞价队列；成交容量取前一交易日成交量。开盘成交与滑点属于假设。",
+                "未模拟竞价队列；有开盘量证据时限制开盘容量，缺少证据时按昨日量近似并标记未验证；超当日总量的成交阻止认证。",
                 "现金权益采用数据包声明的税后金额，不自动推断个人持股期限补税；缺失权益证据不能认证总回报。",
                 "非完整历史股票集合不能消除生存者偏差；分批计算不构成投资范围截断。",
                 "统一佣金、最低佣金、过户费、滑点是配置假设；自动印花税仅还原已支持的日期切换。",
@@ -204,7 +206,7 @@ class PortfolioEngine:
                 _finite(row.get("amount", 0), f"{symbol}.amount")
                 if not row["low"] <= min(row["open"], row["close"]) <= max(row["open"], row["close"]) <= row["high"]:
                     raise ValueError("日线开高低收关系无效")
-            for field in ("stByDate", "precloseByDate", "factorByDate", "tradeStatusByDate", "memberHistory", "memberByDate"):
+            for field in ("stByDate", "precloseByDate", "factorByDate", "openingVolumeByDate", "tradeStatusByDate", "memberHistory", "memberByDate"):
                 mapping = security.get(field, {})
                 if not isinstance(mapping, dict):
                     raise ValueError(f"{field} 必须是日期映射")
@@ -214,6 +216,8 @@ class PortfolioEngine:
                         raise ValueError(f"{field} 需要布尔值")
                     if field in ("precloseByDate", "factorByDate"):
                         _finite(value, field, .000001, 1e8)
+                    if field == "openingVolumeByDate":
+                        _finite(value, field, 0, 1e15)
                     if field == "tradeStatusByDate" and value not in (True, False, 1, 0, "1", "0"):
                         raise ValueError("tradeStatusByDate 需要布尔值或 0/1")
             for field in ("listingDate", "delistDate"):
@@ -539,7 +543,7 @@ class PortfolioEngine:
             return
         bar, index = self._bar(symbol, day)
         minimum, increment = lot_rule(symbol)
-        capacity = math.floor(self.bars[symbol][index - 1]["volume"] * self.config["maxParticipationRate"])
+        capacity = opening_capacity(self.securities[symbol], day, self.bars[symbol][index - 1]["volume"], self.config["maxParticipationRate"])
         position = s["positions"].get(symbol)
         quantity_before = position["quantity"] if position else 0
         pnl = None
@@ -916,6 +920,15 @@ class PortfolioEngine:
         apply_actions(self, day)
         self._observe_actions(day)
         self._execute_target(day)
+        # Whole-day volume is only an ex-post consistency check. It never
+        # participates in opening quantities, priority or available cash.
+        fills = s["trades"][fill_start:]
+        issues, unverified = audit_opening_fills(fills, self.securities,
+            {fill["symbol"]: self._bar(fill["symbol"], day)[0] for fill in fills})
+        s["executionCapacityIssues"].extend(issues)
+        s["unverifiedOpeningFills"].extend(unverified)
+        if issues:
+            self._warning("存在超过当日成交总量的模拟成交或矛盾的开盘量证据；本次账户路径无效，不参与平原选择或认证。")
         stale = []
         known_halts = []
         for symbol in sorted(self.securities):
@@ -951,7 +964,7 @@ class PortfolioEngine:
         curve = {"date": day, "equity": equity, "cash": s["cash"], "marketValue": market_value,
                  "dailyReturn": equity / previous_equity - 1 if previous_equity else None,
                  "drawdownPct": (1 - equity / s["peakEquity"]) * 100 if s["peakEquity"] else 0.,
-                 "staleSymbols": stale, "valuationReliable": not stale and not s["unaccountedActionExposure"] and not any(symbol in s["quarantined"] for symbol in s["positions"]),
+                 "staleSymbols": stale, "valuationReliable": not stale and not s["unaccountedActionExposure"] and not s["executionCapacityIssues"] and not any(symbol in s["quarantined"] for symbol in s["positions"]),
                  "knownSuspendedSymbols": known_halts,
                  "benchmarkEquity": benchmark_equity, "benchmarkStale": bool(self.benchmark_by_date) and s["benchmarkLastDate"] != day,
                  "regimeForReturn": deepcopy(s["daily"][-1]["regime"]) if s["daily"] else {"status": "unknown", "reason": "noPriorCloseObservation"}}
@@ -1067,6 +1080,9 @@ class PortfolioEngine:
                    "staleValuationDays": stale_days, "quarantinedSymbols": sorted(s["quarantined"]),
                    "corporateActionDates": deepcopy(s["corporateActionDates"]),
                    "unaccountedActionExposure": deepcopy(s["unaccountedActionExposure"]),
+                   "executionCapacityIssues": deepcopy(s["executionCapacityIssues"]),
+                   "unverifiedOpeningFills": deepcopy(s["unverifiedOpeningFills"]),
+                   "openingCapacityVerified": not s["executionCapacityIssues"] and not s["unverifiedOpeningFills"],
                    "coverage": deepcopy(s["daily"][-1]["coverage"]) if s["daily"] else {}}
         quality["knownSuspensionValuationDays"] = sum(bool(row.get("knownSuspendedSymbols")) for row in s["curve"])
         quality["benchmark"] = {"available": bool(self.benchmark_by_date),
@@ -1079,7 +1095,7 @@ class PortfolioEngine:
         quality["certified"] = bool(s["daily"]) and self.dataset.get("dataQuality", {}).get("certified") is True and (
             coverage.get("startDate", "9999") <= self.dates[0] <= self.dates[-1] <= coverage.get("endDate", "0000")) and (
             quality["calendarIndependent"] and quality["pointInTimeComplete"] and quality["corporateActionsComplete"]
-            and not stale_days and not s["quarantined"] and not s["unaccountedActionExposure"])
+            and not stale_days and not s["quarantined"] and not s["unaccountedActionExposure"] and quality["openingCapacityVerified"])
         quality["returnType"] = "declaredNetCashAndShareRightsTotalReturn" if quality["certified"] else "uncertifiedPriceAndAvailableRightsReturn"
         quality["certificateScope"] = "internallyValidatedDeclaredUniverseAndNetCashModel"
         metrics = {"initialCapital": self.config["initialCapital"], "finalEquity": equity,
@@ -1091,6 +1107,7 @@ class PortfolioEngine:
                    "totalFees": s["totalFees"], "totalSlippage": s["totalSlippage"],
                    "turnoverPct": s["grossTradedAmount"] / self.config["initialCapital"] * 100,
                    "staleValuationDays": stale_days, "observedDays": len(s["curve"]),
+                   "investedDays": sum(row["marketValue"] > 0 for row in s["curve"]),
                    "costRatioPct": (s["totalFees"] + s["totalSlippage"]) / self.config["initialCapital"] * 100,
                    "costRatioDefinition": "feesPlusSlippageDividedByInitialCapital;slippageAlreadyInFillPrices",
                    "winRateDefinition": "fullyClosedPositionEpisodesIncludingAllPartialSellPnLExcludingUnbookedCorporateActions"}

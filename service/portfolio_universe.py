@@ -231,7 +231,7 @@ def _retain_causal_window(security, start_date, warmup=500, lookback=39):
                              "upQueue": up, "downQueue": down, "upSum": up_sum, "downSum": down_sum}
     security["bars"] = bars[cut:]
     earliest = security["bars"][0]["date"]
-    for key in ("stByDate", "stHistory", "precloseByDate", "tradeStatusByDate", "factorByDate", "memberHistory"):
+    for key in ("stByDate", "stHistory", "precloseByDate", "openingVolumeByDate", "tradeStatusByDate", "factorByDate", "memberHistory"):
         if isinstance(security.get(key), dict):
             security[key] = {day: value for day, value in security[key].items() if day >= earliest}
 

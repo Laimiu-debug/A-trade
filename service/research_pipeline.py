@@ -7,8 +7,10 @@ from .portfolio_engine import PortfolioEngine
 from .portfolio_experiment import apply_parameters, parameter_location, neighborhood_statistics
 from .portfolio_regions import connected_regions
 from .portfolio_study import _digest, _number, _quality_failures, _slice, _summary
+from .plateau_validation import (risk_failures, behavior_fingerprint, behavior_diagnostics,
+                                 check_identifiability)
 
-VERSION = "single-research-pipeline-v1"
+VERSION = "single-research-pipeline-v2-identifiable-stability"
 KINDS = {"singleBacktest", "singlePlateau", "frozenValidation"}
 
 
@@ -26,7 +28,8 @@ def single_config(raw):
 
 
 def normalize_single_experiment(raw, config):
-    allowed = {"axes", "minNeighborPositiveFraction", "minNeighborhoodSize", "maxNeighborhoodStdPct", "minClosedTrades", "maxDrawdownPct"}
+    allowed = {"axes", "minNeighborPositiveFraction", "minNeighborhoodSize", "maxNeighborhoodStdPct", "minClosedTrades", "maxDrawdownPct",
+               "minInvestedDays", "maxNeighborhoodRelativeStd", "minNeighborhoodReturnRetention"}
     if not isinstance(raw, dict) or set(raw) - allowed:
         raise ValueError("单策略平原仅支持关键参数扫描与开发期邻域设置")
     config = single_config(config)
@@ -38,7 +41,10 @@ def normalize_single_experiment(raw, config):
               "minNeighborhoodSize": number(raw.get("minNeighborhoodSize", 3), "最小邻域点数", 3, 27, True),
               "maxNeighborhoodStdPct": number(raw.get("maxNeighborhoodStdPct", 10), "邻域收益标准差", 0, 1000),
               "minClosedTrades": number(raw.get("minClosedTrades", 3), "最低已关闭持仓波段", 1, 10000, True),
-              "maxDrawdownPct": number(raw.get("maxDrawdownPct", 30), "最大回撤上限", 0, 100)}
+              "maxDrawdownPct": number(raw.get("maxDrawdownPct", 30), "最大回撤上限", 0, 100),
+              "minInvestedDays": number(raw.get("minInvestedDays", 3), "最少持仓交易日", 1, 10000, True),
+              "maxNeighborhoodRelativeStd": number(raw.get("maxNeighborhoodRelativeStd", 1), "邻域相对标准差", 0, 10),
+              "minNeighborhoodReturnRetention": number(raw.get("minNeighborhoodReturnRetention", .5), "邻域中位收益相对峰值下限", .1, 1)}
     paths, count = set(), 1
     for axis in axes:
         if not isinstance(axis, dict) or set(axis) != {"path", "values"}:
@@ -115,15 +121,12 @@ class SinglePlateau:
         if self.engine.step(days=days):
             report = self.engine.result()
             failures = _quality_failures(report, self.fingerprint)
-            metrics = report.get("metrics", {})
-            if not _number(metrics.get("closedTradeCount")) or metrics["closedTradeCount"] < self.settings["minClosedTrades"]:
-                failures.append("insufficient_closed_trades")
-            if not _number(metrics.get("maxDrawdownPct")) or metrics["maxDrawdownPct"] > self.settings["maxDrawdownPct"]:
-                failures.append("drawdown_limit_exceeded_or_missing")
+            failures.extend(risk_failures(report, self.settings))
             self.state["completed"][candidate["candidateId"]] = {
                 "metrics": _summary(report, self.config["initialCapital"]),
                 "qualityFailures": failures,
-                "qualityCertified": report.get("quality", {}).get("certified") is True}
+                "qualityCertified": report.get("quality", {}).get("certified") is True,
+                "behaviorFingerprint": behavior_fingerprint(report)}
             self.state["index"] += 1
             self.state["active"] = None
             self.engine = None
@@ -131,6 +134,8 @@ class SinglePlateau:
 
     def result(self):
         completed, rows, training = self.state["completed"], [], {}
+        fingerprints = {key: row.get("behaviorFingerprint") for key, row in completed.items()}
+        diagnostics = behavior_diagnostics(self.candidates, fingerprints, self.settings["axes"])
         for candidate in self.candidates:
             point = completed.get(candidate["candidateId"])
             if not point:
@@ -149,19 +154,26 @@ class SinglePlateau:
             values = [completed.get(key, {}).get("metrics", {}).get("totalReturnPct")
                       if not completed.get(key, {}).get("qualityFailures") else None for key in neighbors]
             stats = neighborhood_statistics(values, self.settings)
+            check_identifiability(stats, [fingerprints.get(key) for key in neighbors], self.settings)
+            if diagnostics["inactiveAxes"]:
+                stats["passed"] = False
+                stats["failures"].append("inactive_parameter_axes")
             stats["candidateIds"] = neighbors
             stats["definition"] = "每轴至多三个相邻已测取值的笛卡尔邻域；边界向内平移；不补造未测点"
             row = {**deepcopy(candidate), **deepcopy(point), "neighborhood": stats}
             rows.append(row)
-            training[candidate["candidateId"]] = {"neighborhood": stats, "fullSystem": {"metrics": point["metrics"]}}
+            training[candidate["candidateId"]] = {"neighborhood": stats,
+                "fullSystem": {"metrics": point["metrics"], "behaviorFingerprint": point.get("behaviorFingerprint")}}
         complete = len(rows) == len(self.candidates)
         regions = connected_regions(self.candidates, training, self.settings) if complete else []
         return {"status": "completed" if complete else "running", "config": deepcopy(self.config),
                 "experiment": deepcopy(self.settings), "axes": deepcopy(self.settings["axes"]), "candidates": rows,
                 "regions": regions, "trainingOnly": True, "selectedCandidateId": None,
+                "parameterIdentifiability": diagnostics,
                 "developmentPeriod": {"startDate": self.config["startDate"], "endDate": self.config["endDate"]},
                 "plannedTrials": len(self.candidates), "completedTrials": len(rows), "engineRunCount": len(rows),
                 "certified": False, "fingerprint": self.fingerprint,
                 "warnings": ["全部参数点只使用开发区间；邻域稳定是开发期诊断，不代表独立样本外验证通过。",
                              "不自动选择最高收益点。请明确选择参数，冻结后再用未使用的新时段验证。",
-                             "两点扫描只能比较敏感性；不足三个合格邻域点时不标记稳定区。"]}
+                             "两点扫描只能比较敏感性；不足三个合格邻域点时不标记稳定区。",
+                             "相同成交与净值路径不重复计作有效参数证据；未生效参数轴不形成稳定宽度。"]}

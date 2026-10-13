@@ -25,6 +25,7 @@ def package(data):
     for security in data["securities"]:
         security["corporateActionsComplete"] = True
         security.setdefault("corporateActions", [])
+        security.setdefault("openingVolumeByDate", {bar["date"]: bar["volume"] for bar in security["bars"]})
     return {"schema": "historical-package-v1", "coverage": {"startDate": days[0], "endDate": days[-1]},
             "declaration": {"universe": "synthetic historical universe including exited members", "source": "isolated fixture",
                             "calendarSource": "fixture-independent-calendar", "completeMembership": True, "completeActions": True},

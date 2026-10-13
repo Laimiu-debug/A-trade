@@ -45,9 +45,14 @@ class FakeEngine:
         return {"cursor": self.cursor}
 
     def result(self):
+        rate = self.config["strategies"][0]["params"]["lookback"] / 100
+        days = [day for day in self.dataset["calendar"] if self.config["startDate"] <= day <= self.config["endDate"]][:10]
         return {"config": self.config, "fingerprint": self.dataset["fingerprint"],
+                "curve": [{"date": day, "equity": self.config["initialCapital"] * (1 + rate * (i + 1) / 10),
+                           "cash": 0, "marketValue": self.config["initialCapital"] * (1 + rate * (i + 1) / 10)} for i, day in enumerate(days)],
+                "trades": [],
                 "metrics": {"totalReturnPct": self.config["strategies"][0]["params"]["lookback"], "maxDrawdownPct": 2,
-                            "closedTradeCount": 5, "totalFees": 30, "totalSlippage": 10},
+                            "closedTradeCount": 5, "investedDays": len(days), "totalFees": 30, "totalSlippage": 10},
                 "quality": {"quarantinedSymbols": [], "unaccountedActionExposure": False, "staleValuationDays": 0}}
 
 

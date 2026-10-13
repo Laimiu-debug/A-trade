@@ -62,6 +62,7 @@ class FakeEngine:
             if self.missing_regime_candidate and self.config["topN"] == 4 and index % 2:
                 regime = {"status": "unknown"}
             curve.append({"date": day, "equity": self.config["initialCapital"] * (1 + rate)**(index + 1),
+                          "cash": 0, "marketValue": self.config["initialCapital"] * (1 + rate)**(index + 1),
                           "dailyReturn": rate, "regimeForReturn": regime})
         equity = curve[-1]["equity"] if curve else self.config["initialCapital"]
         return {"status": "complete" if self.cursor == len(self.days) else "running", "config": self.config,
@@ -70,6 +71,7 @@ class FakeEngine:
                             "quarantinedSymbols": ["sh600000"] if self.bad_quality or self.bad_oos_baseline and mode == "equal" and len(self.days) == 365 else [],
                             "staleValuationDays": 0, "unaccountedActionExposure": False},
                 "metrics": {"totalReturnPct": (equity / self.config["initialCapital"] - 1) * 100, "maxDrawdownPct": 0,
+                            "closedTradeCount": 5, "investedDays": len(curve),
                             "totalFees": 40, "totalSlippage": 20, "finalEquity": equity}}
 
 
