@@ -3,6 +3,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { StateStore } = require('./state-store.cjs');
 const { BusinessService } = require('./business-service.cjs');
+const { FinaltradeService } = require('./finaltrade-service.cjs');
 const { MarketService } = require('./market-service.cjs');
 const { AIService } = require('./ai-service.cjs');
 const { createAccountValuation } = require('./account-valuation.cjs');
@@ -28,10 +29,11 @@ function isAppDocument(value) {
   } catch { return false; }
 }
 
-async function installProtocol() {
+async function installProtocol(reference) {
   protocol.handle('atrade', async request => {
     try {
       const url = new URL(request.url);
+      if(url.host==='reference')return reference.proxy(request);
       if (url.host !== 'app' || request.method !== 'GET') return new Response('', { status: 403 });
       const pathname = decodeURIComponent(url.pathname);
       const file = path.resolve(previewRoot, '.' + pathname);
@@ -58,12 +60,13 @@ async function createDesktop({ dataDirectory, show = true, onWindow } = {}) {
   const ai = new AIService(dataDirectory, safeStorage);
   const marketBusiness = new MarketService(dataDirectory);
   const researchBusiness = new BusinessService(dataDirectory, { mode: 'research' });
+  const reference = new FinaltradeService(dataDirectory);
   const accountValuation = createAccountValuation({ business, market: marketBusiness });
   const market = await marketBusiness.request('market.status');
   const bootstrap = { ...initial, storage: store.paths, business: workspace.data, ai: ai.publicConfig(), market,
     app: { version: require('../package.json').version, packaged: require('electron').app.isPackaged } };
   let lastStateSave = { state: 'not-checked', savedAt: null };
-  await installProtocol();
+  await installProtocol(reference);
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
 
@@ -133,6 +136,14 @@ async function createDesktop({ dataDirectory, show = true, onWindow } = {}) {
     event.returnValue = trusted(event) ? bootstrap : null;
   };
   ipcMain.on('atrade:bootstrap', handleBootstrap);
+  ipcMain.handle('atrade:reference-start', async event => {
+    if(!trusted(event))return {ok:false,error:'来源不受信任。'};
+    try{await reference.start();return {ok:true};}catch(error){return {ok:false,error:error.message};}
+  });
+  ipcMain.handle('atrade:research-request', async (event, request) => {
+    if(!trusted(event))return {ok:false,error:'来源不受信任。'};
+    try{return await reference.request(request);}catch(error){return {ok:false,error:error.message};}
+  });
   ipcMain.handle('atrade:business', async (event, method, payload) => {
     if (!trusted(event)) return { ok: false, error: '此页面无权操作账户数据。' };
     if (typeof method === 'string' && method.startsWith('market.')) return { ok: false, error: '请使用行情接口。' };
@@ -325,6 +336,8 @@ async function createDesktop({ dataDirectory, show = true, onWindow } = {}) {
     ipcMain.removeHandler('atrade:get-window-state');
     ipcMain.removeHandler('atrade:window-action');
     ipcMain.removeHandler('atrade:business');
+    ipcMain.removeHandler('atrade:reference-start');
+    ipcMain.removeHandler('atrade:research-request');
     ipcMain.removeHandler('atrade:market');
     ipcMain.removeHandler('atrade:open-external');
     ipcMain.removeHandler('atrade:choose-tdx-directory');
@@ -334,6 +347,7 @@ async function createDesktop({ dataDirectory, show = true, onWindow } = {}) {
     ai.close();
     marketBusiness.close();
     researchBusiness.close();
+    reference.close();
     business.close();
     protocol.unhandle('atrade');
   });

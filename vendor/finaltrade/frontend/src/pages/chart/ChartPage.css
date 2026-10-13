@@ -1,0 +1,40 @@
+.chart-page-full {
+  width: 100%;
+}
+
+.chart-page-fit {
+  width: fit-content;
+}
+
+.chart-page-btn-bar {
+  margin-top: 10px;
+}
+
+.chart-return-pos {
+  color: #ce5649;
+  font-weight: 600;
+}
+
+.chart-return-neg {
+  color: #1a8b66;
+  font-weight: 600;
+}
+
+.chart-strategy-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.chart-date-picker-full {
+  width: 100%;
+}
+
+.chart-degraded-alert {
+  margin-bottom: 12px;
+}
+
+.chart-intraday-placeholder {
+  height: 420px;
+}

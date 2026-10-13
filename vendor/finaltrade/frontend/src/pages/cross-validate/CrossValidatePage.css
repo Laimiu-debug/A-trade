@@ -1,0 +1,124 @@
+.cv-root {
+  width: 100%;
+}
+
+.cv-config-inner {
+  width: 100%;
+}
+
+.cv-return-up {
+  color: #cf1322;
+  font-weight: 600;
+}
+
+.cv-return-down {
+  color: #3f8600;
+  font-weight: 600;
+}
+
+.cv-return-flat {
+  font-weight: 600;
+}
+
+.cv-drawdown {
+  color: #3f8600;
+}
+
+.cv-date-tag {
+  font-size: 11px;
+}
+
+.cv-warning-list {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.cv-pool-card {
+  cursor: pointer;
+}
+
+.cv-pool-card-active {
+  cursor: pointer;
+  outline: 2px solid #1677ff;
+  outline-offset: -2px;
+}
+
+.cv-pool-card-all {
+  cursor: pointer;
+}
+
+.cv-pool-card-all-active {
+  cursor: pointer;
+  outline: 2px solid #1677ff;
+  outline-offset: -2px;
+}
+
+.cv-source-select {
+  min-width: 150px;
+}
+
+.cv-export-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.cv-history-loading {
+  text-align: center;
+  padding: 40px;
+}
+
+.cv-history-spin {
+  font-size: 24px;
+}
+
+.cv-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cv-history-card {
+  cursor: pointer;
+}
+
+.cv-history-card:hover {
+  background: rgba(22, 119, 255, 0.04);
+}
+
+.cv-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cv-history-title {
+  font-weight: 600;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  margin-right: 8px;
+}
+
+.cv-history-meta {
+  margin-top: 4px;
+}
+
+.cv-history-strategies {
+  margin-top: 4px;
+}
+
+.cv-backtest-bar {
+  margin-bottom: 12px;
+}
+
+.cv-backtest-stats {
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cv-save-input {
+  width: 150px;
+}

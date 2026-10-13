@@ -16,6 +16,7 @@ function harness({desktop=true,tasks=[task()],results={one:result()},fail=false,
   const AT={escape,state:{page:'R03'},render(){},navigate(page){this.state.page=page;}};
   const bridge=async(method,payload)=>{calls.push({method,payload});if(fail)return {ok:false,error:'日线服务未配置'};if(method==='research.catalogue')return {ok:true,data:{strategies:[strategy],defaults:config,tasks,limits:{maxSymbols:50,maxCombinations:125}}};if(method==='research.list')return {ok:true,data:{tasks}};if(method==='research.get')return {ok:true,data:{task:tasks.find(t=>t.id===payload.id),result:results[payload.id]||null}};if(method==='research.create'||method==='research.replay'){if(createFailures-->0)return {ok:false,error:'响应超时'};const t=task('new','queued',payload.kind||'backtest');tasks.unshift(t);return {ok:true,data:t};}if(method==='research.control')return {ok:true,data:{tasks:payload.ids.map(id=>{const t=tasks.find(t=>t.id===id);t.status=payload.action==='pause'?'paused':payload.action==='resume'?'running':'stopped';return t;}),outcomes:payload.ids.map(id=>({id,ok:true}))}};if(method==='research.rename'){const t=tasks.find(t=>t.id===payload.id);t.name=payload.name;return {ok:true,data:{task:t}};}if(method==='research.delete'){for(const id of payload.ids){const index=tasks.findIndex(t=>t.id===id);if(index>=0)tasks.splice(index,1);}return {ok:true,data:{tasks:[...tasks],outcomes:payload.ids.map(id=>({id,ok:true}))}};}throw new Error(method);};
   const window=desktop?{atradeDesktop:{business:async(method,payload)=>method==='research.get'&&getDetail?getDetail(payload):bridge(method,payload)}}:{};
+  window.ResearchDates=require('../preview/research-date-input.js');
   if(portfolioView)window.PortfolioWorkbench={configure(definition,hooks){Object.assign(portfolioHooks,hooks);},available:()=>true,currentStep:()=>5,form:()=>'<div>五步研究设置</div>',plateau:()=>'<div>独立收益平原设置</div>',setStep:(...args)=>workbenchCalls.push(['setStep',...args]),newTask:(...args)=>workbenchCalls.push(['newTask',...args]),editTask:(...args)=>workbenchCalls.push(['editTask',...args]),result:r=>`<div class="pf-account-curve">实际账户结果${escape(r?.testMarker||'')}</div>`};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../preview/research-display.js'),'utf8'),{window,document});
   vm.runInNewContext(source,{window,AT,document,structuredClone,console,queueMicrotask,setTimeout(fn,delay){timers.set(++timerId,{fn,delay});return timerId;},clearTimeout(id){timers.delete(id);},Blob,URL,Set,Map},{filename:'research-module.js'});
@@ -35,17 +36,17 @@ test('plateau workspace keeps its editor and existing reports separate from back
 
 test('new, copy and edit actions route plateau settings to their independent workspace',async()=>{
  const h=harness({portfolioView:true,tasks:[task('scan','paused','systemPlateau'),task('ordinary','paused','portfolio')]});await h.module.refresh();
- h.click('task-new',undefined,{rsKind:'systemPlateau'});assert.equal(h.AT.state.page,'R05');assert.deepEqual(h.workbenchCalls.at(-1),['newTask','systemPlateau']);
- for(const action of ['task-copy','task-edit']){h.click(action,'scan');await h.module.flush();assert.equal(h.AT.state.page,'R05');assert.equal(h.workbenchCalls.at(-1)[1].id,'scan');assert.equal(h.workbenchCalls.at(-1)[2],action==='task-copy'?'copy':'edit');}
- h.click('task-copy','ordinary');await h.module.flush();assert.equal(h.AT.state.page,'R03');
- h.click('task-new');assert.equal(h.AT.state.page,'R03');assert.deepEqual(h.workbenchCalls.at(-1),['newTask','singleBacktest']);
+ h.click('task-new',undefined,{rsKind:'systemPlateau'});assert.equal(h.AT.state.page,'R15');assert.deepEqual(h.workbenchCalls.at(-1),['newTask','systemPlateau']);
+ for(const action of ['task-copy','task-edit']){h.click(action,'scan');await h.module.flush();assert.equal(h.AT.state.page,'R15');assert.equal(h.workbenchCalls.at(-1)[1].id,'scan');assert.equal(h.workbenchCalls.at(-1)[2],action==='task-copy'?'copy':'edit');}
+ h.click('task-copy','ordinary');await h.module.flush();assert.equal(h.AT.state.page,'R15');
+ h.click('task-new');assert.equal(h.AT.state.page,'R15');assert.deepEqual(h.workbenchCalls.at(-1),['newTask','singleBacktest']);
 });
 
 test('creating a plateau finishes in its own results step even after another page was opened',async()=>{
  const h=harness({portfolioView:true,tasks:[]});await h.module.refresh();
  h.AT.state.page='R03';await h.portfolioHooks.create({kind:'systemPlateau',name:'邻域扫描',config:{},selection:{mode:'all'},experiment:{axes:[{path:'topN',values:[3,5]}]}});
- assert.equal(h.AT.state.page,'R05');assert.deepEqual(h.workbenchCalls.at(-1),['setStep',5,'systemPlateau']);assert.equal(h.calls.find(c=>c.method==='research.create').payload.kind,'systemPlateau');
- await h.portfolioHooks.create({kind:'portfolio',name:'单次回测',config:{},selection:{mode:'all'}});assert.equal(h.AT.state.page,'R03');assert.deepEqual(h.workbenchCalls.at(-1),['setStep',5,'portfolio']);
+ assert.equal(h.AT.state.page,'R15');assert.deepEqual(h.workbenchCalls.at(-1),['setStep',5,'systemPlateau']);assert.equal(h.calls.find(c=>c.method==='research.create').payload.kind,'systemPlateau');
+ await h.portfolioHooks.create({kind:'portfolio',name:'单次回测',config:{},selection:{mode:'all'}});assert.equal(h.AT.state.page,'R15');assert.deepEqual(h.workbenchCalls.at(-1),['setStep',5,'portfolio']);
 });
 
 test('operation path distinguishes execution and plans, merges exact fills and keeps stock chart dates',async()=>{

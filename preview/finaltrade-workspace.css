@@ -1,0 +1,5 @@
+#strategy-workspace-root { max-width:1880px; margin:auto; min-height:calc(100vh - 88px); }
+#strategy-workspace-root[hidden] { display:none!important; }
+#strategy-workspace-root iframe { display:block; width:100%; height:calc(100vh - 88px); min-height:520px; border:0; background:transparent; }
+.strategy-startup { margin:26px 30px; padding:22px; }
+.strategy-startup p { margin:10px 0; color:var(--muted); font-size:12px; }

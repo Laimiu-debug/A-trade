@@ -19,7 +19,7 @@ async function run(command, args, options = {}) {
 }
 async function copy(source, target) {
   await fs.cp(source, target, { recursive: true, errorOnExist: true, force: false,
-    filter: file => !file.split(path.sep).includes('__pycache__') && !file.endsWith('.pyc') });
+    filter: file => !path.relative(source,file).split(path.sep).some(part => ['__pycache__','node_modules'].includes(part)) && !file.endsWith('.pyc') });
 }
 async function fingerprint(directory, relative = '') {
   const output = {};
@@ -36,6 +36,8 @@ async function main() {
   const pythonMinor = execFileSync(buildPython, ['-c', 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")'], { encoding: 'utf8', windowsHide: true }).trim();
   if (pythonMinor !== '3.13') throw new Error('构建依赖需要 Python 3.13，避免安装错误版本的二进制扩展。');
   const pkg = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'));
+  await fs.access(path.join(root, 'preview/finaltrade/.vite/manifest.json'));
+  await fs.access(path.join(root, 'preview/finaltrade/THIRD-PARTY-NOTICES.txt'));
   const dist = path.join(root, 'dist');
   await fs.mkdir(dist, { recursive: true });
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-');
@@ -48,11 +50,11 @@ async function main() {
   const expectedElectron = require('../node_modules/electron/package.json').version;
   if (electronVersion !== expectedElectron) throw new Error('Electron runtime does not match the dependency lock.');
   for (const entry of await fs.readdir(electronRoot)) await copy(path.join(electronRoot, entry), path.join(output, entry));
-  await fs.unlink(path.join(output, 'resources/default_app.asar'));
+  await fs.unlink(path.join(output, 'resources/default_app.asar')).catch(error => { if(error.code!=='ENOENT')throw error; });
   await fs.rename(path.join(output, 'electron.exe'), path.join(output, 'A-trade.exe'));
   const appRoot = path.join(output, 'resources/app');
   await fs.mkdir(appRoot);
-  for (const folder of ['desktop', 'preview', 'service', 'licenses']) await copy(path.join(root, folder), path.join(appRoot, folder));
+  for (const folder of ['desktop', 'preview', 'service', 'licenses', 'vendor']) await copy(path.join(root, folder), path.join(appRoot, folder));
   await fs.copyFile(path.join(root, 'requirements-portable.lock.txt'), path.join(appRoot, 'requirements-portable.lock.txt'));
   await fs.writeFile(path.join(appRoot, 'package.json'), JSON.stringify({ name: pkg.name, productName: pkg.productName,
     version: pkg.version, description: pkg.description, main: pkg.main, private: true }, null, 2) + '\n');
@@ -83,7 +85,7 @@ async function main() {
   await run(buildPython, ['-c', 'import sys,zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])', archive, runtime]);
   await fs.writeFile(path.join(runtime, 'python313._pth'), 'python313.zip\n.\nLib/site-packages\nLib/site-packages/win32\nLib/site-packages/win32/lib\nLib/site-packages/Pythonwin\n../app\nimport site\n');
   console.log('Installing the locked account/research/market dependencies...');
-  await run(buildPython, ['-m', 'pip', 'install', '--disable-pip-version-check', '--only-binary=:all:', '--no-compile',
+  await run(buildPython, ['-m', 'pip', 'install', '--disable-pip-version-check', '--ignore-installed', '--only-binary=:all:', '--no-compile',
     '--target', path.join(runtime, 'Lib/site-packages'), '--requirement', path.join(root, 'requirements-portable.lock.txt')]);
   let revision = null, sourceDirty = null;
   try {
@@ -98,7 +100,7 @@ async function main() {
   console.log('Verifying bundled imports without the host Python environment...');
   const validationEnv = { ...process.env, PYTHONHOME: 'Z:\\unused-python', PYTHONPATH: 'Z:\\unused-site', PYTHONNOUSERSITE: '1' };
   await run(path.join(runtime, 'python.exe'), ['-B', '-c',
-    'import sys,sqlite3,ssl,mcp,numpy,pandas,win32api; from service.portfolio_engine import PortfolioEngine; from service.research_service import ResearchService; assert sys.flags.isolated; print("PASS bundled Python, SQLite, SSL, MCP, numpy, pandas, win32 and portfolio imports")'],
+    'import sys,sqlite3,ssl,mcp,numpy,pandas,win32api,fastapi,uvicorn; from service.portfolio_engine import PortfolioEngine; from service.research_service import ResearchService; from service.finaltrade_runtime import verify_source; verify_source(); assert sys.flags.isolated; print("PASS bundled Python, SQLite, SSL, MCP, numpy, pandas, win32, FastAPI and fixed reference source")'],
     { cwd: output, env: validationEnv });
   await fs.copyFile(path.join(root, 'docs/portable-release.md'), path.join(output, '使用说明.md'));
   await fs.writeFile(path.join(output, 'build-info.json'), JSON.stringify({ ...metadata,

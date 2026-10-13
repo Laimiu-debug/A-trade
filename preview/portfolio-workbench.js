@@ -1,6 +1,7 @@
 /* Whole-universe research editor. Only the Python service produces results. */
 (() => {
   'use strict';
+  const Dates=typeof module==='object'&&module.exports?require('./research-date-input.js'):window.ResearchDates;
   const percentKeys = new Set(['maxStockWeight','switchThreshold','stopLossPct','takeProfitPct','trailingStopPct','commissionRate','transferFeeRate','stampDutyRate','maxParticipationRate','minReturn','minDrawdown','maxDrawdown','minDominance','minWeightChange','regimeBlend','minNeighborPositiveFraction','maxNeighborhoodRelativeStd','minNeighborhoodReturnRetention','minAmplitude20','maxPriceVsMa20','minVolumeChange20']);
   const numeric = value => typeof value !== 'boolean' && value !== null && value !== '' && Number.isFinite(Number(value));
   const isPercent = path => percentKeys.has(path.split('.').at(-1));
@@ -43,7 +44,7 @@
     const config = structuredClone(draft.config), selection = structuredClone(draft.selection);
     const picked = catalogue.filter(s => draft.enabled[s.id]);
     if (!picked.length) throw new Error('至少启用一个基础策略。');
-    if(singleKinds.has(draft.kind)&&picked.length!==1)throw new Error('这一阶段只研究一个策略，请先选择单一策略。');
+    if(singleKinds.has(draft.kind)&&picked.length!==1)throw new Error('当前回测只使用一个策略，请选择一个策略。');
     config.strategies = picked.map(s => ({id:s.id,kind:s.id,pool:draft.pools[s.id] || 'base',params:structuredClone(draft.params[s.id])}));
     config.combinations = Object.entries(draft.combinations).filter(([,c]) => c.enabled).map(([method,c]) => ({
       id:'combo_' + method, method, normalization:'rank', threshold:Number(c.threshold || 0),
@@ -56,7 +57,7 @@
     if (config.allocation.mode === 'single' && strategyIds.length !== 1) throw new Error('固定策略模式只能勾选一个参与配权的策略。');
     config.allocation.strategyIds = strategyIds;
     if (draft.periodMode === 'recent') config.startDate = config.endDate = null;
-    else if (!config.startDate || !config.endDate || config.startDate > config.endDate) throw new Error('请填写有效的起止日期。');
+    else Object.assign(config,Dates.range(config.startDate,config.endDate));
     if(selection.source==='history' && (draft.periodMode!=='dates'||!selection.sourceId))throw new Error('历史数据包须选择数据源并填写覆盖范围内的明确日期。');
     selection.symbols = selection.mode === 'explicit' ? symbols(draft.symbols) : [];
     if (selection.mode === 'explicit' && !selection.symbols.length) throw new Error('指定股票池不能为空。');
@@ -64,8 +65,12 @@
     if (draft.kind === 'comparison') {
       if (draft.periodMode !== 'dates') throw new Error('训练与样本外比较需要选择明确日期区间。');
       config.study = structuredClone(draft.study);
+      const testDates=Dates.range(config.study.testStart,config.study.testEnd,'样本外起止日期');
+      const trainEnd=Dates.normalize(config.study.trainEnd);
+      if(!trainEnd||trainEnd<config.startDate||trainEnd>=testDates.startDate||testDates.endDate>config.endDate)throw new Error('训练结束日期必须在回测区间内，并早于样本外开始日期；样本外结束不能超过回测结束日期。');
+      Object.assign(config.study,{trainEnd,testStart:testDates.startDate,testEnd:testDates.endDate});
     } else if(draft.kind==='singlePlateau') {
-      if(draft.periodMode!=='dates')throw new Error('单策略平原需要明确的开发区间起止日期。');
+      if(draft.periodMode!=='dates')throw new Error('单策略平原需要明确的回测日期起止日期。');
       delete config.study;
     } else if(experimentKinds.has(draft.kind)) {
       if(draft.periodMode!=='dates')throw new Error('滚动验证与系统收益平原需要选择明确日期区间。');
@@ -97,7 +102,7 @@
     const current=draft.config,selection=structuredClone(draft.selection);
     const config={universe:structuredClone(current.universe),poolSettings:structuredClone(current.poolSettings),lookbackDays:current.lookbackDays,
       startDate:draft.periodMode==='recent'?null:current.startDate,endDate:draft.periodMode==='recent'?null:current.endDate};
-    if(draft.periodMode!=='recent'&&(!config.startDate||!config.endDate||config.startDate>config.endDate))throw new Error('请填写有效的起止日期。');
+    if(draft.periodMode!=='recent')Object.assign(config,Dates.range(config.startDate,config.endDate));
     if(selection.source==='history'&&(draft.periodMode!=='dates'||!selection.sourceId))throw new Error('历史数据包须选择数据源并填写覆盖范围内的明确日期。');
     selection.symbols=selection.mode==='explicit'?symbols(draft.symbols):[];
     if(selection.mode==='explicit'&&!selection.symbols.length)throw new Error('指定股票池不能为空。');
@@ -165,7 +170,7 @@
     if(axes.length&&path.startsWith('weights.'))return `<label class="rs-field"><span>${E(label)} · 各组合的基础权重</span><input data-pf-field="${E(path)}" type="number" step="any" value="${E(display(path,value))}" ${attrs}><small>仅 ${E(axes.map(a=>parameterLabel(a.path)).join('、'))} 使用扫描候选；其余组合仍固定使用此值。</small></label>`;
     return axes.length?`<div class="rs-field pf-scanned-field" data-pf-scanned-field="${E(path)}"><span>${E(label)} · 已设为扫描项</span><strong>${E(axes.map(a=>a.text||'候选值待填写').join(' / '))}</strong><small>逐组使用上述候选值；在第 2 步修改。基础值 ${E(display(path,value))} 不作为固定值。</small></div>`:`<label class="rs-field"><span>${E(label)}</span><input data-pf-field="${E(path)}" type="number" step="any" value="${E(display(path,value))}" ${attrs}></label>`;
   };
-  const textField = (label,path,value,type='text') => `<label class="rs-field"><span>${E(label)}</span><input data-pf-field="${E(path)}" data-pf-type="text" type="${type}" ${path==='name'?'maxlength="100"':''} value="${E(String(value || ''))}"></label>`;
+  const textField = (label,path,value,type='text') => type==='date'?Dates.field(label,value,{key:scope+':'+path,attrs:`data-pf-field="${E(path)}" data-pf-type="text"`}):`<label class="rs-field"><span>${E(label)}</span><input data-pf-field="${E(path)}" data-pf-type="text" type="${type}" ${path==='name'?'maxlength="100"':''} value="${E(String(value || ''))}"></label>`;
   const select = (label,path,value,options) => `<label class="rs-field"><span>${E(label)}</span><select data-pf-field="${E(path)}" data-pf-type="text">${Object.entries(options).map(([v,t]) => `<option value="${E(v)}" ${v===value?'selected':''}>${E(t)}</option>`).join('')}</select></label>`;
   const check = (label,path,value) => `<label class="pf-check"><input type="checkbox" data-pf-field="${E(path)}" data-pf-type="boolean" ${value?'checked':''}>${E(label)}</label>`;
   const note = text => `<div class="rs-notice">${E(text)}</div>`;
@@ -286,7 +291,7 @@
   }
   function editTask(t,mode='copy'){
     activateScope(scopeFor(t.kind));
-    if(!Array.isArray(t.config?.strategies)||!t.selection)throw new Error('旧版任务支持重命名和查看；请使用新的股票池工作区配置研究。');
+    if(!Array.isArray(t.config?.strategies)||!t.selection)throw new Error('此任务的配置格式支持重命名和查看；请从组合工作区重新配置研究。');
     if(t.config.strategies.some(s=>s.id!==s.kind)||t.config.combinations.some(c=>c.id!=='combo_'+c.method))throw new Error('此任务包含自定义策略实例，可重命名或查看；当前表单不能无损编辑这些实例。');
     draft=makeDraft(definition);draft.config=structuredClone(t.config);ensureCombined(draft);draft.kind=t.kind;
     draft.name=mode==='copy'?(t.name+' · 副本').slice(0,100):t.name;draft.selection=structuredClone(t.selection);draft.symbols=(t.selection.symbols||[]).join(' ');
@@ -295,7 +300,7 @@
     for(const s of definition.strategies){const node=t.config.strategies.find(n=>n.id===s.id);draft.enabled[s.id]=!!node;draft.participates[s.id]=selected.has(s.id);if(node){draft.params[s.id]=structuredClone(node.params);draft.pools[s.id]=node.pool;}}
     for(const c of t.config.combinations){draft.combinations[c.method]={enabled:true,threshold:c.threshold};draft.participates[c.id]=selected.has(c.id);for(const child of c.children)draft.weights[child.id]=child.weight;}
     draft.scanAxes=(t.experiment?.axes||[]).map(axis=>({path:axis.path,text:axis.values.map(v=>typeof v==='number'?display(axis.path,v):v).join(', ')}));while(draft.scanAxes.length<6)draft.scanAxes.push({path:'',text:''});
-    editingTaskId=mode==='edit'&&t.configEditable?t.id:null;editorNote=editingTaskId?'正在编辑尚未冻结行情的任务；保存后更新原任务。':'正在复用已有设置；提交会创建新任务，原报告保留。';setStep(4);queueReview();
+    editingTaskId=mode==='edit'&&t.configEditable?t.id:null;editorNote=editingTaskId?'正在编辑尚未开始计算的任务；保存后更新原任务。':'正在复用已有设置；提交会创建新任务，原报告保留。';setStep(4);queueReview();
   }
   function rotationForm() {
     const r=draft.config.rotation;
@@ -394,7 +399,7 @@
   const axisValueText=(path,value)=>value==null?'未记录':typeof value==='number'?n(display(path,value),8)+(axisInfo(path).unit?' '+axisInfo(path).unit:''):({intersection:'交集',union:'并集',weighted:'加权'})[value]||String(value);
   function scanOverview(){
     const state=scanState(),layers=new Set(state.selected.map(a=>axisLayer(a.path)));
-    let body=isSingle()?'<p class="rs-help">只选 1–3 个关键参数；股票池漏斗、未选策略参数、交易成本都固定。组合和轮动留到第 6 阶段。</p>':`<div class="pf-scan-layers">${Object.entries(layerLabels).map(([key,name])=>`<span class="${layers.has(key)?'is-ready':''}">${E(name)} · ${layers.has(key)?'已选':'未选'}</span>`).join('')}</div>`;
+    let body=isSingle()?'<p class="rs-help">每次选 1–3 个参数，其他股票池条件、策略参数和费用保持相同。</p>':`<div class="pf-scan-layers">${Object.entries(layerLabels).map(([key,name])=>`<span class="${layers.has(key)?'is-ready':''}">${E(name)} · ${layers.has(key)?'已选':'未选'}</span>`).join('')}</div>`;
     if(state.message)body+=`<p class="pf-config-error" role="alert">${E(state.message)}</p>`;
     if(state.count!==null)body+=`<p class="pf-scan-count"><strong>${state.count} 组</strong> = ${state.axes.map(a=>a.values.length).join(' × ')||'尚未选择扫描项'} 个候选值组合；本次上限 ${n(draft.experiment.maxTrials,0)} 组。</p>`;
     else body+='<p class="pf-config-error">请先修正标红的扫描项，再计算组合数量。</p>';
@@ -406,7 +411,7 @@
   }
   function scanEditor(){
     const options=axisOptions(),state=scanState(),system=draft.kind==='systemPlateau';
-    if(draft.kind==='singlePlateau')return '<div class="pf-scan-explanation"><h3>只改变少量关键参数</h3><p>这次所有候选都使用同一开发区间。比较相邻参数的收益、回撤与交易样本，寻找一片稳定区域。此处不使用未来验证区间，也不自动把最高收益点设为最终方案。</p><p><b>扫描项：</b>每组使用下方候选值替换参考值。<b>其余条件：</b>沿用第 3 步的固定配置。最多 3 项、每项 2–5 个值、合计不超过 27 组。</p><button type="button" class="rs-button" data-pf-action="plateau-example">填入一个参数的邻近示例</button><p class="rs-help">示例仅说明填写方式，不能视为最优参数。</p></div><div class="pf-scan-axes">'+draft.scanAxes.slice(0,3).map((axis,i)=>{const info=axisInfo(axis.path),example=axis.path?exampleValues(axis.path):'';return '<article class="pf-scan-axis" data-pf-axis-row="'+i+'"><div class="rs-fields">'+select('关键参数 '+(i+1),'scanAxes.'+i+'.path',axis.path,options)+(axis.path?'<label class="rs-field"><span>候选值'+(info.unit?'（'+E(info.unit)+'）':'')+' · 2–5 个</span><input data-pf-field="scanAxes.'+i+'.text" data-pf-type="text" value="'+E(axis.text)+'" placeholder="'+E(example)+'" aria-describedby="pf-scan-error-'+i+'"></label>':'<p class="rs-help">留空即不增加扫描维度。</p>')+'</div>'+(axis.path?'<p class="rs-help">基础参考值：<b>'+E(axisValueText(axis.path,info.current))+'</b> · '+E(info.description)+'</p>':'')+'<p id="pf-scan-error-'+i+'" data-pf-axis-error="'+i+'" class="pf-config-error" role="alert">'+E(state.errors[i]||'')+'</p></article>';}).join('')+'</div><div class="pf-scan-overview" data-pf-scan-overview>'+scanOverview()+'</div>';
+    if(draft.kind==='singlePlateau')return '<div class="pf-scan-explanation"><h3>只改变少量关键参数</h3><p>这次所有候选都使用同一回测日期。比较相邻参数的收益、回撤与交易样本，寻找一片稳定区域。此处不使用未来验证区间，也不会自动采用收益最高的参数。</p><p><b>扫描项：</b>每组使用下方候选值替换参考值。<b>其余条件：</b>沿用第 3 步的固定配置。最多 3 项、每项 2–5 个值、合计不超过 27 组。</p><button type="button" class="rs-button" data-pf-action="plateau-example">填入一个参数的邻近示例</button><p class="rs-help">示例仅说明填写方式，不能视为最优参数。</p></div><div class="pf-scan-axes">'+draft.scanAxes.slice(0,3).map((axis,i)=>{const info=axisInfo(axis.path),example=axis.path?exampleValues(axis.path):'';return '<article class="pf-scan-axis" data-pf-axis-row="'+i+'"><div class="rs-fields">'+select('关键参数 '+(i+1),'scanAxes.'+i+'.path',axis.path,options)+(axis.path?'<label class="rs-field"><span>候选值'+(info.unit?'（'+E(info.unit)+'）':'')+' · 2–5 个</span><input data-pf-field="scanAxes.'+i+'.text" data-pf-type="text" value="'+E(axis.text)+'" placeholder="'+E(example)+'" aria-describedby="pf-scan-error-'+i+'"></label>':'<p class="rs-help">留空即不增加扫描维度。</p>')+'</div>'+(axis.path?'<p class="rs-help">基础参考值：<b>'+E(axisValueText(axis.path,info.current))+'</b> · '+E(info.description)+'</p>':'')+'<p id="pf-scan-error-'+i+'" data-pf-axis-error="'+i+'" class="pf-config-error" role="alert">'+E(state.errors[i]||'')+'</p></article>';}).join('')+'</div><div class="pf-scan-overview" data-pf-scan-overview>'+scanOverview()+'</div>';
     return `<div class="pf-scan-explanation"><h3>平原是在测试哪些参数？</h3><p>普通回测只运行一套参数。收益平原把下方候选值交叉组合，检验相邻参数组合的表现是否稳定，再用后续数据验证。</p><p><b>列入扫描的参数：</b>每组用候选值替换基础值；基础值不限制候选范围，也不会自动加入候选。数值参考字段按首个候选值送交校验，避免空白旧值阻碍有效扫描。<br><b>没有列入扫描的参数：</b>全部保持第 3 步的固定设置。</p><p class="rs-help">${system?'本次是四层全系统平原，策略、组合、轮动、持仓各至少选一项。':'本次是滚动样本外验证，可以不扫描或只选择部分参数；固定当前设置也能运行，但不会给出全系统平原认证。'}示例只演示填写方法，不是已验证的收益参数。</p><button class="rs-button" type="button" data-pf-action="plateau-example">填入 16 组四层示例</button></div><div class="pf-scan-axes">${draft.scanAxes.map((axis,i)=>{
       const info=axisInfo(axis.path),error=state.errors[i],example=axis.path?exampleValues(axis.path):'';
       const values=String(axis.text||'').split(/[\s,，;；、]+/),methodChoices={intersection:'交集',union:'并集',weighted:'加权'};
@@ -430,7 +435,7 @@
   }
   function experimentForm(includeScan=true) {
     const x=draft.experiment;
-    if(draft.kind==='singlePlateau')return (includeScan?scanEditor():'')+'<fieldset class="rs-fieldset"><legend>开发期稳定性门槛（所有候选相同）</legend><p class="rs-help">门槛用于本次开发比较。重复成交与净值路径不增加有效参数证据；达到门槛仍需手动选定并冻结，再到全新的日期区间验证。</p><div class="rs-fields">'+stabilityFields(x)+'</div></fieldset>';
+    if(draft.kind==='singlePlateau')return (includeScan?scanEditor():'')+'<fieldset class="rs-fieldset"><legend>稳定性判定条件（所有参数组相同）</legend><p class="rs-help">门槛用于本次参数比较。相同买卖记录不重复计作稳定证据；其他日期的表现可在结果中另行验证。</p><div class="rs-fields">'+stabilityFields(x)+'</div></fieldset>';
     return `<fieldset class="rs-fieldset"><legend>滚动训练与样本外验证</legend><div class="rs-fields">${select('资金衔接方式','experiment.capitalMode',x.capitalMode||'independent',{independent:'逐折独立资金（稳健性诊断）',continuous:'附加连续资金账户（持仓不重置）'})}${field('每折训练日数','experiment.trainDays',x.trainDays,'min="14" max="2500"')}${field('每折样本外日数','experiment.testDays',x.testDays,'min="2"')}${field('滚动步长（交易日）','experiment.stepDays',x.stepDays,'min="2"')}${field('最多滚动折数','experiment.maxFolds',x.maxFolds,'min="1" max="8"')}${field('参数组合上限','experiment.maxTrials',x.maxTrials,'min="1" max="81"')}</div>${check('逐折扩大训练区间','experiment.expanding',x.expanding)}<p class="rs-help">每折先用训练段比较候选组合，再冻结选择交给后续样本外验证。第一折至少需要 ${Number(x.trainDays)+Number(x.testDays)} 个实际交易日，最多 ${x.maxFolds} 折需 ${Number(x.trainDays)+Number(x.testDays)+(Number(x.maxFolds)-1)*Number(x.stepDays)} 日；短期诊断可以运行，长期认证门槛另行检查。</p></fieldset>${includeScan?scanEditor():''}<fieldset class="rs-fieldset"><legend>如何判断形成收益平原</legend><details><summary>平原稳定性与样本外门槛</summary><div class="rs-fields">${stabilityFields(x)}${field('至少有有效覆盖的样本外年份数','experiment.minOosYears',x.minOosYears,'min="2"')}${field('至少样本外交易日','experiment.minOosTradingDays',x.minOosTradingDays,'min="'+252*x.minOosYears+'"')}${field('至少样本外自然日跨度','experiment.minOosCalendarDays',x.minOosCalendarDays,'min="'+365*x.minOosYears+'"')}${field('每个有效年份最少交易日','experiment.minOosDaysPerYear',x.minOosDaysPerYear,'min="126"')}${field('至少样本外市场环境数','experiment.minOosRegimes',x.minOosRegimes,'min="2"')}</div><p class="rs-help">所有门槛在运行前固定。只跨过年界不等于长期验证；交易日按冻结区域成员共同覆盖的日期去重，不按参数组数或账户数重复累计。</p></details></fieldset>`;
   }
   function refinementEvidence(r) {
@@ -447,7 +452,7 @@
   const workflow={review:null,signature:null,pending:false,error:'',serial:0,timer:null,promise:null,submitting:false};
   const stepLabels=['基础池与日期','策略与漏斗','固定交易规则','核对创建','查看结果'];
   const plateauStepLabels=['研究对象','扫描参数','固定条件','核对创建','查看结果'];
-  const kindLabels={singleBacktest:'单策略固定参数回测',singlePlateau:'单策略关键参数平原',frozenValidation:'冻结方案新时段验证',poolPreview:'股票池筛选预览',portfolio:'高级组合回测',comparison:'多策略比较与持续性检验',walkForward:'滚动样本外验证',systemPlateau:'高级全系统参数扫描与收益平原'};
+  const kindLabels={singleBacktest:'单策略固定参数回测',singlePlateau:'单策略关键参数平原',frozenValidation:'其他日期验证',poolPreview:'股票池筛选预览',portfolio:'高级组合回测',comparison:'多策略比较与持续性检验',walkForward:'滚动样本外验证',systemPlateau:'高级全系统参数扫描与收益平原'};
   const poolLabels={base:'基础可交易池',trend:'趋势池',structure:'回调结构池',volume:'量能活跃池',combined:'叠加筛选池'};
   const presetKey='atrade.strategy-presets.v1';
   const chosenPresets={};
@@ -475,8 +480,8 @@
       (enabled?'<div class="rs-fields">'+select('使用股票池','pools.'+s.id,draft.pools[s.id],poolLabels)+'</div>'+fold('策略参数与预设 · '+(changed?'已修改':'使用默认参数'),'strategy:'+s.id,strategyPresets(s)+'<div class="rs-fields">'+s.parameters.map(v=>field(v.label+(isPercent(v.key)?'（%）':''),'params.'+s.id+'.'+v.key,draft.params[s.id][v.key],'min="'+display(v.key,v.min)+'" max="'+display(v.key,v.max)+'"')).join('')+'</div>'):'')+'</article>';
   }
   function pipeline(current){
-    const stages=[['基础可交易池','M06'],['按策略风格配置漏斗','R03'],['单策略固定参数回测','R03'],['少量关键参数平原','R05'],['冻结后验证新时段','R10'],['组合与轮动','advanced']];
-    return '<nav class="pf-research-pipeline" aria-label="研究阶段">'+stages.map(([label,route],i)=>'<button type="button" class="pf-pipeline-stage '+(current===i+1?'is-current':'')+'" '+(current===i+1?'aria-current="step" ':'')+(route==='advanced'?'data-pf-action="advanced"':route==='R05'?'data-pf-action="single-plateau"':route==='R03'?'data-pf-action="single-stage" data-pf-step="'+(i===1?2:1)+'"':'data-nav="'+route+'"')+'><span>'+String(i+1).padStart(2,'0')+'</span>'+E(label)+'</button>').join('')+'</nav>';
+    const scanning=isPlateau(),advanced=!isSingle()&&scope!=='market';
+    return '<nav class="pf-research-modes" aria-label="回测工作区"><button type="button" class="rs-button '+(!scanning&&!advanced&&scope!=='market'?'is-current':'')+'" data-pf-action="single-mode">策略回测</button><button type="button" class="rs-button '+(scanning&&!advanced?'is-current':'')+'" data-pf-action="scan-current">收益平原 · 参数测试</button><button type="button" class="rs-button" data-workflow-action="library">参数收藏</button><details class="pf-mode-advanced"><summary>高级研究</summary><div class="rs-actions"><button type="button" class="rs-button" data-pf-action="advanced">组合与轮动</button><button type="button" class="rs-button" data-pf-action="advanced-plateau">全系统参数测试</button></div></details></nav>';
   }
   function selectSingleStrategy(id){
     if(!definition.strategies.some(s=>s.id===id))return;
@@ -564,11 +569,11 @@
   }
   function poolForm(standalone=false,layersOnly=false,baseOnly=false){
     const c=draft.config;
-    const period=(isPlateau()||isSingle()?'<div class="rs-field"><span>开发区间</span><strong>指定起止日期'+(isPlateau()?'（所有候选一致）':'')+'</strong><small>明确开发截止日，之后才可冻结并验证更晚的新时段。</small></div>':select('研究区间','periodMode',draft.periodMode,{recent:'最近 N 个交易日',dates:'指定起止日期'}))+
+    const period=(isPlateau()||isSingle()?'<div class="rs-field"><span>回测日期</span><strong>指定起止日期'+(isPlateau()?'（所有候选一致）':'')+'</strong><small>选择要回测的日期；需要验证其他行情时，可从结果中选择另一段日期。</small></div>':select('研究区间','periodMode',draft.periodMode,{recent:'最近 N 个交易日',dates:'指定起止日期'}))+
       (draft.periodMode==='recent'?field('交易日数量','config.lookbackDays',c.lookbackDays,'min="2"'):textField('开始日期','config.startDate',c.startDate,'date')+textField('结束日期 / 筛选截止日','config.endDate',c.endDate,'date'));
     const sourceSettings=dataSourceForm()+'<fieldset class="rs-fieldset"><legend>研究区间与基础资格</legend><div class="rs-fields">'+period+'</div><div class="pf-options">'+
       check('剔除已知历史 ST','config.universe.excludeSt',c.universe.excludeSt)+check('严格历史资格（缺历史事实则剔除）','config.universe.strictHistory',c.universe.strictHistory)+'</div>'+
-      '<p class="rs-help">按下方股票池条件检查整个来源范围。入池资格由行情数据是否满足条件决定；列表按当日成交额从高到低排列。最近 N 日的实际日期由冻结后的行情日历确定。</p></fieldset>';
+      '<p class="rs-help">按下方股票池条件检查整个来源范围。入池资格由行情数据是否满足条件决定；列表按当日成交额从高到低排列。最近 N 日的实际日期由载入的行情日历确定。</p></fieldset>';
     const base=poolCard('base','基础可交易池','通过上市时间、流动性和所选历史资格检查。',field('最少上市交易日','config.universe.minListingDays',c.universe.minListingDays,'min="0"')+field('20 日平均成交额下限（万元）','config.universe.minAmount20',c.universe.minAmount20,'min="0"'));
     if(baseOnly)return sourceSettings+base+'<div class="rs-actions"><a class="rs-button" data-nav="M06">在独立股票池查看筛选结果</a></div>';
     const settings=(layersOnly?'':sourceSettings)+
@@ -627,7 +632,7 @@
     if(!isSingle())for(const [key,value]of Object.entries(config.rotation||{}))add('rotation.'+key,parameterLabel('rotation.'+key),value);
     for(const s of config.strategies||[])for(const [key,value]of Object.entries(s.params))add(`strategies.${s.id}.params.${key}`,parameterLabel(`strategies.${s.id}.params.${key}`),value);
     for(const c of config.combinations||[]){add(`combinations.${c.id}.method`,parameterLabel(`combinations.${c.id}.method`),axisValueText('method',c.method));add(`combinations.${c.id}.threshold`,parameterLabel(`combinations.${c.id}.threshold`),c.threshold);for(const child of c.children)add(`combinations.${c.id}.children.${child.id}.weight`,parameterLabel(`combinations.${c.id}.children.${child.id}.weight`),child.weight);}
-    return `<section data-pf-scan-summary><h4>本次变化的参数 · ${count} 组</h4><p class="rs-help">${axes.map(a=>a.values.length).join(' × ')} = ${count}。下面每项只使用候选值逐组替换，不另跑一组基础参考值。</p>${table(['扫描参数','基础参考值（被替换）','实际候选值'],varying)}</section><section data-pf-fixed-summary><h4>本次固定条件 · 所有候选共同使用</h4><p>研究区间：${E(config.startDate||'未填写')} — ${E(config.endDate||'未填写')}；初始资金 ${n(config.initialCapital/10000,4)} 万元。</p><p class="rs-help">股票池条件、策略所用池、交易成本与交易限制保持相同。${isSingle()?'整个区间都用于开发比较；新时段验证必须在选定并冻结配置后单独创建。':'轮动参数只在训练持续性通过后进入轮动账户；未通过时保留固定策略和等权对照，不认定四层平原有效。'}</p><details><summary>展开 ${fixed.length} 项固定参数明细</summary>${table(['未扫描参数','保持固定的值'],fixed)}</details>${isSingle()?'<p class="rs-help">本次运行 '+count+' 组单策略账户，没有组合、轮动或自动留出验证。</p>':`<p class="rs-help">验证安排固定为每折训练 ${n(experiment.trainDays,0)} 日、后续样本外 ${n(experiment.testDays,0)} 日、步长 ${n(experiment.stepDays,0)} 日，最多 ${n(experiment.maxFolds,0)} 折。${count} 是候选组合数，不是总回测次数；每组还需运行多策略账户及各验证折。</p>`}</section>`;
+    return `<section data-pf-scan-summary><h4>本次变化的参数 · ${count} 组</h4><p class="rs-help">${axes.map(a=>a.values.length).join(' × ')} = ${count}。下面每项只使用候选值逐组替换，不另跑一组基础参考值。</p>${table(['扫描参数','基础参考值（被替换）','实际候选值'],varying)}</section><section data-pf-fixed-summary><h4>本次固定条件 · 所有候选共同使用</h4><p>研究区间：${E(config.startDate||'未填写')} — ${E(config.endDate||'未填写')}；初始资金 ${n(config.initialCapital/10000,4)} 万元。</p><p class="rs-help">股票池条件、策略所用池、交易成本与交易限制保持相同。${isSingle()?'整个区间都用于开发比较；其他日期验证从结果中选择具体参数，再由软件自动保存原设置。':'轮动参数只在训练持续性通过后进入轮动账户；未通过时保留固定策略和等权对照，不认定四层平原有效。'}</p><details><summary>展开 ${fixed.length} 项固定参数明细</summary>${table(['未扫描参数','保持固定的值'],fixed)}</details>${isSingle()?'<p class="rs-help">本次运行 '+count+' 组单策略账户，没有组合、轮动或自动留出验证。</p>':`<p class="rs-help">验证安排固定为每折训练 ${n(experiment.trainDays,0)} 日、后续样本外 ${n(experiment.testDays,0)} 日、步长 ${n(experiment.stepDays,0)} 日，最多 ${n(experiment.maxFolds,0)} 折。${count} 是候选组合数，不是总回测次数；每组还需运行多策略账户及各验证折。</p>`}</section>`;
   }
   function effectiveView(){
     if(workflow.pending)return note('正在按后端规则校验当前设置…');
@@ -654,7 +659,7 @@
       ['退出规则','止损 '+display('stopLossPct',config.stopLossPct)+'%；止盈 '+display('takeProfitPct',config.takeProfitPct)+'%；峰值回撤 '+display('trailingStopPct',config.trailingStopPct)+'%；最长持仓 '+(config.maxHoldingDays?config.maxHoldingDays+' 日':'不限')+'（比例 0 表示关闭）']
     ];
     return '<p class="pf-config-ready" role="status">配置校验通过 · 将按下列设置执行</p><p><strong>'+E(r.name)+'</strong></p>'+table(['设置','最终生效值'],items.map(([label,value])=>'<tr><td>'+E(label)+'</td><td>'+E(value)+'</td></tr>'))+
-      '<p class="rs-help">股票池每天刷新；T 日收盘产生信号，下一交易日开盘尝试成交，启用 T+1。'+(r.execution?.datesResolvedAfterSnapshot?'最近交易日的起止日期将在冻结行情后显示。':'')+'</p>'+
+      '<p class="rs-help">股票池每天刷新；T 日收盘产生信号，下一交易日开盘尝试成交，启用 T+1。'+(r.execution?.datesResolvedAfterSnapshot?'载入行情后显示最近交易日的实际起止日期。':'')+'</p>'+
       fold('股票池条件与完整生效设置','effective-config',configuration(config,selection))+
       fold('各策略的生效参数','effective-strategies',table(['策略','使用股票池','最终生效参数'],params))+
       '<p class="rs-help">交易成本：佣金 '+display('commissionRate',config.commissionRate)+'%，最低 '+n(config.minCommission)+' 元；卖出印花税 '+(config.stampDutyRate==null?'按历史日期':display('stampDutyRate',config.stampDutyRate)+'%')+'；过户费 '+display('transferFeeRate',config.transferFeeRate)+'%；滑点 '+n(config.slippageBps)+' 基点。</p>'+
@@ -662,7 +667,7 @@
   }
   function taskForm(){
     const plateau=isPlateau();
-    if(isSingle())return '<div class="rs-fields"><div class="rs-field"><span>当前研究阶段</span><strong>'+E(kindLabels[draft.kind])+'</strong></div>'+textField('研究名称（可留空）','name',draft.name)+textField('业绩基准代码（可留空，如 sh000300）','selection.benchmarkSymbol',draft.selection.benchmarkSymbol)+'</div>'+note(plateau?'本次全部日期用于开发比较。选择具体参数点并冻结后，才能用更晚的新时段验证。':'本次只运行这一套固定参数。先查看操作与持仓是否符合研究假设，再将完成任务带入关键参数平原。')+'<section class="pf-effective-panel"><h4>'+(plateau?'核对扫描项与固定条件':'最终生效配置')+'</h4><div data-pf-effective>'+effectiveView()+'</div><button type="button" class="rs-button" data-pf-action="review-settings">重新校验配置</button></section><div class="rs-actions pf-submit"><button type="submit" class="rs-button rs-primary" '+(workflow.submitting?'disabled':'')+'>'+(workflow.submitting?'正在提交…':editingTaskId?'保存任务修改':plateau?'创建单策略平原':'创建固定参数回测')+'</button><button type="button" class="rs-button" data-pf-action="save">保存设置</button><button type="button" class="rs-button rs-quiet" data-pf-action="reset">重新开始此阶段</button></div>';
+    if(isSingle())return '<div class="rs-fields"><div class="rs-field"><span>本次运行类型</span><strong>'+E(kindLabels[draft.kind])+'</strong></div>'+textField('研究名称（可留空）','name',draft.name)+textField('业绩基准代码（可留空，如 sh000300）','selection.benchmarkSymbol',draft.selection.benchmarkSymbol)+'</div>'+note(plateau?'这些日期用于比较参数。完成后可回填参数、保存或查看具体买卖。':'按当前参数运行一次回测；也可以切换到“收益平原 · 参数测试”比较多个取值。')+'<section class="pf-effective-panel"><h4>'+(plateau?'核对扫描项与固定条件':'最终生效配置')+'</h4><div data-pf-effective>'+effectiveView()+'</div><button type="button" class="rs-button" data-pf-action="review-settings">重新校验配置</button></section><div class="rs-actions pf-submit"><button type="submit" class="rs-button rs-primary" '+(workflow.submitting?'disabled':'')+'>'+(workflow.submitting?'正在提交…':editingTaskId?'保存任务修改':plateau?'开始平原扫描':'开始回测')+'</button><button type="button" class="rs-button" data-pf-action="save">保存设置</button><button type="button" class="rs-button rs-quiet" data-pf-action="reset">恢复默认设置</button></div>';
     return '<div class="rs-fields">'+(plateau?'<div class="rs-field"><span>任务类型</span><strong>四层全系统收益平原</strong></div>':select('任务类型','kind',draft.kind,Object.fromEntries(Object.entries(kindLabels).filter(([key])=>['portfolio','comparison','walkForward'].includes(key)))))+textField('研究名称（可留空，软件自动命名）','name',draft.name)+
       textField('业绩基准代码（可留空，如 sh000300）','selection.benchmarkSymbol',draft.selection.benchmarkSymbol)+'</div>'+
       (plateau?'<p class="rs-help">确认下方扫描项和固定条件后创建。日期按实际交易日历核验；结果将报告稳定区间及未通过原因，不保证一定产生推荐参数。</p>':'<p class="rs-help">高级组合回测可使用最近 N 个交易日；策略比较与滚动验证需要明确起止日期。高级四层平原保留独立草稿。</p><button type="button" class="rs-button" data-pf-action="advanced-plateau">打开高级四层平原</button>')+
@@ -703,15 +708,36 @@
   function screenPayload(){
     return poolPayload(draft);
   }
+  function simpleSection(id,title,body){
+    return '<section class="pf-simple-section" data-pf-simple-section="'+id+'"><header><h3>'+E(title)+'</h3></header>'+body+'</section>';
+  }
+  function simpleForm(){
+    const heading=pipeline(3)+(editorNote?note(editorNote):'');
+    if(currentStep()===5)return '<div class="pf-workbench">'+heading+'<div class="rs-actions">'+stepButton(4,'调整回测配置')+'</div></div>';
+    return '<form data-pf-form data-pf-simple class="pf-workbench" novalidate>'+heading+
+      simpleSection('source','股票范围与回测日期',poolForm(false,false,true))+
+      simpleSection('strategy','策略与选股条件',singleStrategyForm())+
+      simpleSection('trading','资金、仓位与退出规则',tradingForm())+
+      simpleSection('submit','开始回测',taskForm())+'</form>';
+  }
+  function simplePlateauForm(){
+    const heading=pipeline(4)+(editorNote?note(editorNote):'');
+    if(currentStep()===5)return '<div class="pf-workbench pf-plateau-workbench">'+heading+'<div class="rs-actions">'+stepButton(4,'调整扫描条件')+'</div></div>';
+    return '<form data-pf-form data-pf-simple data-pf-plateau-form class="pf-workbench pf-plateau-workbench" novalidate>'+heading+
+      simpleSection('source','沿用当前回测配置',poolForm(false,false,true)+fold('策略、选股条件与固定交易规则','plateau-strategies',singleStrategyForm()+tradingForm()))+
+      simpleSection('scan','选择参数，填写要比较的值',scanEditor())+
+      simpleSection('checks','如何判断参数是否稳定',fold('查看或调整判定条件','stability',experimentForm(false)))+
+      simpleSection('submit','开始参数测试',taskForm())+'</form>';
+  }
   function form() {
     const target=scope==='advanced'?'advanced':'research',changed=scope!==target;activateScope(target);if(changed)queueReview();
     if(!draft)return note('正在读取组合回测设置…');
     const active=currentStep();
+    if(isSingle())return simpleForm();
     const nav=stepLabels.map((label,index)=>'<button type="button" class="pf-step-nav '+(active===index+1?'is-active':'')+'" data-pf-action="workflow-step" data-pf-step="'+(index+1)+'" '+(active===index+1?'aria-current="step"':'')+'><span>'+(index+1)+'</span>'+E(label)+'</button>').join('');
     if(active===5)return '<div class="pf-workbench">'+pipeline(isSingle()?3:6)+'<nav class="pf-workflow-nav" aria-label="策略与回测流程">'+nav+'</nav><p class="rs-help">下方选择研究任务，查看进度、收益、逐日持仓与买卖计划。返回前四步可调整设置，已有报告仍保留原配置。</p></div>';
-    if(isSingle())return '<form data-pf-form class="pf-workbench" novalidate>'+pipeline(active===1?1:active===2?2:3)+(editorNote?note(editorNote):'')+'<div class="pf-intro"><strong>单策略固定参数回测</strong><p>先确定基础池，再为一个策略配置风格漏斗。策略信号与交易规则保持固定，运行后检查具体买卖行为。</p></div><nav class="pf-workflow-nav" aria-label="策略与回测流程">'+nav+'</nav>'+workflowSection(1,'基础可交易池与开发日期','沿用全局行情来源，默认全部 A 股。基础资格只检查可交易条件。',poolForm(false,false,true))+workflowSection(2,'选择一个策略，并配置对应风格漏斗','漏斗限制研究样本，策略决定具体买卖信号；各自的条件分别保存。',singleStrategyForm())+workflowSection(3,'固定资金与交易规则','这一阶段每个参数只有一个固定值。',tradingForm())+workflowSection(4,'核对并创建固定参数回测','完成后从报告直接进入关键参数平原。',taskForm())+'</form>';
     return '<form data-pf-form class="pf-workbench" novalidate>'+(editorNote?note(editorNote):'')+
-      pipeline(6)+'<div class="pf-intro"><strong>高级研究 · 组合与轮动</strong><p>先完成多个单策略的冻结与新时段验证，再研究组合。这里使用独立草稿；新增策略、合并漏斗或改变配权都属于新的开发研究，不能沿用单策略的独立验证结论。</p></div><nav class="pf-workflow-nav" aria-label="策略与回测流程">'+nav+'</nav>'+
+      pipeline(6)+'<div class="pf-intro"><strong>高级研究 · 组合与轮动</strong><p>在这里组合多个策略并研究资金分配。这里使用独立草稿；新增策略、合并漏斗或改变配权都属于新的开发研究，不能沿用单策略的独立验证结论。</p></div><nav class="pf-workflow-nav" aria-label="策略与回测流程">'+nav+'</nav>'+
       workflowSection(1,'设置并查看股票池','沿用全局数据源，默认全部 A 股；按日期和分层条件筛选。','<div class="rs-actions"><button type="button" class="rs-button" data-nav="M06">打开独立股票池</button></div>'+poolForm())+
       workflowSection(2,'选择策略与组合','基础策略和组合策略都可以参与比较或配权。',combinationsForm())+
       workflowSection(3,'设置资金与交易规则','每天重新评分；按排名或风险退出规则调整持仓。',tradingForm())+
@@ -726,11 +752,12 @@
   function plateauForm(){
     if(!definition)return note('正在读取收益平原设置…');
     const target=scope==='advancedPlateau'?'advancedPlateau':'plateau',changed=scope!==target;activateScope(target);if(changed){save();queueReview();}
+    if(isSingle())return simplePlateauForm();
     const active=currentStep(),nav=plateauStepLabels.map((label,index)=>'<button type="button" class="pf-step-nav '+(active===index+1?'is-active':'')+'" data-pf-action="workflow-step" data-pf-step="'+(index+1)+'" '+(active===index+1?'aria-current="step"':'')+'><span>'+(index+1)+'</span>'+E(label)+'</button>').join('');
-    const heading=pipeline(isSingle()?4:6)+'<div class="pf-intro"><strong>'+(isSingle()?'单策略平原 · 少量参数 × 同一开发区间':'高级全系统平原 · 四层联合研究')+'</strong><p>'+(isSingle()?'从已完成的单策略回测带入配置，再选 1–3 个关键参数。所有候选仍属于开发样本；选定、冻结后再单独验证新时段。':'这是独立高级草稿，联合研究策略、组合、轮动与持仓。已有任务与旧设置仍然保留。')+'</p></div><nav class="pf-workflow-nav" aria-label="收益平原创建流程">'+nav+'</nav>';
+    const heading=pipeline(isSingle()?4:6)+'<div class="pf-intro"><strong>'+(isSingle()?'单策略平原 · 少量参数 × 同一回测日期':'高级全系统平原 · 四层联合研究')+'</strong><p>'+(isSingle()?'从已完成的单策略回测带入配置，再选 1–3 个关键参数。所有候选仍属于开发样本；选定、冻结后再单独验证新时段。':'这是独立高级草稿，联合研究策略、组合、轮动与持仓。已有任务与旧设置仍然保留。')+'</p></div><nav class="pf-workflow-nav" aria-label="收益平原创建流程">'+nav+'</nav>';
     if(active===5)return '<div class="pf-workbench pf-plateau-workbench">'+heading+'<p class="rs-help">下方查看收益平原任务与结果；未通过检验时会显示原因，已有报告保留其创建时的参数。</p>'+stepButton(4,'返回核对创建')+'</div>';
     return '<form data-pf-form data-pf-plateau-form class="pf-workbench pf-plateau-workbench" novalidate>'+(editorNote?note(editorNote):'')+heading+
-      workflowSection(1,'确定研究对象与日期','开发区间及股票池条件对所有候选保持相同。',
+      workflowSection(1,'确定研究对象与日期','回测日期及股票池条件对所有候选保持相同。',
         '<div class="rs-actions"><button class="rs-button" type="button" data-pf-action="plateau-import">导入固定参数回测草稿</button></div>'+(isSingle()?poolForm(false,false,true)+fold('查看单策略、漏斗与基础参数','plateau-strategies',singleStrategyForm()):poolForm()+fold('选择参与研究的策略与组合','plateau-strategies',combinationsForm())))+
       workflowSection(2,'选择要测试的参数与候选值','填写多个候选值，软件逐组替换测试；每个基础参考值都标在对应扫描项下。',scanEditor())+
       workflowSection(3,'核对固定条件与稳定性门槛','未扫描的条件对所有候选相同；已扫描字段直接标出候选值，不再重复填写一个固定值。',tradingForm()+'<div class="rs-actions">'+stepButton(1,'查看或修改其余固定策略参数')+'</div>'+experimentForm(false)+(isSingle()?'':fold('持续性检验与轮动准入','persistence',diagnosticForm(false))))+
@@ -744,7 +771,7 @@
   Object.assign(reasonLabels,{
     invalid_execution_capacity:'模拟成交超出当日总量，或开盘量证据矛盾，账户路径无效',
     insufficient_invested_days:'实际持仓交易日不足',
-    unidentifiable_parameter_behavior:'不同成交与净值路径不足，参数变化尚不可识别',
+    unidentifiable_parameter_behavior:'不同成交与净值路径不足，参数变化没有产生足够不同的买卖记录',
     inactive_parameter_axes:'存在未改变实际成交与净值的扫描参数轴',
     insufficient_valid_neighborhood:'有效邻域点不足或证据缺失',
     nonpositive_neighborhood_mean:'邻域平均净收益未为正',
@@ -794,7 +821,7 @@
     }
     for(const node of config.strategies||[]){const def=definition.strategies.find(s=>s.id===node.kind);items.push([def?.name||node.id,(pools[node.pool]||node.pool)+' · '+Object.entries(node.params||{}).map(([key,value])=>(def?.parameters.find(v=>v.key===key)?.label||key)+' '+(isPercent(key)?thisPercent(value):n(value))).join('；')]);}
     for(const node of config.combinations||[])items.push([strategyName(node.id),({intersection:'子策略交集',union:'子策略并集',weighted:'标准分加权'})[node.method]+' · '+node.children.map(child=>strategyName(child.id)+' 权重 '+n(child.weight)).join('；')]);
-    return panel('冻结配置与股票池参数',table(['设置','本次取值'],items.map(([label,value])=>`<tr><td>${E(label)}</td><td>${E(value)}</td></tr>`))+`<details class="rs-body"><summary>技术审计：完整参数与来源标识</summary><pre>${E(JSON.stringify({config,selection},null,2))}</pre></details>`);
+    return panel('本次参数与股票池条件',table(['设置','本次取值'],items.map(([label,value])=>`<tr><td>${E(label)}</td><td>${E(value)}</td></tr>`))+`<details class="rs-body"><summary>技术审计：完整参数与来源标识</summary><pre>${E(JSON.stringify({config,selection},null,2))}</pre></details>`);
   }
   const thisPercent=value=>numeric(value)?p(value*100):'—';
   function regimeTable(r) {
@@ -1007,10 +1034,16 @@
     return (r.config?.strategies&&r.experiment?panel('本次测试的参数与固定条件',`<div class="rs-body">${scanPlanView(r.config,r.experiment.axes,r.experiment)}</div>`):'')+panel((r.kind||r.type)==='systemPlateau'?'全系统收益平原':'滚动样本外验证',`<div class="rs-body"><p>参数组合总数：${n(r.trialCount,0)} · 逐折候选评估：${n(r.actualCandidateEvaluations,0)} / ${n(r.plannedCandidateEvaluations,0)} · 账户模拟次数：${n(r.engineRunCount,0)} · 滚动折数：${n(folds.length,0)}</p>${note(r.conclusion||plateau.conclusion||'等待完成预设研究；阶段结果不能作为最终结论。')}<p class="rs-help">各折仅用训练数据选择设置，后续样本外冻结。没有通过跨年份、跨市场环境和数据质量门槛时，不给出推荐参数区间。</p></div>`)+panel('参数邻域与平原区域',`<div class="rs-body">${heatmap(plateau,r.experiment?.axes)}</div>`)+panel('推荐参数区间与样本外证据',`<div class="rs-body">${note(plateau.certified?'通过本次预设验证门槛。':'尚未获得经过验证的收益平原。')}${(plateau.reasons||[]).map(reason=>note(readable(reason))).join('')}${plateau.oosCoverage?'<p data-pf-oos-coverage>样本外共同覆盖 '+n(plateau.oosCoverage.tradingDays,0)+' 个交易日 / 门槛 '+n(plateau.oosCoverage.minTradingDays,0)+'；自然日跨度 '+n(plateau.oosCoverage.calendarSpanDays,0)+' / 门槛 '+n(plateau.oosCoverage.minCalendarSpanDays,0)+'；有效年度 '+E((plateau.oosCoverage.coveredYears||[]).join('、')||'不足')+'。</p>':''}${ranges.length?table(['参数层','参数','验证通过的取值区间'],rows):'<p>暂无推荐区间。</p>'}<p class="rs-help">推荐区间仅在全部离散网格交叉组合都已验证时输出；未扫描的连续插值不算已验证。</p><details><summary>查看分年份、分环境及邻域验证记录</summary><pre>${E(JSON.stringify(plateau,null,2))}</pre></details></div>`)+panel('逐折训练、检验与样本外账户',foldPanels||note('尚无已完成的滚动折。'))+panel('完整研究设置与数据边界',`<details class="rs-body"><summary>展开冻结配置、研究规模与警告</summary><pre>${E(JSON.stringify({experiment:r.experiment,config:r.config,quality:r.quality,warnings:r.warnings,protocol:r.protocol},null,2))}</pre></details>`);
   }
   function singlePlateauResult(r){
-    const candidates=r.candidates||[],regions=r.regions||[],axes=r.axes||r.experiment?.axes||[],x=r.experiment||{},period=r.developmentPeriod||r.config||{};
-    return panel('关键参数平原 · 开发期比较','<div class="rs-body">'+note('这份报告只比较开发样本。请选择具体参数点并冻结，再使用开发截止日之后的新时段验证；不会自动采用收益最高点。')+identifiabilityEvidence(r)+'<p>已完成 '+n(r.completedTrials??candidates.length,0)+' / '+n(r.plannedTrials??axes.reduce((count,axis)=>count*axis.values.length,1),0)+' 组 · 扫描 '+axes.length+' 个关键参数 · '+(r.status==='completed'?'全部计算完成':'计算进行中')+'。</p><p>开发区间：<strong>'+E(period.startDate||'未记录')+' — '+E(period.endDate||'未记录')+'</strong>。其余股票池、成本和交易规则保持固定。</p><p class="rs-help">邻域通过表示该点附近的已计算候选达到本次固定门槛，不等于未来有效；没有满足门槛的区域也会如实保留。</p><details data-pf-single-thresholds><summary>本次固定的开发期判定门槛与扫描轴</summary>'+table(['条件','本次设定'],[['每点最少已关闭持仓波段',n(x.minClosedTrades,0)+' 个'],['每点最大回撤上限',p(x.maxDrawdownPct)],['每点最少持仓交易日',n(x.minInvestedDays,0)],['相对标准差上限',p(numeric(x.maxNeighborhoodRelativeStd)?x.maxNeighborhoodRelativeStd*100:null)],['中位收益相对峰值下限',p(numeric(x.minNeighborhoodReturnRetention)?x.minNeighborhoodReturnRetention*100:null)],['邻域最少合格参数点',n(x.minNeighborhoodSize,0)+' 点'],['邻域正收益比例下限',p(numeric(x.minNeighborPositiveFraction)?x.minNeighborPositiveFraction*100:null)],['邻域收益标准差上限',n(x.maxNeighborhoodStdPct)+' 个百分点'],...axes.map(axis=>[parameterLabel(axis.path),(axis.values||[]).map(value=>axisValueText(axis.path,value)).join('、')])].map(([label,value])=>'<tr><td>'+E(label)+'</td><td>'+E(value)+'</td></tr>'))+'<p class="rs-help">每条轴最多取 3 个相邻的已测试值，交叉形成邻域；边界向内平移。不补造未测试点，也不把两点比较标成稳定平原。未通过数据检查或单点门槛的候选不计为合格点。</p></details></div>')+
-      panel('查看邻近参数，再明确选择冻结点','<div class="rs-body pf-single-candidates">'+candidates.map(candidate=>{const m=candidate.metrics||{},a=candidate.neighborhood||{},value=numeric(m.totalReturnPct)?Number(m.totalReturnPct):null;return '<article class="pf-candidate '+(a.passed?'is-stable':'')+'" data-pf-candidate="'+E(candidate.candidateId)+'"><header><strong>'+E(candidate.candidateId)+'</strong><span>'+(a.passed?'开发邻域通过':'开发邻域未通过')+'</span></header><p class="pf-candidate-values">'+Object.entries(candidate.params||{}).map(([path,v])=>'<span>'+E(parameterLabel(path))+'<b>'+E(axisValueText(path,v))+'</b></span>').join('')+'</p><div class="pf-candidate-metrics"><div><span>本点净收益</span><strong>'+p(value)+'</strong></div><div><span>最大回撤</span><strong>'+p(m.maxDrawdownPct)+'</strong></div><div><span>已关闭波段</span><strong>'+n(m.closedTradeCount,0)+'</strong></div></div><p class="rs-help">邻域 '+n(a.size,0)+' 点 · 平均净收益 '+p(a.meanNetReturnPct)+' · 标准差 '+n(a.stdNetReturnPct)+' 个百分点 · 正收益占比 '+p(numeric(a.positiveFraction)?a.positiveFraction*100:null)+' · 不同路径 '+n(a.distinctBehaviorCount,0)+' · 中位收益 '+p(a.medianNetReturnPct)+'</p>'+((candidate.qualityFailures||[]).length?'<p class="pf-config-error">'+E(candidate.qualityFailures.map(readable).join('；'))+'</p>':'')+((a.failures||[]).length?'<p class="pf-config-error">'+E(a.failures.map(readable).join('；'))+'</p>':'')+'<details><summary>查看将冻结的完整配置</summary>'+configuration(candidate.config||r.config||{},r.selection||{})+'</details><button type="button" class="rs-button '+(a.passed?'rs-primary':'')+'" data-pf-action="freeze-candidate" data-pf-candidate="'+E(candidate.candidateId)+'" '+(!hooks?.freeze||r.status!=='completed'?'disabled':'')+'>'+(r.status==='completed'?'冻结这个参数点':'全部计算完成后可冻结')+'</button><button type="button" class="rs-button" data-pf-action="replay-candidate" data-pf-candidate="'+E(candidate.candidateId)+'" '+(!hooks?.replayCandidate||r.status!=='completed'?'disabled':'')+'>查看该点逐日买卖</button></article>';}).join('')+'</div>')+
-      panel('开发期相邻区域','<div class="rs-body">'+(regions.length?table(['区域','已计算参数点','邻域均值','区域说明'],regions.map(region=>'<tr><td>'+E(region.regionId)+'</td><td>'+E((region.candidateIds||[]).join('、'))+'</td><td>'+p(region.meanNetReturnPct)+'</td><td>'+E(region.intervalEligible?'离散网格完整，仍需冻结后验证新时段':'仅显示已计算点，不将空洞或未扫描插值当成稳定区间')+'</td></tr>')):'<p>当前没有满足门槛的相邻区域。可以保留这次结果，重新提出假设；新增测试仍算开发研究。</p>')+'<a class="rs-button" data-nav="R10">查看冻结方案与新时段验证</a></div>');
+    const candidates=r.candidates||[],regions=r.regions||[],axes=r.axes||r.experiment?.axes||[],x=r.experiment||{},period=r.developmentPeriod||r.config||{},complete=r.status==='completed';
+    const thresholds=[['每组至少完成的买卖波段',n(x.minClosedTrades,0)],['最大回撤上限',p(x.maxDrawdownPct)],['最少持仓交易日',n(x.minInvestedDays,0)],['至少不同交易路径',n(x.minNeighborhoodSize,0)],['附近参数盈利比例',p(numeric(x.minNeighborPositiveFraction)?x.minNeighborPositiveFraction*100:null)],['收益标准差上限',n(x.maxNeighborhoodStdPct)+' 个百分点'],['相对波动上限',p(numeric(x.maxNeighborhoodRelativeStd)?x.maxNeighborhoodRelativeStd*100:null)],['中位收益相对峰值下限',p(numeric(x.minNeighborhoodReturnRetention)?x.minNeighborhoodReturnRetention*100:null)]];
+    const cards=candidates.map(candidate=>{
+      const m=candidate.metrics||{},a=candidate.neighborhood||{},id=E(candidate.candidateId),failures=[...(candidate.qualityFailures||[]),...(a.failures||[])];
+      const action=(label,key,ready,primary=false)=>'<button type="button" class="rs-button '+(primary?'rs-primary':'')+'" data-pf-action="'+key+'" data-pf-candidate="'+id+'" '+(!complete||!ready?'disabled':'')+'>'+label+'</button>';
+      return '<article class="pf-candidate '+(a.passed?'is-stable':'')+'" data-pf-candidate="'+id+'"><header><strong>'+id+'</strong><span>'+(a.passed?'附近参数表现稳定':'未达到稳定条件')+'</span></header><p class="pf-candidate-values">'+Object.entries(candidate.params||{}).map(([path,v])=>'<span>'+E(parameterLabel(path))+'<b>'+E(axisValueText(path,v))+'</b></span>').join('')+'</p><div class="pf-candidate-metrics"><div><span>本组收益</span><strong>'+p(m.totalReturnPct)+'</strong></div><div><span>最大回撤</span><strong>'+p(m.maxDrawdownPct)+'</strong></div><div><span>已完成买卖波段</span><strong>'+n(m.closedTradeCount,0)+'</strong></div></div><p class="rs-help">附近 '+n(a.size,0)+' 组 · 平均收益 '+p(a.meanNetReturnPct)+' · 中位收益 '+p(a.medianNetReturnPct)+' · 盈利占比 '+p(numeric(a.positiveFraction)?a.positiveFraction*100:null)+' · 不同交易路径 '+n(a.distinctBehaviorCount,0)+'</p>'+(failures.length?'<details class="pf-candidate-reasons"><summary>为什么未达到条件</summary><p class="pf-config-error">'+E([...new Set(failures)].map(readable).join('；'))+'</p></details>':'')+'<div class="rs-actions pf-candidate-actions">'+action('回填到回测','apply-candidate',hooks?.applyCandidate,true)+action('保存参数','save-candidate',hooks?.freeze)+action('查看买卖记录','replay-candidate',hooks?.replayCandidate)+action('用其他日期验证','validate-candidate',hooks?.validateCandidate)+'</div><details><summary>查看这组完整参数</summary>'+configuration(candidate.config||r.config||{},r.selection||{})+'</details></article>';
+    }).join('');
+    return panel('收益平原 · 参数测试结果','<div class="rs-body"><p>已完成 '+n(r.completedTrials??candidates.length,0)+' / '+n(r.plannedTrials??axes.reduce((count,axis)=>count*axis.values.length,1),0)+' 组；回测日期 '+E(period.startDate||'未记录')+' — '+E(period.endDate||'未记录')+'。</p>'+note('比较附近参数的收益、回撤与实际交易。结果只说明本次日期内的表现，不会自动采用收益最高点。')+identifiabilityEvidence(r)+'<details data-pf-single-thresholds><summary>查看判定条件和扫描参数</summary>'+table(['条件','本次设定'],[...thresholds,...axes.map(axis=>[parameterLabel(axis.path),(axis.values||[]).map(value=>axisValueText(axis.path,value)).join('、')])].map(([label,value])=>'<tr><td>'+E(label)+'</td><td>'+E(value)+'</td></tr>'))+'</details></div>')+
+      panel('比较结果，选择要使用的参数','<div class="rs-body pf-single-candidates">'+cards+'</div>')+
+      panel('附近参数的稳定区域','<div class="rs-body">'+(regions.length?table(['区域','已测试参数点','平均收益','说明'],regions.map(region=>'<tr><td>'+E(region.regionId)+'</td><td>'+E((region.candidateIds||[]).join('、'))+'</td><td>'+p(region.meanNetReturnPct)+'</td><td>'+E(region.intervalEligible?'已测试的离散组合完整，其他日期表现仍需检验':region.passed?'仅保留已测试点，不推断缺失组合或连续区间':'本区域未达到稳定条件')+'</td></tr>')):'<p>当前没有达到条件的稳定区域。结果仍可保存或回填，软件会保留未通过的原因。</p>')+'</div>');
   }
   function result(r) {
     if(!r)return note('正在准备数据或等待计算结果。');
@@ -1021,7 +1054,7 @@
     if((r.kind||r.type)==='singlePlateau')return singlePlateauResult(r);
     if(experimentKinds.has(r.kind||r.type))return refinementEvidence(r)+experimentResult(r);
     if(r.kind==='comparison'||r.testing)return refinementEvidence(r)+studyResult(r);
-    return refinementEvidence(r)+engineResult(r,{label:(r.kind||r.type)==='singleBacktest'?'单策略固定参数':(r.kind||r.type)==='frozenValidation'?'冻结方案 · 新时段':'当前组合'})+rightsTable(r)+regimeTable(r);
+    return refinementEvidence(r)+engineResult(r,{label:(r.kind||r.type)==='singleBacktest'?'当前策略':(r.kind||r.type)==='frozenValidation'?'其他日期验证':'当前组合'})+rightsTable(r)+regimeTable(r);
   }
   function set(path,value) {
     const keys=path.split('.');
@@ -1068,6 +1101,7 @@
     if(event.key!=='Enter'||!event.target.closest?.('[data-pf-form],[data-pf-pool-form]'))return;
     if(event.target.matches?.('[data-pf-screen-query]')){event.preventDefault();screen.query=event.target.value.trim();screen.offset=0;void loadScreen().catch(hooks.error);return;}
     if(scope==='market'){event.preventDefault();return;}
+    if(isSingle())return;
     if(currentStep()!==4){event.preventDefault();setStep(Math.min(4,currentStep()+1));hooks.refresh();}
   });
   document.addEventListener('change',event=>{const el=event.target;if(el.dataset?.pfHeatSlice){heatSlices.set(el.dataset.pfHeatSlice,el.value);hooks?.refresh();return;}
@@ -1118,16 +1152,21 @@
   },true);
   document.addEventListener('click',event=>{
     const el=event.target.closest?.('[data-pf-action]');if(!el||el.disabled)return;event.preventDefault();
-    if(el.dataset.pfAction==='advanced'){advanced();AT.navigate?.('R03');hooks.refresh();return;}
-    if(el.dataset.pfAction==='single-stage'){activateScope('research');setStep(el.dataset.pfStep);queueReview();AT.navigate?.('R03');hooks.refresh();return;}
-    if(el.dataset.pfAction==='single-plateau'){activateScope('plateau');queueReview();AT.navigate?.('R05');hooks.refresh();return;}
-    if(el.dataset.pfAction==='advanced-plateau'){activateScope('advancedPlateau');queueReview();AT.navigate?.('R05');hooks.refresh();return;}
+    if(el.dataset.pfAction==='advanced'){advanced();AT.navigate?.('R15');hooks.refresh();return;}
+    if(el.dataset.pfAction==='single-mode'){singleMode();AT.navigate?.('R15');hooks.refresh();return;}
+    if(el.dataset.pfAction==='scan-current'){scanCurrent();AT.navigate?.('R15');hooks.refresh();return;}
+    if(el.dataset.pfAction==='single-stage'){activateScope('research');setStep(el.dataset.pfStep);queueReview();AT.navigate?.('R15');hooks.refresh();return;}
+    if(el.dataset.pfAction==='single-plateau'){activateScope('plateau');queueReview();AT.navigate?.('R15');hooks.refresh();return;}
+    if(el.dataset.pfAction==='advanced-plateau'){activateScope('advancedPlateau');queueReview();AT.navigate?.('R15');hooks.refresh();return;}
     if(el.dataset.pfAction==='apply-pool-style'){
       const style=definition.poolStyles?.find(row=>row.id===el.dataset.pfStyle);if(!style)return;
       draft.config.poolSettings=structuredClone(style.poolSettings);for(const strategy of definition.strategies)if(draft.enabled[strategy.id])draft.pools[strategy.id]='combined';
       screen.pool='combined';screen.offset=0;save();queueReview();hooks.refresh();return;
     }
     if(el.dataset.pfAction==='freeze-candidate'){if(!hooks?.freeze)return;el.disabled=true;void Promise.resolve(hooks.freeze({id:hooks.activeTaskId?.(),candidateId:el.dataset.pfCandidate})).catch(hooks.error).finally(()=>{el.disabled=false;});return;}
+    if(el.dataset.pfAction==='save-candidate'){if(!hooks?.freeze)return;el.disabled=true;void Promise.resolve(hooks.freeze({id:hooks.activeTaskId?.(),candidateId:el.dataset.pfCandidate})).catch(hooks.error).finally(()=>{el.disabled=false;});return;}
+    if(el.dataset.pfAction==='validate-candidate'){if(!hooks?.validateCandidate)return;el.disabled=true;void Promise.resolve(hooks.validateCandidate({id:hooks.activeTaskId?.(),candidateId:el.dataset.pfCandidate})).catch(hooks.error).finally(()=>{el.disabled=false;});return;}
+    if(el.dataset.pfAction==='apply-candidate'){if(!hooks?.applyCandidate)return;el.disabled=true;void Promise.resolve(hooks.applyCandidate({id:hooks.activeTaskId?.(),candidateId:el.dataset.pfCandidate})).catch(hooks.error).finally(()=>{el.disabled=false;});return;}
     if(el.dataset.pfAction==='replay-candidate'){if(!hooks?.replayCandidate)return;el.disabled=true;void Promise.resolve(hooks.replayCandidate({id:hooks.activeTaskId?.(),candidateId:el.dataset.pfCandidate})).catch(hooks.error).finally(()=>{el.disabled=false;});return;}
     if(el.dataset.pfAction==='workflow-step'){setStep(el.dataset.pfStep);hooks.refresh();document.querySelector?.('.pf-workbench')?.scrollIntoView?.({block:'start',behavior:'instant'});return;}
     if(el.dataset.pfAction==='review-settings'){void reviewSettings().catch(()=>{});return;}
@@ -1165,7 +1204,7 @@
       for(const key of ['universe','poolSettings','startDate','endDate','lookbackDays'])draft.config[key]=source.config[key];
       if(source.periodMode!=='dates')draft.config.startDate=draft.config.endDate=null;
       for(const strategy of definition.strategies)if(draft.enabled[strategy.id])draft.pools[strategy.id]='combined';
-      editingTaskId=null;editorNote='已带入独立股票池条件，当前单策略使用叠加筛选池；回测按每个交易日重新筛选。'+(source.periodMode==='dates'?'':'原股票池使用最近交易日，请先明确开发起止日期。');setStep(source.periodMode==='dates'?2:1);queueReview();AT.navigate?.('R03');return;
+      editingTaskId=null;editorNote='已带入独立股票池条件，当前单策略使用叠加筛选池；回测按每个交易日重新筛选。'+(source.periodMode==='dates'?'':'原股票池使用最近交易日，请先明确开发起止日期。');setStep(source.periodMode==='dates'?2:1);queueReview();AT.navigate?.('R15');return;
     }
     if(['screen-funnel','screen-combined'].includes(el.dataset.pfAction)){
       if(el.dataset.pfAction==='screen-funnel'){const index=['base','trend','structure','volume'].indexOf(el.dataset.pfStage);draft.config.poolSettings.combined={pools:['trend','structure','volume'].slice(0,Math.max(0,index)),mode:'intersection'};}
@@ -1192,7 +1231,7 @@
         targetDraft.config.universe.strictHistory=true;saveScope(targetScope,targetDraft,targetScreen);hooks.feedback('历史包已校验并保存，已在发起导入的股票池中选择其覆盖日期。请核对股票池与权益模型后开始研究。');
       }).catch(hooks.error).finally(()=>{importingHistory=false;hooks.refresh();});return;
     }
-    if(el.dataset.pfAction==='configure-plateau'){activateScope('plateau');queueReview();AT.navigate?.('R05');return;}
+    if(el.dataset.pfAction==='configure-plateau'){activateScope('plateau');queueReview();AT.navigate?.('R15');return;}
     if(el.dataset.pfAction==='reset'){newTask(draft.kind);hooks.refresh();}
     if(el.dataset.pfAction==='save'){save();hooks.feedback((isPlateau()?'收益平原':'回测')+'设置已保存在本机。');}
     if(el.dataset.pfAction==='rotation-page'){hooks?.rotationPage?.(Number(el.dataset.pfOffset),el.dataset.pfPath||'');}
@@ -1207,12 +1246,29 @@
   });
   function newTask(kind='singleBacktest'){activateScope(scopeFor(kind));draft=ensureCombined(makeDraft(definition,singleKinds.has(kind)));draft.kind=kind;if(['systemPlateau','singlePlateau'].includes(kind)){draft.periodMode='dates';seedPlateauAxes(draft);}editingTaskId=null;editorNote='';save();queueReview();}
   function advanced(){activateScope('advanced');queueReview();}
+  function singleMode(){
+    const source=scope==='plateau'?structuredClone(draft):null;activateScope('research');
+    if(source){draft={...source,kind:'singleBacktest',workflowStep:1,name:source.name.replace(/ · 参数测试$/,'')};delete draft.sourceTaskId;editingTaskId=null;editorNote='已沿用参数测试的配置，可以直接回测。';save();}
+    queueReview();
+  }
+  function scanCurrent(){
+    const source=scope==='research'?structuredClone(draft):scopes.research?.draft?structuredClone(scopes.research.draft):null;
+    activateScope('plateau');
+    if(source){
+      const selected=Object.keys(source.enabled).find(id=>source.enabled[id]),same=selected===Object.keys(draft.enabled).find(id=>draft.enabled[id]);
+      const axes=same?structuredClone(draft.scanAxes):[],settings=structuredClone(draft.experiment);
+      draft={...source,kind:'singlePlateau',periodMode:'dates',workflowStep:1,name:source.name.trim()?(source.name.replace(/ · 参数测试$/,'')+' · 参数测试').slice(0,100):'',experiment:{...defaultsSingleExperiment(),...settings},scanAxes:axes};
+      selectSingleStrategy(selected);if(!draft.scanAxes.some(axis=>axis.path))seedPlateauAxes(draft);
+      editingTaskId=null;editorNote='已沿用当前策略、日期、股票池和交易规则。填写要比较的参数值即可开始测试。';save();
+    }
+    queueReview();
+  }
   function startSingle(task){if(task){editTask({...task,kind:'singleBacktest'},'copy');selectSingleStrategy(task.config.strategies[0].kind);}else activateScope('research');setStep(1);queueReview();}
   function startPlateau(task){
-    if(!task?.config?.strategies||task.config.strategies.length!==1||task.config.combinations?.length)throw new Error('请先完成一个单策略固定参数回测，再带入关键参数平原。');
-    editTask({...task,kind:'singlePlateau'},'copy');draft.kind='singlePlateau';draft.periodMode='dates';draft.experiment={...defaultsSingleExperiment(),...definition.singleExperimentDefaults};draft.name=(task.name+' · 关键参数平原').slice(0,100);selectSingleStrategy(task.config.strategies[0].kind);draft.sourceTaskId=task.id;seedPlateauAxes(draft);draft.workflowStep=2;editingTaskId=null;editorNote='已从已完成单策略回测复制股票池、策略、日期与交易规则。只调整关键参数候选；本次区间仍属于开发样本。';save();queueReview();
+    if(!task?.config?.strategies||task.config.strategies.length!==1||task.config.combinations?.length)throw new Error('参数测试需要一个单策略配置。请先选择策略。');
+    editTask({...task,kind:'singlePlateau'},'copy');draft.kind='singlePlateau';draft.periodMode='dates';draft.experiment={...defaultsSingleExperiment(),...definition.singleExperimentDefaults};draft.name=(task.name+' · 关键参数平原').slice(0,100);selectSingleStrategy(task.config.strategies[0].kind);draft.sourceTaskId=task.id;seedPlateauAxes(draft);draft.workflowStep=2;editingTaskId=null;editorNote='已带入原回测的股票池、策略、日期和交易规则。填写候选值即可开始参数测试。';save();queueReview();
   }
-  window.PortfolioWorkbench={configure,form,poolWorkspace,result,configuration,helpers,editTask,currentStep,setStep,reviewSettings,newTask,screenRequest,advanced,startSingle,startPlateau,selectScreenTask(id){activateScope('research');screen.task=id;screen.pool='base';screen.offset=0;screen.query='';},screenRefresh:()=>screen.task?loadScreen():Promise.resolve(),available:()=>!!definition,
+  window.PortfolioWorkbench={configure,form,poolWorkspace,result,configuration,helpers,editTask,currentStep,currentScope:()=>scope,setStep,reviewSettings,newTask,screenRequest,advanced,startSingle,startPlateau,scanCurrent,selectScreenTask(id){activateScope('research');screen.task=id;screen.pool='base';screen.offset=0;screen.query='';},screenRefresh:()=>screen.task?loadScreen():Promise.resolve(),available:()=>!!definition,
     selectStrategy(id){activateScope('research');if(!draft)return;selectSingleStrategy(id);setStep(2);queueReview();},
     plateau:plateauForm};
 })();

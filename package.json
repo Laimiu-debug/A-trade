@@ -1,7 +1,7 @@
 {
   "name": "a-trade",
   "productName": "A-trade",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "A-trade Windows desktop research workspace",
   "main": "desktop/main.cjs",
@@ -29,7 +29,11 @@
     "setup:market": "node scripts/setup-market.cjs",
     "build:portable": "node scripts/build-portable.cjs",
     "test:portable": "node scripts/smoke-portable.cjs",
-    "test:research-workflow": "node scripts/smoke-research-workflow.cjs"
+    "test:research-workflow": "node scripts/smoke-research-workflow.cjs",
+    "build:finaltrade": "node scripts/build-finaltrade.cjs",
+    "test:finaltrade": "node scripts/smoke-finaltrade.cjs",
+    "test:finaltrade-parity": "node scripts/verify-finaltrade.cjs",
+    "test:finaltrade-api": "node scripts/test-finaltrade-api.cjs"
   },
   "engines": {
     "node": ">=22.12.0"

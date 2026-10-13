@@ -24,7 +24,7 @@ function harness(options={}){
   const storage=options.storage||new Map(),listeners=new Map(),calls=[],errors=[];
   let search='',counter=0;
   const document={addEventListener(type,fn){const set=listeners.get(type)||[];set.push(fn);listeners.set(type,set);},querySelector(selector){return selector==='[data-pf-screen-query]'?{value:search}:null;}};
-  const window={},localStorage={getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)};
+  const window={ResearchDates:require('../preview/research-date-input.js')},localStorage={getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)};
   if(options.importHistory)window.atradeDesktop={importResearchHistory:options.importHistory};
   const AT={escape,navigate:id=>calls.push(['navigate',id])};
   vm.runInNewContext(fs.readFileSync(path.join(root,'preview/research-display.js'),'utf8'),{window,document});

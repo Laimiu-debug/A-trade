@@ -8,4 +8,4 @@ function run(phase){return new Promise((resolve,reject)=>{
  child.on('error',error=>{clearTimeout(timer);reject(error);});
  child.on('exit',code=>{clearTimeout(timer);code===0?resolve():reject(new Error(`Research workflow ${phase} exit ${code}`));});
 });}
-(async()=>{await run('write');await run('read');console.log('PASS six-stage research workflow: isolated synthetic data, style funnels, single backtest, small parameter scan, explicit freeze, later validation, repeated interval and cross-process persistence.');console.log('Fixture:',directory);})().catch(error=>{console.error(error.stack);console.error('Preserved fixture:',directory);process.exitCode=1;});
+(async()=>{await run('write');await run('read');console.log('PASS continuous research workspace: direct backtest and parameter scan, apply/save selected parameters, inline later-date validation, repeated interval and cross-process persistence.');console.log('Fixture:',directory);})().catch(error=>{console.error(error.stack);console.error('Preserved fixture:',directory);process.exitCode=1;});

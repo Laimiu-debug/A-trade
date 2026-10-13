@@ -76,13 +76,31 @@ async function launch(application, directory) {
       if (message.error) item.reject(new Error(message.error.message)); else item.resolve(message.result);
     });
     socket.addEventListener('close', () => { for (const item of pending.values()) { clearTimeout(item.timer); item.reject(new Error('Inspection connection closed')); } pending.clear(); });
-    const command = (method, params = {}) => new Promise((resolve, reject) => {
+    const command = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
       const id = ++sequence, timer = setTimeout(() => { pending.delete(id); reject(new Error(`Timeout: ${method}`)); }, 60000);
-      pending.set(id, { resolve, reject, timer }); socket.send(JSON.stringify({ id, method, params }));
+      pending.set(id, { resolve, reject, timer }); socket.send(JSON.stringify({ id, method, params, ...(sessionId?{sessionId}:{}) }));
     });
     const evaluate = async expression => {
       const response = await command('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
       if (response.exceptionDetails) throw new Error(response.exceptionDetails.exception?.description || response.exceptionDetails.text);
+      return response.result.value;
+    };
+    let strategyTarget, strategySession;
+    const strategy = async expression => {
+      const targets=await command('Target.getTargets');
+      const child=targets.targetInfos.find(row=>row.type==='iframe'&&row.url.startsWith('atrade://reference/'));
+      if(child){
+        if(strategyTarget!==child.targetId){const attached=await command('Target.attachToTarget',{targetId:child.targetId,flatten:true});strategyTarget=child.targetId;strategySession=attached.sessionId;}
+        const result=await command('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true},strategySession);
+        if(result.exceptionDetails)throw Error(result.exceptionDetails.exception?.description||result.exceptionDetails.text);
+        return result.result.value;
+      }
+      const tree = await command('Page.getFrameTree');
+      function find(node) { if (node.frame.url.startsWith('atrade://reference/')) return node.frame; for(const child of node.childFrames||[]) { const result=find(child); if(result)return result; } }
+      const frame=find(tree.frameTree);if(!frame)throw new Error('Packaged strategy frame is not loaded');
+      const world=await command('Page.createIsolatedWorld',{frameId:frame.id,worldName:'atrade-packaged-verification'});
+      const response=await command('Runtime.evaluate',{expression,contextId:world.executionContextId,returnByValue:true,awaitPromise:true});
+      if(response.exceptionDetails)throw new Error(response.exceptionDetails.exception?.description||response.exceptionDetails.text);
       return response.result.value;
     };
     const wait = async (expression, label, timeout = 90000) => {
@@ -92,7 +110,7 @@ async function launch(application, directory) {
     };
     await wait('typeof AT !== "undefined" && !!window.ResearchModule && !!window.PortfolioWorkbench && !!document.querySelector("main")', 'packaged UI');
     await evaluate('window.__portableErrors=[];window.addEventListener("error",event=>__portableErrors.push(event.message));window.addEventListener("unhandledrejection",event=>__portableErrors.push(String(event.reason)));');
-    return { evaluate, wait, command, child, async close() {
+    return { evaluate, strategy, wait, command, child, async close() {
       try { await evaluate('document.querySelector("[data-window-action=close]").click();true'); } catch { /* normal target shutdown */ }
       const code = await Promise.race([exited, delay(12000).then(() => { throw new Error('Packaged app did not close safely.'); })]);
       socket.close(); assert.equal(code, 0, 'normal app exit');
@@ -107,7 +125,9 @@ async function main() {
   let session;
   try {
     session = await launch(application, directory);
-    const { evaluate, wait } = session;
+    const { evaluate, wait, strategy } = session;
+    const waitStrategy=async(expression,label,timeout=120000)=>{const start=Date.now();while(Date.now()-start<timeout){try{if(await strategy(expression))return;}catch(error){if(!/frame is not loaded|Cannot find context|Cannot find frame|No frame for given id|Frame with the given id/.test(error.message))throw error;const failure=await evaluate('document.querySelector("[data-strategy-retry]")?.parentElement.innerText');if(failure)throw Error(failure);}await delay(150);}let context;try{context=await strategy('document.body.innerText.slice(0,1500)')}catch{context=await evaluate('document.body.innerText.slice(-1500)')}throw Error('Timed out waiting for '+label+': '+context);};
+    const clickStrategy=async text=>{const condition=`[...document.querySelectorAll('button')].find(el=>el.textContent.replace(/\\s/g,'')===${JSON.stringify(text.replace(/\s/g,''))}&&!el.disabled&&el.getClientRects().length)`;await waitStrategy(`!!(${condition})`,'enabled '+text);await strategy(`(${condition}).click();true`);};
     const diagnostic = await evaluate('atradeDesktop.diagnostics()');
     assert.equal(diagnostic.ok, true); assert.deepEqual(diagnostic.data.services, { account: true, market: true, research: true });
     assert.equal(path.resolve(await evaluate('atradeDesktop.bootstrap.storage.directory')),
@@ -128,23 +148,36 @@ async function main() {
     await wait('!!document.querySelector("[data-pf-pool-form]")', 'standalone market stock pool');
     assert.equal(await evaluate('document.querySelector("[data-pf-field=\\"config.universe.minAmount20\\"]").value'), '1000', 'packaged turnover input uses wan yuan');
     assert.equal(await evaluate('document.querySelectorAll("[data-pf-pool-layer]").length'), 3);
-    await evaluate('AT.navigate("R03");true');
-    await wait('!!document.querySelector("[data-pf-form]")', 'single-strategy editor');
-    assert.deepEqual(await evaluate('[...new Set([...document.querySelectorAll("[data-pf-action=workflow-step]")].map(el=>Number(el.dataset.pfStep)))].sort()'), [1,2,3,4,5]);
-    assert.equal(await evaluate('document.querySelectorAll(".pf-research-pipeline .pf-pipeline-stage").length'), 6);
-    await evaluate('document.querySelector("[data-pf-action=workflow-step][data-pf-step=\\"1\\"]").click();true');
-    const singleDraft = await evaluate('JSON.parse(localStorage.getItem("atrade.single-editor.v1")).draft');
-    assert.equal(singleDraft.kind, 'singleBacktest');
-    assert.equal(singleDraft.periodMode, 'dates');
-    assert.equal(Object.values(singleDraft.enabled).filter(Boolean).length, 1);
-    assert.equal(singleDraft.config.allocation.mode, 'single');
-    assert.equal(singleDraft.selection.mode, 'all');
-    await evaluate('document.querySelector("[data-pf-action=advanced]").click();true');
-    await wait('document.querySelector(".pf-intro")?.innerText.includes("高级研究")', 'explicit advanced editor');
-    await evaluate('document.querySelector("[data-pf-action=workflow-step][data-pf-step=\\"1\\"]").click();true');
-    assert.equal(await evaluate('JSON.parse(localStorage.getItem("atrade.portfolio-editor.v1")).draft.kind'), 'portfolio');
-    assert.deepEqual(await evaluate('JSON.parse(localStorage.getItem("atrade.single-editor.v1")).draft'), singleDraft,
-      'advanced research keeps the single-strategy draft intact');
+    await evaluate('AT.navigate("R15");true');
+    await wait('!!document.querySelector("[data-pf-form]")', 'portfolio editor in unified navigation');
+    assert.equal(await evaluate('document.querySelector("#main h1").textContent'),'组合与系统研究');
+    const portfolioDraft=await evaluate('localStorage.getItem("atrade.portfolio-editor.v1")');
+    await evaluate('AT.navigate("R11");true');
+    await wait('!!document.querySelector("[data-strategy-frame]")','packaged strategy workspace');
+    await waitStrategy('document.querySelector("h1")?.textContent==="选股漏斗"','packaged screener');
+    assert.equal(await strategy('document.body.innerText.includes("原版")||document.body.innerText.includes("Finaltrade")'),false);
+    const strategies=await strategy('fetch("/api/strategies").then(r=>r.json())');assert.equal(strategies.items.length,16);
+    await clickStrategy('加载输入池');await waitStrategy('document.body.innerText.includes("全量 136")','full packaged screener input pool');
+    const strategyDraft={mode:'full_market',strategy_id:'score_only_rank_v1',date_from:sample.dates[300],date_to:sample.dates[319],window_days:60,min_score:0,min_event_count:0,max_symbols:20,enable_advanced_analysis:false,execution_path_preference:'legacy'};
+    await strategy(`localStorage.setItem('tdx-trend-backtest-form-v2',${JSON.stringify(JSON.stringify(strategyDraft))});localStorage.setItem('tdx-trend-backtest-plateau-form-v2',${JSON.stringify(JSON.stringify({sampling_mode:'grid',stop_loss_pct_list_raw:'4,6',take_profit_pct_list_raw:'12,18',heatmap_x_axis:'stop_loss',heatmap_y_axis:'take_profit'}))});true`);
+    await evaluate('AT.navigate("R03");true');await waitStrategy('document.querySelector("h1")?.textContent==="策略回测"','packaged strategy backtest');
+    await clickStrategy('开始回测');
+    await waitStrategy(`fetch('/api/backtest/tasks').then(r=>r.json()).then(data=>{const task=data.items[0];if(task?.status==='failed')throw Error(task.error);return task?.status==='succeeded'})`,'packaged strategy result',180000);
+    const strategyTasks=await strategy(`fetch('/api/backtest/tasks').then(r=>r.json())`);
+    const strategyId=strategyTasks.items[0].task_id;
+    const strategyReport=await strategy(`fetch('/api/backtest/tasks/'+${JSON.stringify(strategyId)}).then(r=>r.json())`);
+    assert.equal(strategyReport.result.strategy_id,'score_only_rank_v1');assert.ok(strategyReport.result.trades.length>0,'packaged strategy produces real sample trades');
+    await evaluate('AT.navigate("R05");true');await waitStrategy(`!![...document.querySelectorAll('button')].find(el=>el.textContent.trim()==='开始平原扫描'&&!el.disabled)`,'expanded packaged plateau');
+    await clickStrategy('开始平原扫描');
+    await waitStrategy(`fetch('/api/backtest/plateau/tasks').then(r=>r.json()).then(data=>{const task=data.items[0];if(task?.status==='failed')throw Error(task.error);return task?.status==='succeeded'})`,'packaged four-point plateau',240000);
+    const plateauTasks=await strategy(`fetch('/api/backtest/plateau/tasks').then(r=>r.json())`);
+    const plateauId=plateauTasks.items[0].task_id;
+    const plateauReport=await strategy(`fetch('/api/backtest/plateau/tasks/'+${JSON.stringify(plateauId)}).then(r=>r.json())`);
+    assert.equal(plateauReport.result.evaluated_combinations,4);assert.equal(plateauReport.result.points.length,4);
+    await evaluate('AT.navigate("R08");true');await waitStrategy('document.querySelector("h1")?.textContent==="报告库"&&document.querySelectorAll(".ant-table-row").length>=2','unified report library');
+    await clickStrategy('查看结果');await waitStrategy('document.querySelector("h1")?.textContent==="收益平原"','reopened plateau result');
+    assert.equal(await evaluate('localStorage.getItem("atrade.portfolio-editor.v1")'),portfolioDraft,'strategy workflow retains the combination draft');
+    console.log('PASS bundled strategy service, 16 strategies, 136 input stocks, actual trades, four-point plateau and unified report viewer.');
     const payload = { kind: 'portfolio', name: '便携版 · 39日多策略全池验收',
       config: { startDate: sample.dates[300], endDate: sample.dates[338], initialCapital: 100000, topN: 5,
         maxPositions: 5, maxStockWeight: .2, rebalanceMode: 'risk', maxHoldingDays: 5,
@@ -209,6 +242,10 @@ async function main() {
     assert.deepEqual({ ...validationReport.data.task.config, startDate: frozen.config.startDate, endDate: frozen.config.endDate },
       frozen.config, 'later-period validation must retain every frozen non-date setting');
     await evaluate('AT.navigate("R10");true');
+    await wait('!!document.querySelector("[data-workflow-action=reload]")', 'saved-parameter library');
+    await evaluate('document.querySelector("[data-workflow-action=reload]").click();true');
+    await wait(`document.querySelector('[data-workflow-freeze]')?.value===${JSON.stringify(frozen.id)}`, 'saved parameters refreshed');
+    await evaluate('document.querySelector("[data-workflow-action=validate-saved]").click();true');
     await wait('!!document.querySelector("[data-workflow-validation]")', 'packaged frozen-plan library');
     assert.equal(await evaluate('document.querySelector("[data-workflow-freeze]").value'), frozen.id);
     assert.deepEqual(await evaluate('[...document.querySelectorAll("[data-workflow-validation] input")].map(el=>el.dataset.workflowField)'),
@@ -225,8 +262,8 @@ async function main() {
     assert.ok(report.data.result.trades.length > 0);
     assert.ok(report.data.result.daily.some(day => day.holdings.length > 1));
     await evaluate('AT.navigate("G02");true');
-    await wait(`!!document.querySelector('[data-rs-action="task-open"][data-rs-id="${id}"]')`, 'task list');
-    await evaluate(`document.querySelector('[data-rs-action="task-open"][data-rs-id="${id}"]').click();true`);
+    await waitStrategy(`!!document.querySelector('[data-row-key="portfolio:${id}"]')`, 'unified task list includes portfolio');
+    await strategy(`document.querySelector('[data-row-key="portfolio:${id}"] button').click();true`);
     await wait('!!document.querySelector(".pf-account-curve")', 'same-page result');
     await fs.mkdir(path.join(root, 'artifacts'), { recursive: true });
     const picture = await session.command('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
@@ -252,13 +289,20 @@ async function main() {
     }
     const workspace = await session.evaluate("atradeDesktop.business('workspace')");
     assert.equal(workspace.data.accounts[0].name, '便携版隔离验收');
+    await session.evaluate('AT.navigate("R08");true');
+    const reopenedStrategy=async expression=>{const start=Date.now();while(Date.now()-start<30000){try{return await session.strategy(expression);}catch(error){if(!error.message.includes('frame is not loaded'))throw error;await delay(150);}}throw Error('Strategy service did not reopen');};
+    const persistedStrategy=await reopenedStrategy(`fetch('/api/backtest/tasks/'+${JSON.stringify(strategyId)}).then(r=>r.json())`);
+    assert.equal(persistedStrategy.status,'succeeded');assert.deepEqual(persistedStrategy.result,strategyReport.result);
+    const persistedPlateau=await session.strategy(`fetch('/api/backtest/plateau/tasks/'+${JSON.stringify(plateauId)}).then(r=>r.json())`);
+    assert.equal(persistedPlateau.status,'succeeded');assert.deepEqual(persistedPlateau.result,plateauReport.result);
     await session.close(); session = null;
     const evidence = { passed: true, directory: application, testedAt: new Date().toISOString(), version: diagnostic.data.app.version,
       fullPoolSize: 136, tradingDays: 39, strategies: 2, singleDevelopmentDays: 20, frozenValidationDays: 19,
+      strategyCatalogueSize:16,strategyTradeCount:strategyReport.result.trades.length,plateauPoints:4,strategyReportsPersisted:true,
       frozenPlanPersisted: true, validationStatus: validationReport.data.result.validationAudit.status,
       hostPythonDisabled: true, restarted: true, isolatedWorkspace: directory };
     await fs.writeFile(path.join(root, 'artifacts/portable-smoke.json'), JSON.stringify(evidence, null, 2) + '\n');
-    console.log('PASS packaged launch, built-in services, six-stage single-strategy workflow, 136-stock pool, frozen later-period validation, 39-day advanced portfolio and restart persistence.');
+    console.log('PASS packaged launch without host runtimes, 16 strategies, strategy backtest and four-point plateau, unified UI, 136-stock pool, date validation, 39-day portfolio and report/account restart persistence.');
   } finally { session?.kill(); }
 }
 main().catch(error => { console.error(error.stack); process.exitCode = 1; });

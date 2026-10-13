@@ -1,0 +1,142 @@
+/* ScreenerPage — extracted inline styles */
+
+/* ── LabeledNumberInput ── */
+.screener-labeled-input-wrapper {
+  width: 100%;
+}
+.screener-labeled-input-label {
+  min-width: 92px;
+  padding-inline: 12px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(5, 5, 5, 0.12);
+  border-right: 0;
+  border-radius: 8px 0 0 8px;
+  background: rgba(5, 5, 5, 0.04);
+  color: rgba(0, 0, 0, 0.72);
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: normal;
+}
+.screener-labeled-input-field {
+  width: 100%;
+}
+
+/* ── Common layout ── */
+.screener-full-width {
+  width: 100%;
+}
+.screener-full-width-overflow {
+  width: 100%;
+  overflow: hidden;
+}
+
+/* ── Config panel containers ── */
+.screener-config-320 {
+  width: 320px;
+}
+.screener-config-290 {
+  width: 290px;
+}
+.screener-config-220 {
+  width: 220px;
+  padding: 8px;
+}
+
+/* ── Buttons (auto-wrap text) ── */
+.screener-btn-wrap {
+  white-space: normal;
+  height: auto;
+}
+
+/* ── Tags (draggable) ── */
+.screener-tag-grab {
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* ── Typography helpers ── */
+.screener-text-12 {
+  font-size: 12px;
+}
+.screener-text-break {
+  word-break: break-word;
+}
+.screener-text-break-12 {
+  word-break: break-word;
+  font-size: 12px;
+}
+
+/* ── Watch config flex row ── */
+.screener-flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* ── Action button grids ── */
+.screener-action-grid {
+  width: 100%;
+  display: grid;
+  gap: 6px;
+}
+.screener-action-grid-108 {
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+}
+.screener-action-grid-88 {
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+}
+
+/* ── Radio buttons (half-width centered) ── */
+.screener-radio-half {
+  width: 50%;
+  text-align: center;
+}
+
+/* ── Column reorder drag row ── */
+.screener-col-drag {
+  padding: 4px;
+  border-radius: 8px;
+  cursor: grab;
+}
+
+/* ── Space compact 4px ── */
+.screener-space-compact-4 {
+  width: 100%;
+}
+
+/* ── Pool cards (replaces inline styles) ── */
+.screener-pool-card {
+  cursor: pointer;
+  height: 100%;
+  overflow: hidden;
+}
+.screener-pool-card .ant-card-body {
+  overflow: hidden;
+}
+.screener-pool-card--active {
+  border: 1px solid rgba(15, 139, 111, 0.55);
+  box-shadow: 0 0 0 2px rgba(15, 139, 111, 0.18) inset;
+}
+.screener-pool-card--dragover {
+  border: 1px dashed rgba(15, 139, 111, 0.85);
+  box-shadow: 0 0 0 3px rgba(15, 139, 111, 0.22) inset;
+}
+
+/* ── Column drag row highlight ── */
+.screener-col-drag--over {
+  background: rgba(15, 139, 111, 0.08);
+}
+
+/* ── Table row drag styles ── */
+.screener-table-row-draggable {
+  cursor: move;
+}
+.screener-table-row-reorderable {
+  cursor: grab;
+}
+.screener-table-row-dragover {
+  background: rgba(15, 139, 111, 0.08) !important;
+}

@@ -108,9 +108,9 @@
       current.error='当前页面材料暂未就绪，请等待页面加载后重试。';controls();
     }
   }
-  function open() {
+  function open(question='') {
     opened=true;panel.hidden=false;trigger.setAttribute('aria-expanded','true');document.body.classList.add('page-ai-open');
-    refresh();messages();$('#page-ai-question').value=current?.draft||'';$('#page-ai-question').focus({preventScroll:true});
+    refresh();messages();if(typeof question==='string'&&question.trim()&&!current?.draft.trim())current.draft=question.slice(0,4000);$('#page-ai-question').value=current?.draft||'';controls();$('#page-ai-question').focus({preventScroll:true});
   }
   function close() {
     opened=false;panel.hidden=true;trigger.setAttribute('aria-expanded','false');document.body.classList.remove('page-ai-open');trigger.focus({preventScroll:true});

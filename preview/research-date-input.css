@@ -1,0 +1,21 @@
+.rd-field { position:relative; min-width:0; }
+.rd-field > label { display:block; font-size:12px; color:var(--text-secondary,#667085); }
+.rd-input-row { display:flex; align-items:center; gap:6px; }
+.rd-input-row input { min-width:0; flex:1; font-variant-numeric:tabular-nums; }
+.rd-open { flex:none; width:34px; height:34px; border:1px solid var(--border,#d8dde6); border-radius:6px; background:var(--surface,#fff); cursor:pointer; font-size:20px; }
+.rd-field input[aria-invalid="true"] { border-color:#bf4a37; }
+.rd-field > small { display:block; font-size:11px; margin-top:4px; }
+.rd-calendar { position:fixed; z-index:80; width:288px; max-width:calc(100vw - 48px); padding:12px; border:1px solid var(--border,#d8dde6); border-radius:8px; background:var(--surface,#fff); box-shadow:0 8px 30px #172b4d26; color:var(--text,#26334b); }
+.rd-calendar[hidden] { display:none; }
+.rd-month { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:10px; }
+.rd-month label { display:flex; align-items:center; gap:4px; font-size:12px; }
+.rd-month input { width:70px; }
+.rd-month select { width:50px; }
+.rd-month input,.rd-month select { min-height:30px; height:30px; padding:3px; }
+.rd-calendar button { border:0; border-radius:5px; min-height:30px; padding:4px 8px; background:transparent; color:inherit; cursor:pointer; font-size:12px; }
+.rd-calendar button:hover,.rd-calendar button:focus-visible { background:#e9f0fa; }
+.rd-calendar button:disabled { color:#b7bdc8; cursor:default; background:transparent; }
+.rd-week,.rd-days { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; text-align:center; }
+.rd-week { font-size:11px; color:#778195; margin-bottom:6px; }
+.rd-days button[aria-pressed="true"] { background:#1d62b8; color:white; }
+.rd-calendar-actions { display:flex; justify-content:space-between; border-top:1px solid var(--border,#d8dde6); margin-top:10px; padding-top:6px; }

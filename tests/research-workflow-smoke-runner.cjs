@@ -14,8 +14,43 @@ const click=selector=>evaluate(`(()=>{const el=[...document.querySelectorAll(${J
 const text=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).innerText`);
 async function fill(name,value){await evaluate(`(()=>{const choices=[...document.querySelectorAll('[data-pf-field="${name}"]')],el=choices.find(el=>el.getClientRects().length)||choices[0];if(!el)throw new Error('Missing field ${name}');if(el.type==='checkbox')el.checked=${JSON.stringify(value)};else el.value=${JSON.stringify(String(value))};el.dispatchEvent(new Event(el.tagName==='SELECT'||el.type==='checkbox'?'change':'input',{bubbles:true}));})()`);}
 async function workflowFill(name,value){await evaluate(`(()=>{const el=document.querySelector('[data-workflow-field="${name}"]');if(!el)throw new Error('Missing workflow ${name}');el.value=${JSON.stringify(value)};el.dispatchEvent(new Event('input',{bubbles:true}));})()`);}
+async function typeDate(selector,value){
+ await evaluate(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});if(!el||el.type!=='text')throw Error('Missing text date');el.focus();el.select();window.__typingDate=el;})()`);win.webContents.focus();
+ let typed='';
+ for(const character of value){
+  win.webContents.sendInputEvent({type:'char',keyCode:character});typed+=character;
+  await new Promise(resolve=>setTimeout(resolve,15));await evaluate('AT.render();true');
+  const state=await evaluate('({value:__typingDate.value,connected:__typingDate.isConnected,focused:document.activeElement===__typingDate,caret:__typingDate.selectionStart})');
+  assert.equal(state.value,typed);assert.equal(state.connected,true,'refresh preserves the same input');assert.equal(state.focused,true);assert.equal(state.caret,typed.length,'refresh preserves the typing position');
+ }
+}
+async function blurDate(){await evaluate('document.activeElement.blur();true');await new Promise(resolve=>setTimeout(resolve,60));}
+async function dateInteractions(){
+ const selector='[data-pf-field="config.startDate"]';
+ await typeDate(selector,'2024-0');assert.equal((await draft('atrade.single-editor.v1')).config.startDate,'2024-0');
+ await evaluate('ResearchModule.refresh().then(()=>true)');assert.equal(await evaluate('__typingDate.isConnected'),true);
+ await typeDate(selector,'20240229');await blurDate();assert.equal((await draft('atrade.single-editor.v1')).config.startDate,'2024-02-29');
+ const calendar='[data-date-control="research:config.startDate"]';
+ await click(calendar+' [data-date-action="open"]');await evaluate('window.__calendar=document.querySelector("[data-date-calendar]:not([hidden])");AT.render();true');
+ await evaluate('ResearchModule.refresh().then(()=>true)');assert.equal(await evaluate('__calendar.isConnected&&!__calendar.hidden'),true);
+ await click(calendar+' [data-date-action="previous"]');assert.equal(await evaluate('document.querySelector("[data-date-month]").value'),'1');
+ await click(calendar+' [data-date-action="next"]');assert.equal(await evaluate('document.querySelector("[data-date-month]").value'),'2');
+ await evaluate('(()=>{const year=document.querySelector("[data-date-year]");year.value="2023";year.dispatchEvent(new Event("change",{bubbles:true}));})()');
+ assert.equal(await evaluate('document.querySelectorAll("[data-date-value=\\"2023-02-29\\"]").length'),0);
+ await evaluate('(()=>{const year=document.querySelector("[data-date-year]");year.value="2024";year.dispatchEvent(new Event("change",{bubbles:true}));const month=document.querySelector("[data-date-month]");month.value="3";month.dispatchEvent(new Event("change",{bubbles:true}));})()');
+ assert.equal(await evaluate('document.querySelectorAll("[data-date-value=\\"2024-03-31\\"]").length'),1);
+ await evaluate('(()=>{const month=document.querySelector("[data-date-month]");month.value="2";month.dispatchEvent(new Event("change",{bubbles:true}));})()');
+ assert.equal(await evaluate('document.querySelectorAll("[data-date-value=\\"2024-02-29\\"]").length'),1);
+ await screenshot('date-calendar',calendar);await click(calendar+' [data-date-value="2024-02-29"]');await blurDate();
+ assert.equal((await draft('atrade.single-editor.v1')).config.startDate,'2024-02-29');
+ await typeDate(selector,'2024-02-30');await blurDate();
+ const before=await taskIds();await click('[data-pf-form] button[type="submit"]');assert.deepEqual(await taskIds(),before,'invalid date never creates a task');
+ assert.equal(await evaluate('document.querySelector("[data-pf-field=\\"config.startDate\\"]").getAttribute("aria-invalid")'),'true');
+ await typeDate(selector,'2024/2/29');await blurDate();assert.equal((await draft('atrade.single-editor.v1')).config.startDate,'2024-02-29');
+ await navigate('R05');await navigate('R03');assert.equal(await evaluate('document.querySelector("[data-pf-field=\\"config.startDate\\"]").value'),'2024-02-29');
+}
 async function navigate(page){await evaluate(`AT.navigate(${JSON.stringify(page)});true`);await wait(`!!document.querySelector('[data-research-page="${page}"]')`,'navigate '+page);}
-const step=index=>click(`[data-pf-action="workflow-step"][data-pf-step="${index}"]`);
+const step=async index=>{if(await evaluate('!!document.querySelector("[data-pf-simple]")'))return;await click(`[data-pf-action="workflow-step"][data-pf-step="${index}"]`);};
 const draft=key=>evaluate(`JSON.parse(localStorage.getItem(${JSON.stringify(key)})).draft`);
 async function call(route,payload={}){const response=await evaluate(`atradeDesktop.business(${JSON.stringify(route)},${JSON.stringify(payload)})`);assert.equal(response.ok,true,JSON.stringify(response.error));return response.data;}
 async function taskDone(id,timeout=180000){const start=Date.now();while(Date.now()-start<timeout){const data=await call('research.get',{id});if(data.task.status==='completed')return data;if(data.task.status==='failed')throw new Error(JSON.stringify(data.task.error));await new Promise(resolve=>setTimeout(resolve,120));}throw new Error('Task timeout '+id);}
@@ -46,11 +81,14 @@ async function writePhase(){
  assert.equal((await evaluate(`atradeDesktop.market('market.configure',{path:${JSON.stringify(fixtureDirectory)}})`)).ok,true);
  assert.equal((await evaluate("atradeDesktop.market('market.scan')")).ok,true);
  await navigate('R03');await wait('!!document.querySelector("[data-pf-form]")','single form');
- await step(2);
+ await fill('singleStrategy','momentum');
  let single=await draft('atrade.single-editor.v1');
  assert.equal(single.kind,'singleBacktest');assert.equal(Object.values(single.enabled).filter(Boolean).length,1);
  assert.equal(single.config.allocation.mode,'single');assert.equal(single.selection.mode,'all');
- assert.equal(await evaluate('document.querySelectorAll(".pf-research-pipeline .pf-pipeline-stage").length'),6);
+ assert.equal(await evaluate('document.querySelectorAll(".pf-research-pipeline .pf-pipeline-stage").length'),0);
+ assert.equal(await evaluate('document.querySelectorAll(".pf-workflow-nav").length'),0);
+ assert.equal(await evaluate('document.querySelectorAll(".pf-research-modes").length'),1);
+ assert.equal(await evaluate('!!document.querySelector("#navigation [data-nav=R10]")'),false);
  await fill('singleStrategy','trendBreakout');
  await click('[data-pf-action="apply-pool-style"][data-pf-style="breakout"]');
  single=await draft('atrade.single-editor.v1');
@@ -60,16 +98,17 @@ async function writePhase(){
  await fill('singleStrategy','momentum');await click('[data-pf-action="apply-pool-style"][data-pf-style="momentum"]');
  single=await draft('atrade.single-editor.v1');assert.deepEqual(single.config.poolSettings.combined.pools,['trend']);assert.equal(single.config.poolSettings.trend.rankEnabled,true);
  const beforeAdvanced=structuredClone(single);
- await click('[data-pf-action="advanced"]');
+ await click('.pf-mode-advanced > summary');await click('[data-pf-action="advanced"]');
  await step(4);await fill('name','Smoke · 高级草稿独立保留');await step(2);
  const advanced=await draft('atrade.portfolio-editor.v1');assert.equal(advanced.kind,'portfolio');assert.ok(Object.values(advanced.enabled).filter(Boolean).length>1);
  await screenshot('advanced-entry','[data-pf-form]');
- await click('[data-pf-action="single-stage"][data-pf-step="1"]');
- assert.deepEqual(await draft('atrade.single-editor.v1'),{...beforeAdvanced,workflowStep:1},'advanced draft does not overwrite the single strategy');
- await step(1);if(await evaluate('!!document.querySelector("[data-pf-field=periodMode]")'))await fill('periodMode','dates');await fill('config.startDate',dates[300]);await fill('config.endDate',dates[389]);
+ await click('[data-pf-action="single-mode"]');
+ assert.deepEqual(await draft('atrade.single-editor.v1'),beforeAdvanced,'advanced draft does not overwrite the single strategy');
+ await step(1);if(await evaluate('!!document.querySelector("[data-pf-field=periodMode]")'))await fill('periodMode','dates');await dateInteractions();await fill('config.startDate',dates[300]);await fill('config.endDate',dates[389]);
  await step(2);await fill('params.momentum.lookback','10');await fill('params.momentum.trendWindow','30');await fill('params.momentum.minReturn','0');
  await step(3);await fill('config.maxHoldingDays','5');await fill('config.maxPositions','3');await fill('config.maxStockWeight','30');
- await step(4);await fill('name','Smoke · 固定单策略');await screenshot('single-review','[data-pf-step-panel="4"]');
+ await step(4);await fill('name','Smoke · 固定单策略');await screenshot('single-review','[data-pf-simple-section="submit"]');
+ const beforeSwitch=await taskIds();await click('[data-pf-action="scan-current"]');await wait('AT.state.page==="R05"&&!!document.querySelector("[data-pf-simple]")','scan directly from unsent configuration');assert.equal((await draft('atrade.single-plateau-editor.v1')).params.momentum.lookback,10);assert.deepEqual(await taskIds(),beforeSwitch);await click('[data-pf-action="single-mode"]');await wait('AT.state.page==="R03"&&!!document.querySelector("[data-pf-simple]")','return to current backtest');
  const fixed=await submitResearch('singleBacktest');
  assert.equal(fixed.task.config.strategies.length,1);assert.equal(fixed.task.config.strategies[0].kind,'momentum');assert.equal(fixed.task.config.strategies[0].pool,'combined');
  assert.equal(fixed.task.config.combinations.length,0);assert.equal(fixed.task.config.allocation.mode,'single');
@@ -80,14 +119,14 @@ async function writePhase(){
  assert.deepEqual(plateau.config.poolSettings,fixed.task.config.poolSettings);assert.equal(plateau.config.maxHoldingDays,5);
  await step(2);await fill('scanAxes.0.path','strategies.momentum.params.lookback');await fill('scanAxes.0.text','8, 10, 12');
  for(let i=1;i<3;i++)await fill('scanAxes.'+i+'.path','');
- await screenshot('single-scan','[data-pf-step-panel="2"]');
+ await screenshot('single-scan','[data-pf-simple-section="scan"]');
  await step(4);await fill('name','Smoke · 三点关键参数平原');const scanned=await submitResearch('singlePlateau');
  assert.equal(scanned.result.plannedTrials,3);assert.equal(scanned.result.candidates.length,3);
  assert.deepEqual(scanned.result.experiment.axes,[{path:'strategies.momentum.params.lookback',values:[8,10,12]}]);
  assert.equal(scanned.result.certified,false,'synthetic short development data is never certification');
  assert.equal(scanned.result.config.poolSettings.trend.rankEnabled,true);
  assert.equal(scanned.result.experiment.minClosedTrades,3,'real evidence thresholds were not lowered for the smoke');
- await wait('document.querySelectorAll(".pf-candidate").length===3&&!!document.querySelector("[data-pf-action=freeze-candidate]:not(:disabled)")','three completed candidates ready to freeze');
+ await wait('document.querySelectorAll(".pf-candidate").length===3&&!!document.querySelector("[data-pf-action=save-candidate]:not(:disabled)")','three completed candidates ready to use');
  const candidateId='c002';await screenshot('plateau-result','.pf-single-candidates');
  const beforeReplay=await taskIds();
  await click(`[data-pf-action="replay-candidate"][data-pf-candidate="${candidateId}"]`);
@@ -104,23 +143,33 @@ async function writePhase(){
  await screenshot('candidate-daily-detail','[data-pf-day-detail]');
  await navigate('R05');
  await evaluate(`(()=>{const el=document.querySelector('[data-rs-task]');el.value=${JSON.stringify(scanned.task.id)};el.dispatchEvent(new Event('change',{bubbles:true}));})()`);
- await wait('document.querySelectorAll(".pf-candidate").length===3&&!!document.querySelector("[data-pf-action=freeze-candidate]:not(:disabled)")','return to original plateau');
- await click(`[data-pf-action="freeze-candidate"][data-pf-candidate="${candidateId}"]`);
- await wait('AT.state.page==="R10"&&!!document.querySelector("[data-workflow-validation]")','frozen later-period page');
- const freezeId=await evaluate('document.querySelector("[data-workflow-freeze]").value');
- const frozen=(await call('research.freezes')).freezes.find(row=>row.id===freezeId);
+ await wait('document.querySelectorAll(".pf-candidate").length===3&&!!document.querySelector("[data-pf-action=apply-candidate]:not(:disabled)")','return to original plateau');
+ await click(`[data-pf-action="apply-candidate"][data-pf-candidate="${candidateId}"]`);await wait('AT.state.page==="R03"&&!!document.querySelector("[data-pf-simple]")','apply selected parameters');
+ const applied=await draft('atrade.single-editor.v1');assert.equal(applied.params.momentum.lookback,10);assert.equal(applied.config.maxHoldingDays,5);assert.equal(applied.kind,'singleBacktest');
+ await navigate('R05');await evaluate(`(()=>{const el=document.querySelector('[data-rs-task]');el.value=${JSON.stringify(scanned.task.id)};el.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+ await wait('!!document.querySelector("[data-pf-action=save-candidate]:not(:disabled)")','saved parameter source');
+ await click(`[data-pf-action="save-candidate"][data-pf-candidate="${candidateId}"]`);
+ await wait('document.querySelector("main").innerText.includes("参数已保存")','parameter saved without navigation');assert.equal(await evaluate('AT.state.page'),'R05');
+ const frozen=(await call('research.freezes')).freezes.find(row=>row.sourceTaskId===scanned.task.id&&row.candidateId===candidateId),freezeId=frozen.id;
+ await click(`[data-pf-action="validate-candidate"][data-pf-candidate="${candidateId}"]`);
+ await wait('AT.state.page==="R05"&&!!document.querySelector("[data-workflow-validation]")','inline later-date validation');
  assert.equal(frozen.candidateId,candidateId);assert.equal(frozen.config.strategies[0].params.lookback,10);assert.equal(frozen.immutable,true);
  assert.equal(frozen.developmentEnd,dates[389]);
  assert.deepEqual(await evaluate('[...document.querySelectorAll("[data-workflow-validation] input")].map(el=>el.dataset.workflowField)'),['name','startDate','endDate']);
  assert.equal(await evaluate('document.querySelectorAll("[data-workflow-validation] [data-pf-field]").length'),0);
- await workflowFill('name','Smoke · 冻结后新时段');await workflowFill('startDate',dates[390]);await workflowFill('endDate',dates[439]);
- await screenshot('frozen-validation','[data-workflow-validation]');
+ await evaluate('document.querySelector("[data-workflow-field=\\"startDate\\"]").closest("[data-date-control]").querySelector("[data-date-action=open]").click();true');
+ assert.equal(await evaluate(`document.querySelector('[data-date-value="${dates[389]}"]')?.disabled`),true,'calendar excludes the original development interval');
+ await click('[data-date-calendar]:not([hidden]) [data-date-action="close"]');await blurDate();
+ await workflowFill('name','Smoke · 其他日期');await typeDate('[data-workflow-field="startDate"]',dates[390].replaceAll('-',''));await blurDate();await typeDate('[data-workflow-field="endDate"]',dates[439].replaceAll('-',''));await blurDate();
+ assert.equal(await evaluate('document.querySelector("[data-workflow-field=\\"startDate\\"]").value'),dates[390]);
+ await screenshot('inline-validation','[data-workflow-validation]');
  const before=await taskIds();await click('[data-workflow-validation] button[type="submit"]');const validated=await submitted('frozenValidation',before);
  assert.equal(validated.result.freeze.id,freezeId);assert.equal(validated.result.freeze.parameterHash,frozen.parameterHash);
  assert.deepEqual({...validated.task.config,startDate:frozen.config.startDate,endDate:frozen.config.endDate},frozen.config);
  assert.equal(validated.result.validationAudit.status,'fresh');
+ assert.equal(validated.task.config.startDate,dates[390]);assert.equal(validated.task.config.endDate,dates[439]);
  await wait('AT.state.page==="R04"','new interval result route');await screenshot('validation-result','[data-pf-validation-audit]');
- await navigate('R10');await wait('!!document.querySelector("[data-workflow-validation]")','repeat interval form');
+ await wait('!!document.querySelector("[data-workflow-action=library]")','completed validation actions');await click('[data-workflow-action="library"]');await wait('!!document.querySelector("[data-workflow-freeze]")','saved parameters beside result');await click('[data-workflow-action="validate-saved"]');await wait('!!document.querySelector("[data-workflow-validation]")','repeat interval form');
  await workflowFill('name','Smoke · 同区间复现');await workflowFill('startDate',dates[390]);await workflowFill('endDate',dates[439]);
  const beforeRepeat=await taskIds();await click('[data-workflow-validation] button[type="submit"]');const repeated=await submitted('frozenValidation',beforeRepeat);
  assert.equal(repeated.result.validationAudit.status,'reproduction','same settings and interval are not fresh evidence');
@@ -133,12 +182,16 @@ async function writePhase(){
 }
 async function readPhase(){
  const record=JSON.parse(await fs.readFile(path.join(directory,'workflow.json'),'utf8'));
- await navigate('R10');await wait('!!document.querySelector("[data-workflow-freeze]")','restored freeze list');
+ await navigate('R03');await click('[data-workflow-action="library"]');await wait('!!document.querySelector("[data-workflow-freeze]")','restored parameter library');
  assert.equal(await evaluate('document.querySelector("[data-workflow-freeze]").value'),record.freezeId);
  const frozen=(await call('research.freezes')).freezes.find(row=>row.id===record.freezeId);assert.equal(frozen.parameterHash,record.parameterHash);assert.equal(frozen.candidateId,record.candidateId);assert.equal(frozen.versionCompatible,true);
  for(const [key,kind] of [['fixedId','singleBacktest'],['scannedId','singlePlateau'],['replayId','singleBacktest'],['validationId','frozenValidation'],['repeatId','frozenValidation'],['legacyId','portfolio']]){const saved=await call('research.get',{id:record[key]});assert.equal(saved.task.status,'completed');assert.equal(saved.task.kind,kind);assert.ok(saved.result);}
  assert.equal((await call('research.get',{id:record.repeatId})).result.validationAudit.status,'reproduction');
- await screenshot('restored-freeze','[data-workflow-freeze]');
+ await click('[data-workflow-action="validate-saved"]');await wait('!!document.querySelector("[data-workflow-validation]")','restored validation dates');
+ assert.equal(await evaluate('document.querySelector("[data-workflow-field=\\"startDate\\"]").value'),record.validationStart);
+ assert.equal(await evaluate('document.querySelector("[data-workflow-field=\\"endDate\\"]").value'),record.validationEnd);
+ const restored=await draft('atrade.single-editor.v1');assert.equal(restored.config.endDate,record.developmentEnd);
+ await screenshot('restored-parameters','[data-workflow-freeze]');
  await navigate('R05');
  await evaluate(`(()=>{const el=document.querySelector('[data-rs-task]');el.value=${JSON.stringify(record.scannedId)};el.dispatchEvent(new Event('change',{bubbles:true}));})()`);
  await wait('document.querySelectorAll(".pf-candidate").length===3','restored completed parameter points');

@@ -132,6 +132,7 @@
     return context;
   }
   function capture(environment={}) {
+    const strategy=typeof AT!=='undefined'&&AT?.isDesktop&&typeof window!=='undefined'&&window.StrategyWorkspace?.aiContext?.();if(strategy)return strategy;
     const api=environment.AT||(typeof AT!=='undefined'?AT:null),doc=environment.document||(typeof document!=='undefined'?document:null);
     const id=String(api?.state?.page||''),title=cleanText(api?.pages?.[id]?.title||id,160);
     const result={version:1,page:{id,title,scope:id},capturedAt:new Date().toISOString(),dataDates:[],filters:{},summary:'',tables:[],evidence:{},limitations:[]};
@@ -169,5 +170,5 @@
   }
   const exported={capture,marketStyle,cleanText,sanitize,limit,MAX_CHARS};
   if(typeof module==='object'&&module.exports)module.exports=exported;
-  if(typeof AT!=='undefined')AT.pageAIContext={capture,marketStyle,version:1};
+  if(typeof AT!=='undefined')AT.pageAIContext={...exported,version:1};
 })();

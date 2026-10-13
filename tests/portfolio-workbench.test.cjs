@@ -55,7 +55,7 @@ test('unidentifiable scans and insufficient long-term evidence explain their fai
  const single={kind:'singlePlateau',status:'completed',config:fixture.result.config,experiment:{},axes:[{path:'topN',values:[1,2,3]}],
    parameterIdentifiability:{distinctBehaviorCount:1,inactiveAxes:['topN']},candidates:[{candidateId:'c001',params:{topN:1},config:fixture.result.config,
      metrics:{totalReturnPct:2,maxDrawdownPct:0,closedTradeCount:3},neighborhood:{passed:false,size:3,distinctBehaviorCount:1,failures:['unidentifiable_parameter_behavior','inactive_parameter_axes']}}]};
- let html=h.module.result(single);assert.match(html,/data-pf-identifiability/);assert.match(html,/未生效参数/);assert.match(html,/参数变化尚不可识别/);assert.doesNotMatch(html,/pf-candidate is-stable/);
+ let html=h.module.result(single);assert.match(html,/data-pf-identifiability/);assert.match(html,/未生效参数/);assert.match(html,/没有产生足够不同的买卖记录/);assert.doesNotMatch(html,/pf-candidate is-stable/);
  html=h.module.result({kind:'systemPlateau',experiment:{axes:[]},folds:[],plateau:{certified:false,recommendedRanges:[],
    reasons:['insufficient_oos_trading_days','insufficient_oos_calendar_span'],oosCoverage:{tradingDays:45,minTradingDays:504,calendarSpanDays:61,minCalendarSpanDays:730,coveredYears:[]}}});
  assert.match(html,/data-pf-oos-coverage/);assert.match(html,/45 个交易日 \/ 门槛 504/);assert.match(html,/跨年标签不能替代长期证据/);
@@ -77,13 +77,15 @@ test('increasing required years raises the persisted trading-day and calendar fl
 function harness(storage=new Map(),options={}){
  const listeners=new Map(),calls=[],errors=[];
  const document={addEventListener(type,fn){const handlers=listeners.get(type)||[];handlers.push(fn);listeners.set(type,handlers);},querySelector:selector=>options.querySelector?.(selector)||null};
- const window={},localStorage={getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value)};
+ const window={ResearchDates:require('../preview/research-date-input.js')},localStorage={getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value)};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../preview/research-display.js'),'utf8'),{window,document});
  vm.runInNewContext(source,{window,AT:{escape},document,localStorage,structuredClone,console,setTimeout,clearTimeout},{filename:'portfolio-workbench.js'});
  const hooks={update(value){calls.push(['update',JSON.parse(JSON.stringify(value))]);},refresh(){calls.push(['refresh']);},create(value){calls.push(['create',JSON.parse(JSON.stringify(value))]);},error(error){errors.push(error.message);},feedback(value){calls.push(['feedback',value]);},dailyPage(value,path){calls.push(['page',value,path]);},rotationPage(value,path){calls.push(['rotation',value,path]);}};
  if(options.dailyPage)hooks.dailyPage=options.dailyPage;
  if(options.activeTaskId)hooks.activeTaskId=options.activeTaskId;
  if(options.freeze)hooks.freeze=options.freeze;
+ if(options.applyCandidate)hooks.applyCandidate=options.applyCandidate;
+ if(options.validateCandidate)hooks.validateCandidate=options.validateCandidate;
  if(options.replayCandidate)hooks.replayCandidate=options.replayCandidate;
  hooks.screenCreate=value=>{calls.push(['screenCreate',JSON.parse(JSON.stringify(value))]);return Promise.resolve({id:'screen-job'});};
  if(options.previewSettings)hooks.previewSettings=value=>{calls.push(['previewSettings',JSON.parse(JSON.stringify(value))]);return options.previewSettings(value);};
@@ -98,24 +100,24 @@ function harness(storage=new Map(),options={}){
 
 test('single workflow separates basic eligibility from style funnel and keeps advanced pool conditions folded',()=>{
  const h=harness(),html=h.module.form();
- assert.equal(h.module.currentStep(),1);assert.match(html,/aria-label="策略与回测流程"/);
- assert.match(html,/data-pf-step-panel="1" ><header/);assert.match(html,/data-pf-step-panel="2" hidden/);
+ assert.equal(h.module.currentStep(),1);assert.match(html,/aria-label="回测工作区"/);
+ assert.match(html,/data-pf-simple-section="source"/);assert.match(html,/data-pf-simple-section="strategy"/);assert.doesNotMatch(html,/pf-workflow-nav|pf-research-pipeline|第 5 阶段/);
  assert.equal((html.match(/class="pf-pool-card"/g)||[]).length,4);
  assert.match(html,/固定策略参数/);assert.doesNotMatch(html,/data-pf-detail="editor:single-funnel" open/);
  h.click('workflow-step',{pfStep:'3'});assert.equal(h.module.currentStep(),3);
- assert.match(h.module.form(),/data-pf-step-panel="3" >/);
+ assert.match(h.module.form(),/data-pf-simple-section="trading"/);
  assert.match(h.module.form(),/data-pf-detail="editor:costs" ><summary>交易成本与权益处理/);
  h.click('workflow-step',{pfStep:'4'});assert.match(h.module.form(),/最终生效配置/);
  assert.equal(harness(h.storage).module.currentStep(),4);
 });
 
-test('Enter advances configuration instead of creating a task, and results hide the editor fields',()=>{
+test('simple form submits directly and completed results keep an explicit configuration return',()=>{
  const h=harness(),target={closest:()=>({}),matches:()=>false};
- h.dispatch('keydown',target,{key:'Enter'});assert.equal(h.module.currentStep(),2);
- h.dispatch('keydown',target,{key:'Enter'});assert.equal(h.module.currentStep(),3);
+ h.dispatch('keydown',target,{key:'Enter'});assert.equal(h.module.currentStep(),1);
+ h.dispatch('keydown',target,{key:'Enter'});assert.equal(h.module.currentStep(),1);
  assert.equal(h.calls.some(row=>row[0]==='create'),false);
  h.module.setStep(5);const html=h.module.form();assert.doesNotMatch(html,/data-pf-field|data-pf-form/);
- assert.match(html,/返回前四步可调整设置/);assert.match(html,/aria-current="step"/);
+ assert.match(html,/调整回测配置/);assert.match(html,/pf-research-modes/);
 });
 
 test('strategy presets preserve parameters and pool, escape names, and support default reset',()=>{
@@ -206,9 +208,18 @@ test('explicit combinations retain unequal child weights and can alone receive a
 
 test('impossible selections and invalid explicit dates fail before create',()=>{
  const h=harness(new Map(),{advanced:true});h.field('config.allocation.mode','single','text');h.submit();assert.match(h.errors.pop(),/只能勾选一个/);
- h.field('config.allocation.mode','equal','text');h.field('periodMode','dates','text');h.field('config.startDate','2026-01-02','text');h.field('config.endDate','2026-01-01','text');h.submit();assert.match(h.errors.pop(),/有效的起止日期/);
+ h.field('config.allocation.mode','equal','text');h.field('periodMode','dates','text');h.field('config.startDate','2026-01-02','text');h.field('config.endDate','2026-01-01','text');h.submit();assert.match(h.errors.pop(),/开始日期不能晚于结束日期/);
  h.field('periodMode','recent','text');h.field('kind','comparison','text');h.submit();assert.match(h.errors.pop(),/明确日期/);
  assert.equal(h.calls.some(c=>c[0]==='create'),false);
+});
+
+test('unfinished dates survive reopening and valid compact dates are canonicalized only for submission',()=>{
+ const h=harness();h.field('periodMode','dates','text');h.field('config.startDate','2024-0','text');
+ const reopened=harness(h.storage);assert.match(reopened.module.form(),/data-pf-field="config.startDate"[^>]*value="2024-0"/);
+ reopened.submit();assert.equal(reopened.calls.some(row=>row[0]==='create'),false);assert.match(reopened.errors.at(-1),/有效的起止日期/);
+ reopened.field('config.startDate','20240229','text');reopened.field('config.endDate','2024/3/31','text');reopened.submit();
+ const submitted=reopened.calls.find(row=>row[0]==='create')[1];assert.equal(submitted.config.startDate,'2024-02-29');assert.equal(submitted.config.endDate,'2024-03-31');
+ const saved=JSON.parse(reopened.storage.get('atrade.single-editor.v1'));assert.equal(saved.draft.config.startDate,'20240229');
 });
 
 test('strategy card resets an old combination-only draft into a valid single selection',()=>{
@@ -515,7 +526,7 @@ test('single workflow uses exactly one strategy and style presets change only th
  const h=harness();h.module.selectStrategy('trendBreakout');h.field('params.trendBreakout.lookback','43');h.field('config.universe.minAmount20','2400');
  h.click('apply-pool-style',{pfStyle:'breakout'});h.submit();assert.deepEqual(h.errors,[]);
  const request=h.calls.find(row=>row[0]==='create')[1];assert.equal(request.kind,'singleBacktest');assert.equal(request.config.strategies.length,1);assert.equal(request.config.strategies[0].params.lookback,43);assert.equal(request.config.strategies[0].pool,'combined');assert.deepEqual(request.config.combinations,[]);assert.deepEqual(request.config.allocation,{mode:'single',strategyIds:['trendBreakout']});assert.equal(request.config.universe.minAmount20,24000000);assert.equal(request.config.poolSettings.structure.minDrawdown,0);
- const html=h.module.form();assert.match(html,/data-pf-style="breakout" aria-pressed="true"/);assert.doesNotMatch(html,/data-pf-field="config.rotation|data-pf-field="config.allocation.mode|data-pf-field="combinations\./);assert.match(html,/data-nav="R10"/);assert.match(html,/data-pf-action="advanced"/);assert.match(html,/明确开发截止日/);
+ const html=h.module.form();assert.match(html,/data-pf-style="breakout" aria-pressed="true"/);assert.doesNotMatch(html,/data-pf-field="config.rotation|data-pf-field="config.allocation.mode|data-pf-field="combinations\./);assert.doesNotMatch(html,/data-nav="R10"|冻结|六阶段/);assert.match(html,/data-pf-action="advanced"/);assert.match(html,/选择要回测的日期/);
  h.field('config.poolSettings.structure.maxDrawdown','10');assert.match(h.module.form(),/当前：自定义漏斗/);
  const gate=spawnSync('python',['-c','import json,sys\nfrom service.research_pipeline import single_config\nsingle_config(json.load(sys.stdin)["config"])'],{input:JSON.stringify(request),encoding:'utf8',cwd:path.resolve(__dirname,'..'),env:{...process.env,PYTHONIOENCODING:'utf-8'}});assert.equal(gate.status,0,gate.stderr);
 });
@@ -530,6 +541,22 @@ test('single plateau copies completed fixed settings and submits only low-dimens
  const reopened=harness(h.storage);assert.match(reopened.module.plateau(),/15, 20, 25/);assert.match(reopened.module.form(),/value="固定研究"/);
 });
 
+test('parameter tests can start from the current unsent form and carry settings back to a backtest',()=>{
+ const h=harness();h.module.selectStrategy('momentum');h.field('name','直接比较','text');h.field('params.momentum.lookback','13');h.field('config.topN','4');h.field('config.maxPositions','7');
+ assert.equal(h.calls.some(row=>row[0]==='create'),false);h.click('scan-current');let html=h.module.plateau();assert.match(html,/已沿用当前策略/);assert.doesNotMatch(html,/pf-workflow-nav|冻结|先完成/);
+ h.field('scanAxes.0.path','strategies.momentum.params.lookback','text');h.field('scanAxes.0.text','10,13,16','text');h.submit();const scan=h.calls.find(row=>row[0]==='create')[1];
+ assert.equal(scan.kind,'singlePlateau');assert.equal(scan.config.topN,4);assert.equal(scan.config.maxPositions,7);assert.deepEqual(scan.experiment.axes,[{path:'strategies.momentum.params.lookback',values:[10,13,16]}]);
+ h.field('config.maxPositions','8');h.click('single-mode');h.submit();const fixed=h.calls.filter(row=>row[0]==='create').at(-1)[1];assert.equal(fixed.kind,'singleBacktest');assert.equal(fixed.config.maxPositions,8);assert.equal(fixed.config.strategies[0].params.lookback,13);
+ h.module.selectStrategy('trendBreakout');h.click('scan-current');html=h.module.plateau();assert.doesNotMatch(html,/value="strategies.momentum.params.lookback" selected/);assert.match(html,/value="strategies.trendBreakout.params/);
+});
+
+test('candidate actions carry the explicitly chosen source identity to apply and optional validation',async()=>{
+ const actions=[],h=harness(new Map(),{activeTaskId:()=> 'original-scan',applyCandidate:request=>actions.push(['apply',request]),validateCandidate:request=>actions.push(['validate',request])});
+ const r={kind:'singlePlateau',status:'completed',config:fixture.result.config,experiment:{},axes:[],candidates:[{candidateId:'c003',params:{topN:4},config:fixture.result.config,metrics:{},neighborhood:{}}]};const html=h.module.result(r);
+ assert.match(html,/data-pf-action="apply-candidate" data-pf-candidate="c003" >/);assert.match(html,/data-pf-action="validate-candidate" data-pf-candidate="c003" >/);
+ h.click('apply-candidate',{pfCandidate:'c003'});h.click('validate-candidate',{pfCandidate:'c003'});await new Promise(setImmediate);assert.deepEqual(actions.map(row=>[row[0],row[1].id,row[1].candidateId]),[['apply','original-scan','c003'],['validate','original-scan','c003']]);
+});
+
 test('single plateau rejects too many axes, combinations, and oversized grids before submitting',()=>{
  assert.throws(()=>helpers.scanAxes([],'singlePlateau'),/1 至 3/);
  assert.throws(()=>helpers.scanAxes(['topN','maxPositions','stopLossPct','maxHoldingDays'].map(path=>({path,text:'1,2'})),'singlePlateau'),/1 至 3/);
@@ -541,8 +568,8 @@ test('single plateau rejects too many axes, combinations, and oversized grids be
 test('candidate choice is explicit, incomplete scans stay disabled, and replay uses the chosen point',async()=>{
  const frozen=[],replayed=[],h=harness(new Map(),{activeTaskId:()=> 'scan-task',freeze:request=>{frozen.push(request);},replayCandidate:request=>{replayed.push(request);}});
  const r={kind:'singlePlateau',status:'running',config:fixture.result.config,axes:[{path:'topN',values:[2,3,4]}],candidates:[{candidateId:'c002',params:{topN:3},config:fixture.result.config,metrics:{totalReturnPct:4,maxDrawdownPct:2,closedTradeCount:6},neighborhood:{size:3,meanNetReturnPct:3,stdNetReturnPct:1,positiveFraction:1,passed:true}}]};
- let html=h.module.result(r);assert.match(html,/data-pf-action="freeze-candidate" data-pf-candidate="c002" disabled/);assert.match(html,/data-pf-action="replay-candidate" data-pf-candidate="c002" disabled/);assert.deepEqual(frozen,[]);
- r.status='completed';html=h.module.result(r);assert.match(html,/data-pf-action="freeze-candidate" data-pf-candidate="c002" >/);assert.match(html,/不会自动采用收益最高点/);h.click('freeze-candidate',{pfCandidate:'c002'});h.click('replay-candidate',{pfCandidate:'c002'});await new Promise(setImmediate);assert.equal(frozen[0].id,'scan-task');assert.equal(frozen[0].candidateId,'c002');assert.equal(replayed[0].candidateId,'c002');assert.doesNotMatch(html,/滚动折数|样本外均值/);
+ let html=h.module.result(r);assert.match(html,/data-pf-action="save-candidate" data-pf-candidate="c002" disabled/);assert.match(html,/data-pf-action="replay-candidate" data-pf-candidate="c002" disabled/);assert.deepEqual(frozen,[]);
+ r.status='completed';html=h.module.result(r);assert.match(html,/data-pf-action="save-candidate" data-pf-candidate="c002" >/);assert.match(html,/不会自动采用收益最高点/);h.click('save-candidate',{pfCandidate:'c002'});h.click('replay-candidate',{pfCandidate:'c002'});await new Promise(setImmediate);assert.equal(frozen[0].id,'scan-task');assert.equal(frozen[0].candidateId,'c002');assert.equal(replayed[0].candidateId,'c002');assert.doesNotMatch(html,/滚动折数|样本外均值|冻结/);
 });
 
 test('single and legacy advanced drafts remain separate across scope changes and restart',()=>{

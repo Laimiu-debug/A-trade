@@ -1,0 +1,132 @@
+.kline-wrapper {
+  width: 100%;
+}
+
+.kline-legend-bar {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(31, 49, 48, 0.12);
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.kline-legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(31, 49, 48, 0.14);
+  color: #2f5452;
+  font-size: 12px;
+}
+
+.kline-legend-chip--primary {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.kline-legend-chip--ths {
+  background: rgba(255, 252, 230, 0.95);
+}
+
+.kline-legend-chip--annotation {
+  background: rgba(248, 252, 250, 0.95);
+}
+
+.kline-legend-chip--backtest {
+  background: rgba(240, 242, 255, 0.95);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.kline-legend-chip--hidden {
+  color: #bfbfbf;
+  background: rgba(255, 255, 255, 0.5);
+  opacity: 0.5;
+  text-decoration: line-through;
+  cursor: default;
+}
+
+.kline-info-panel {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(31, 49, 48, 0.12);
+  background: rgba(255, 255, 255, 0.62);
+  color: #2f5452;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.kline-info-panel-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.kline-signal-count {
+  font-size: 10px;
+  color: #8c8c8c;
+}
+
+/* Legend marker base */
+.kline-marker {
+  display: inline-block;
+}
+
+.kline-marker--line {
+  width: 14px;
+  border-top: 2px solid var(--marker-color);
+}
+
+.kline-marker--bar {
+  width: 12px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--marker-color);
+}
+
+.kline-marker--triangle {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 10px solid var(--marker-color);
+}
+
+.kline-marker--diamond {
+  width: 10px;
+  height: 10px;
+  background: var(--marker-color);
+  transform: rotate(45deg);
+}
+
+.kline-marker--circle {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--marker-color);
+}
+
+.kline-marker--pin {
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--marker-color);
+}
+
+.kline-marker--area {
+  width: 12px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--marker-color);
+}
+
+.kline-marker--pill {
+  width: 12px;
+  height: 10px;
+  border-radius: 4px;
+  background: var(--marker-color);
+}

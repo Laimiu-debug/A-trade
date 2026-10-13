@@ -1,0 +1,18 @@
+/* SignalsPage — extracted inline styles */
+
+.signals-notes-list {
+  margin: 0;
+  padding-inline-start: 18px;
+}
+
+.signals-wyckoff-diagram {
+  width: 100%;
+  max-width: 980px;
+  border: 1px solid rgba(44, 62, 80, 0.12);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.signals-filter-gap {
+  margin-top: 8px;
+}

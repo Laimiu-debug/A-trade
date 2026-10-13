@@ -10,6 +10,9 @@ const publicWindowState = state => state && typeof state.maximized === 'boolean'
   : null;
 contextBridge.exposeInMainWorld('atradeDesktop', {
   bootstrap,
+  startReference: () => ipcRenderer.invoke('atrade:reference-start'),
+  startResearch: () => ipcRenderer.invoke('atrade:reference-start'),
+  researchRequest: request => ipcRenderer.invoke('atrade:research-request', request),
   business: (method, payload = {}) => ipcRenderer.invoke('atrade:business', method, payload),
   market: (method, payload = {}) => ipcRenderer.invoke('atrade:market', method, payload),
   openExternal: url => ipcRenderer.invoke('atrade:open-external', url),

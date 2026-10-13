@@ -59,6 +59,7 @@
     AT.marketNews?.updateShell(page.id);
     AT.analysisTools?.updateShell(page.id);
     window.ResearchModule?.updateShell();
+    window.StrategyWorkspace?.updateShell();
   }
   function snapshot(){return {page:AT.state.page,stock:AT.state.stock,scroll:window.scrollY,viewport:capturePosition(),chartState:structuredClone(Object.fromEntries(chartStateKeys.map(key=>[key,AT.ui[key]]))),ledgerMode:AT.ui.ledgerMode,reviewNote:AT.ui.reviewNote,query:AT.ui.query,board:AT.ui.board,range:AT.ui.range,metric:AT.ui.metric,selected:[...AT.ui.selected],dayDetail:$('.day-drawer')?{payload:structuredClone(AT.ui.dayDetail),scroll:$('.day-drawer .modal-body').scrollTop}:null,milestone:$('#milestone-detail')?{stage:AT.ui.milestoneNumber,filter:AT.ui.milestoneFilter,scroll:$('.milestone-drawer .modal-body').scrollTop}:null,pass:$('.pass-viewport')?.scrollLeft??AT.ui.passPosition}}
   function resolveEntry(page){
@@ -69,11 +70,22 @@
   }
   function scrollToSection(id){const el=document.getElementById(id);if(el)window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-82,behavior:'instant'})}
   function savePosition(){AT.ui.positions[AT.state.page]=snapshot();const pass=$('.pass-viewport');if(pass)AT.ui.passPosition=pass.scrollLeft}
+  let dateRenderPending=false;
+  document.addEventListener('research-date-idle',()=>requestAnimationFrame(()=>{if(dateRenderPending&&!window.ResearchDates?.isEditing(main))render();}));
   function render(position=null){
+    if(window.StrategyWorkspace?.handles(AT.state.page)){
+      updateShell();
+      void window.StrategyWorkspace.mount(AT.state.page);return;
+    }
+    window.StrategyWorkspace?.hide();
+    // Keep the actual editor and calendar alive while typing or choosing a date.
+    if(main.dataset.renderedPage===AT.state.page&&window.ResearchDates?.isEditing(main)){dateRenderPending=true;updateShell();return;}
+    dateRenderPending=false;window.ResearchDates?.close();
     // In-page actions use the live position, never the last navigation snapshot.
     const viewport=position||capturePosition(),focus=position?null:captureFocus();
     cancelAnimationFrame(renderFrame);main.style.minHeight=main.getBoundingClientRect().height+'px';
     applyPrefs();updateShell();main.innerHTML=window.ResearchModule?.handles(AT.state.page)?window.ResearchModule.render(AT.state.page):AT.view(AT.state.page);AT.hydrateIcons();AT.effects.mount();
+    main.dataset.renderedPage=AT.state.page;
     // A second data response can cancel this frame; keep focus available to its render now.
     restoreFocus(focus);
     renderFrame=requestAnimationFrame(()=>{
