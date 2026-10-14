@@ -74,7 +74,8 @@
   const portfolio=()=>window.PortfolioWorkbench?.available?.();
   const isPortfolio=()=>['portfolio','comparison','walkForward','systemPlateau','poolPreview','singleBacktest','singlePlateau','frozenValidation'].includes(task()?.kind);
   function showError(error){model.error=typeof error==='string'?error:error?.message||'操作未完成，请重试。';refresh();}
-  function refresh(){if(pages.has(AT.state.page))AT.render?.();updateShell();}
+  const ownsPage=()=>pages.has(AT.state.page)&&!window.StrategyWorkspace?.handles(AT.state.page);
+  function refresh(){if(ownsPage())AT.render?.();updateShell();}
   async function call(method,payload={}){if(!available())throw new Error('请在桌面应用中运行本机研究服务。');const result=await window.atradeDesktop.business(method,payload);if(!result?.ok)throw new Error(typeof result?.error==='string'?result.error:result?.error?.message||'研究服务未返回有效结果。');return result.data;}
   function reconcile(tasks){model.tasks=Array.isArray(tasks)?tasks:[];if(!model.tasks.some(t=>t.id===model.activeId)){model.activeId=model.tasks[0]?.id||'';model.candidateId='';}model.selected=new Set([...model.selected].filter(id=>model.tasks.some(t=>t.id===id)));}
   async function load(force=false){
@@ -98,13 +99,14 @@
     if(paint)refresh();
     return data;
   }
-  function schedulePoll(){clearTimeout(timer);timer=null;if(available())timer=setTimeout(()=>{load(true);},pages.has(AT.state.page)?2500:10000);}
+  function schedulePoll(){clearTimeout(timer);timer=null;if(available())timer=setTimeout(()=>{load(true);},ownsPage()?2500:10000);}
   function mount(){if(!pages.has(AT.state.page))return;if(!model.ready&&!model.loading)void load();else if(!timer)schedulePoll();if(AT.state.page==='R10'&&model.ready)window.ResearchWorkflow?.mount();updateShell();}
   function updateShell(){
     if(!available())return;
+    if(window.StrategyWorkspace){window.StrategyWorkspace.updateShell();if(window.StrategyWorkspace.handles(AT.state.page))return;}
     const running=model.tasks.filter(t=>['running','pausing','stopping'].includes(t.status)).length,queued=model.tasks.filter(t=>t.status==='queued').length;
-    const top=document.getElementById('top-task-count'),sidebar=document.getElementById('sidebar-tasks');if(top)top.textContent=`运行 ${running} · 排队 ${queued}`;if(sidebar)sidebar.textContent=`${running} 项运行 · ${queued} 项排队`;
-    if(pages.has(AT.state.page)){const label=document.querySelector('.demo-label'),status=document.querySelector('.statusbar>span:first-child');if(label)label.textContent='本机研究 · 真实计算';if(status)status.textContent='本地日线研究 · 数据边界与验证状态见报告';}
+    if(!window.StrategyWorkspace){const top=document.getElementById('top-task-count'),sidebar=document.getElementById('sidebar-tasks');if(top)top.textContent=`运行 ${running} · 排队 ${queued}`;if(sidebar)sidebar.textContent=`${running} 项运行 · ${queued} 项排队`;}
+    if(ownsPage()){const label=document.querySelector('.demo-label'),status=document.querySelector('.statusbar>span:first-child');if(label&&label.textContent!=='本机研究 · 真实计算')label.textContent='本机研究 · 真实计算';if(status&&status.textContent!=='本地日线研究 · 数据边界与验证状态见报告')status.textContent='本地日线研究 · 数据边界与验证状态见报告';}
   }
   const field=(label,path,value,type='number',attrs='')=>type==='date'?Dates.field(label,value,{key:'legacy:'+path,attrs:`data-rs-field="${E(path)}"`}):`<label class="rs-field"><span>${E(label)}</span><input type="${type}" data-rs-field="${E(path)}" value="${E(String(value??''))}" ${attrs}></label>`;
   function numericField(path,label,value,options={}){const attrs=`step="${isPercentage(path)?'0.0001':options.step||'any'}"${finite(options.min)?` min="${displayValue(path,options.min)}"`:''}${finite(options.max)?` max="${displayValue(path,options.max)}"`:''}${path==='stampDutyRate'?' placeholder="按成交日期自动"':' required'}`;return field(label,path,displayValue(path,value),'number',attrs);}

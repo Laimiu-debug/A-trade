@@ -152,7 +152,7 @@ async function createDesktop({ dataDirectory, show = true, onWindow } = {}) {
     if (method === 'account.valuation') return accountValuation(payload);
     return business.request(method, payload);
   });
-  const marketMethods = new Set(['market.status', 'market.configure', 'market.scan', 'market.search', 'market.bars',
+  const marketMethods = new Set(['market.status', 'market.configure', 'market.scan', 'market.search', 'market.resolve', 'market.bars',
     'market.online.status', 'market.online.configure', 'market.online.test', 'market.quotes',
     'market.intraday', 'market.sectors', 'market.sector', 'market.research', 'market.snapshot',
     'market.research.status', 'market.research.cancel',
@@ -160,6 +160,7 @@ async function createDesktop({ dataDirectory, show = true, onWindow } = {}) {
   'market.finance.benchmark', 'market.finance.context', 'market.funds.history', 'market.sector.history',
   'market.funds.activity.list', 'market.funds.activity.history', 'market.regulatory.list',
   'market.analysis.overview', 'market.analysis.trends', 'market.analysis.moves', 'market.analysis.rebounds', 'market.analysis.ladder',
+  'market.analysis.sentiment', 'market.emotion.themes.list', 'market.emotion.themes.save', 'market.emotion.themes.delete',
   'market.watchlist.list', 'market.watchlist.save', 'market.watchlist.delete',
   'market.watchlist.save-many', 'market.watchlist.export', 'market.watchlist.import',
   'market.watchlist.backup.export', 'market.watchlist.backup.preview', 'market.watchlist.backup.restore']);
@@ -299,7 +300,7 @@ async function createDesktop({ dataDirectory, show = true, onWindow } = {}) {
     let timeout;
     const deadline = new Promise(resolve => { timeout = setTimeout(() => resolve(false), 8000); });
     const save = preflightFailed ? Promise.resolve(false) : win.webContents.executeJavaScript(
-      '(async () => { if (typeof AT === "undefined") return false; if (window.ResearchModule?.flush && await window.ResearchModule.flush() === false) return false; if (AT.analysisTools?.flush && await AT.analysisTools.flush() === false) return false; if (AT.marketUI?.flush && await AT.marketUI.flush() === false) return false; if (AT.watchlistBackup?.flush && await AT.watchlistBackup.flush() === false) return false; if (AT.marketWatch?.flush && await AT.marketWatch.flush() === false) return false; if (AT.aiSettings?.flush && await AT.aiSettings.flush() === false) return false; if (AT.accountModule?.flush && await AT.accountModule.flush() === false) return false; return typeof AT.persist === "function" ? await AT.persist() : false; })()',
+      '(async () => { if (typeof AT === "undefined") return false; if (window.ResearchModule?.flush && await window.ResearchModule.flush() === false) return false; if (AT.analysisTools?.flush && await AT.analysisTools.flush() === false) return false; if (AT.marketUI?.flush && await AT.marketUI.flush() === false) return false; if (AT.stockResearch?.flush && await AT.stockResearch.flush() === false) return false; if (AT.watchlistBackup?.flush && await AT.watchlistBackup.flush() === false) return false; if (AT.marketWatch?.flush && await AT.marketWatch.flush() === false) return false; if (AT.aiSettings?.flush && await AT.aiSettings.flush() === false) return false; if (AT.accountModule?.flush && await AT.accountModule.flush() === false) return false; return typeof AT.persist === "function" ? await AT.persist() : false; })()',
     ).catch(() => false);
     Promise.race([save, deadline]).then(async saved => {
       clearTimeout(timeout);

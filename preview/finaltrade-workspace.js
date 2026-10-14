@@ -13,7 +13,7 @@
   for(const [id,text] of [['top-task-count',`运行 ${local.running+taskSummary.running} · 排队 ${local.queued+taskSummary.queued}`],['sidebar-tasks',`${local.running+taskSummary.running} 项运行 · ${local.queued+taskSummary.queued} 项排队`]]){const el=document.getElementById(id);if(el)el.textContent=text;}
   if(!handles(AT.state.page))return;
   const label=document.querySelector('.demo-label'),status=document.querySelector('.statusbar>span:first-child');
-  if(label)label.textContent='本地策略研究';if(status)status.innerHTML='<i class="status-dot"></i> 共用行情来源 · 结果保存在本机';
+  if(label&&label.textContent!=='本地策略研究')label.textContent='本地策略研究';if(status&&status.textContent.trim()!=='共用行情来源 · 结果保存在本机')status.innerHTML='<i class="status-dot"></i> 共用行情来源 · 结果保存在本机';
  }
  function render(){return `<section class="strategy-workspace" data-strategy-workspace><div class="strategy-startup panel"><h2>策略工作区</h2><p role="status">${AT.escape(error||'正在载入策略与行情…')}</p>${error?'<button class="btn" data-strategy-retry>重新载入</button>':''}</div></section>`;}
  function openRoute(route){desiredRoute=route;if(ready&&frame&&childRoute!==route)post('navigate',{route});}
@@ -69,6 +69,14 @@
   if(event.origin!=='atrade://reference'||event.source!==frame?.contentWindow||event.data?.channel!==channel)return;
   const {action,payload={},id}=event.data;
   if(action==='route'){
+   const stock=/^\/stocks\/((?:sh|sz|bj)\d{6})\/chart(?:\?(.*))?$/.exec(String(payload.route||''));
+   if(stock){
+    if(!handles(AT.state.page))return;
+    const origin=routeBelongsToPage(childRoute,AT.state.page)?childRoute:routes[AT.state.page],context={query:stock[2]||'',sourcePage:AT.state.page,sourceRoute:origin};
+    desiredRoute=origin;post('navigate',{route:origin});
+    if(AT.stockResearch)AT.stockResearch.open(stock[1],context);else AT.navigate('G01',stock[1]);
+    return;
+   }
    childRoute=payload.route;desiredRoute=childRoute;
    if(!handles(AT.state.page))return;
    const page=routePage(childRoute);
@@ -81,7 +89,7 @@
   requests.add(id);Promise.resolve(dispatch(action,payload)).then(data=>reply(event,{ok:true,data}),failure=>reply(event,{ok:false,error:failure.message})).finally(()=>requests.delete(id));
  });
  document.addEventListener('click',event=>{if(event.target.closest?.('[data-strategy-retry]')){error='';void mount();}});
- function aiContext(){if(!handles(AT.state.page)||!evidence)return null;const chart=/^\/stocks\/((?:sh|sz|bj)\d{6})\/chart/.exec(childRoute),serialized=JSON.stringify(evidence),dates=[...new Set([...serialized.matchAll(/\b\d{4}-\d{2}-\d{2}\b/g)].map(match=>match[0]))].slice(0,20);return AT.pageAIContext.limit(AT.pageAIContext.sanitize({version:1,page:{id:AT.state.page,title:chart?evidence.title||'个股图表':AT.pages[AT.state.page]?.title,scope:chart?'stock:'+chart[1]:AT.state.page},capturedAt:new Date().toISOString(),dataDates:dates,filters:evidence.filters||{},summary:serialized.slice(0,20000),tables:[],evidence,limitations:['仅包含当前策略工作区的筛选条件与已显示结果；不包含账户凭据。']}));}
+ function aiContext(){if(!handles(AT.state.page)||!evidence)return null;const chart=/^\/stocks\/((?:sh|sz|bj)\d{6})\/chart/.exec(childRoute),{desktopVisible,...details}=evidence,serialized=JSON.stringify(details),dates=[...new Set([...serialized.matchAll(/\b\d{4}-\d{2}-\d{2}\b/g)].map(match=>match[0]))].slice(0,20);return AT.pageAIContext.limit(AT.pageAIContext.sanitize({version:1,page:{id:AT.state.page,title:chart?evidence.title||'个股图表':AT.pages[AT.state.page]?.title,scope:chart?'stock:'+chart[1]:AT.state.page},capturedAt:new Date().toISOString(),dataDates:dates,filters:{...evidence.filters,...(evidence.as_of_date?{asOf:evidence.as_of_date}:{})},summary:serialized.slice(0,20000),tables:desktopVisible?.tables||[],evidence:details,limitations:['仅包含当前策略工作区的参数与当前可见表格分页，不包含未显示的其他分页、账户凭据或私密备注。',...(!dates.length?['当前工作区材料未给出可核对的数据日期，不能把保存时间或页面打开时间当作行情日期。']:[])]}));}
  window.StrategyWorkspace={handles,render,mount,hide,updateShell,context,aiContext,openRoute,planSaved(id){post('plan-saved',{id});},counts:()=>({...taskSummary}),async flush(){return true;}};
  window.FinaltradeWorkspace=window.StrategyWorkspace;
 })();

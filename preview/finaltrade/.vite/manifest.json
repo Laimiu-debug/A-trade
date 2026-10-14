@@ -1,120 +1,92 @@
 {
-  "_ReloadOutlined-BYi9fN6V.js": {
-    "file": "assets/ReloadOutlined-BYi9fN6V.js",
+  "_ReloadOutlined-el01FqOk.js": {
+    "file": "assets/ReloadOutlined-el01FqOk.js",
     "name": "ReloadOutlined",
     "imports": [
       "index.html"
     ]
   },
-  "_ShoppingCartOutlined-ySOf3TLm.js": {
-    "file": "assets/ShoppingCartOutlined-ySOf3TLm.js",
-    "name": "ShoppingCartOutlined",
-    "imports": [
-      "index.html"
-    ]
-  },
-  "_dayjs.min-gtRcTI_t.js": {
-    "file": "assets/dayjs.min-gtRcTI_t.js",
+  "_dayjs.min-cozNqnWN.js": {
+    "file": "assets/dayjs.min-cozNqnWN.js",
     "name": "dayjs.min",
     "imports": [
       "index.html"
     ]
   },
-  "_format-DNqbATIy.js": {
-    "file": "assets/format-DNqbATIy.js",
+  "_format-D2WTgm17.js": {
+    "file": "assets/format-D2WTgm17.js",
     "name": "format",
     "imports": [
       "index.html"
     ]
   },
-  "_index-7e-iLNtt.js": {
-    "file": "assets/index-7e-iLNtt.js",
-    "name": "index",
-    "imports": [
-      "_dayjs.min-gtRcTI_t.js",
-      "index.html"
-    ]
-  },
-  "_index-B5cY3sBr.js": {
-    "file": "assets/index-B5cY3sBr.js",
-    "name": "index",
-    "imports": [
-      "index.html"
-    ]
-  },
-  "_index-CE7r5BDB.js": {
-    "file": "assets/index-CE7r5BDB.js",
-    "name": "index",
-    "imports": [
-      "index.html"
-    ]
-  },
-  "_index-DDez8Xas.js": {
-    "file": "assets/index-DDez8Xas.js",
+  "_index-B0IUPymE.js": {
+    "file": "assets/index-B0IUPymE.js",
     "name": "index",
     "imports": [
       "index.html",
-      "_index-Dedk05Hw.js"
+      "_index-BNPACXJl.js"
     ]
   },
-  "_index-Dedk05Hw.js": {
-    "file": "assets/index-Dedk05Hw.js",
+  "_index-B7PsVLh8.js": {
+    "file": "assets/index-B7PsVLh8.js",
     "name": "index",
     "imports": [
       "index.html"
     ]
   },
-  "_index-DlSUlFLD.js": {
-    "file": "assets/index-DlSUlFLD.js",
+  "_index-BHxbWrLa.js": {
+    "file": "assets/index-BHxbWrLa.js",
     "name": "index",
     "imports": [
       "index.html"
     ]
   },
-  "_index-aKPZZ5hD.js": {
-    "file": "assets/index-aKPZZ5hD.js",
+  "_index-BNPACXJl.js": {
+    "file": "assets/index-BNPACXJl.js",
     "name": "index",
     "imports": [
       "index.html"
     ]
   },
-  "_index-fxfmHLMD.js": {
-    "file": "assets/index-fxfmHLMD.js",
+  "_index-C5Wk2AJT.js": {
+    "file": "assets/index-C5Wk2AJT.js",
     "name": "index",
     "imports": [
       "index.html"
     ]
   },
-  "_index.esm-B9i3e9eI.js": {
-    "file": "assets/index.esm-B9i3e9eI.js",
-    "name": "index.esm",
+  "_index-I3bLpLS_.js": {
+    "file": "assets/index-I3bLpLS_.js",
+    "name": "index",
     "imports": [
       "index.html"
     ]
   },
-  "_row-DklaSDqA.js": {
-    "file": "assets/row-DklaSDqA.js",
-    "name": "row",
+  "_index-QCPUNS7z.js": {
+    "file": "assets/index-QCPUNS7z.js",
+    "name": "index",
     "imports": [
+      "_dayjs.min-cozNqnWN.js",
       "index.html"
     ]
   },
-  "_strategyParams-izYNUM8A.js": {
-    "file": "assets/strategyParams-izYNUM8A.js",
+  "_strategyParams-BqhUW7K8.js": {
+    "file": "assets/strategyParams-BqhUW7K8.js",
     "name": "strategyParams",
     "imports": [
       "index.html"
     ]
   },
-  "_uiStore-C-GKzjkG.js": {
-    "file": "assets/uiStore-C-GKzjkG.js",
+  "_uiStore-BPYhc0QT.js": {
+    "file": "assets/uiStore-BPYhc0QT.js",
     "name": "uiStore",
     "imports": [
       "index.html"
     ]
   },
-  "_useMutation-DHxa9luZ.js": {
-    "file": "assets/useMutation-DHxa9luZ.js",
+  "_useMutation-CxunK0iR.js": {
+    "file": "assets/useMutation-CxunK0iR.js",
     "name": "useMutation",
     "imports": [
       "index.html"
@@ -125,7 +97,7 @@
     "name": "xlsx"
   },
   "index.html": {
-    "file": "assets/index-D0xy0CnP.js",
+    "file": "assets/index-CGhIoO6w.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
@@ -134,16 +106,15 @@
       "src/pages/strategy/StrategyCenterPage.tsx",
       "src/pages/signals/SignalsPage.tsx",
       "src/pages/backtest/BacktestPage.tsx",
-      "src/pages/chart/ChartPage.tsx",
       "src/pages/signals/SignalsBacktestPage.tsx",
       "src/pages/strategy/EventJudgmentPage.tsx"
     ],
     "css": [
-      "assets/index-CLwginoL.css"
+      "assets/index-DQAL3z5t.css"
     ]
   },
   "node_modules/canvg/lib/index.es.js": {
-    "file": "assets/index.es-xNQRjCvw.js",
+    "file": "assets/index.es-DYGw5bAB.js",
     "name": "index.es",
     "src": "node_modules/canvg/lib/index.es.js",
     "isDynamicEntry": true,
@@ -164,65 +135,40 @@
     "isDynamicEntry": true
   },
   "src/pages/backtest/BacktestPage.tsx": {
-    "file": "assets/BacktestPage-BZRGtcoQ.js",
+    "file": "assets/BacktestPage-CggvyjS7.js",
     "name": "BacktestPage",
     "src": "src/pages/backtest/BacktestPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_dayjs.min-gtRcTI_t.js",
-      "_useMutation-DHxa9luZ.js",
-      "_index-fxfmHLMD.js",
+      "_dayjs.min-cozNqnWN.js",
+      "_useMutation-CxunK0iR.js",
+      "_index-BHxbWrLa.js",
       "_xlsx-nGF3hY23.js",
-      "_strategyParams-izYNUM8A.js",
-      "_format-DNqbATIy.js",
-      "_row-DklaSDqA.js",
-      "_index-7e-iLNtt.js",
-      "_index-CE7r5BDB.js",
-      "_index-B5cY3sBr.js",
-      "_index-DlSUlFLD.js"
-    ]
-  },
-  "src/pages/chart/ChartPage.tsx": {
-    "file": "assets/ChartPage-jkJa3PFV.js",
-    "name": "ChartPage",
-    "src": "src/pages/chart/ChartPage.tsx",
-    "isDynamicEntry": true,
-    "imports": [
-      "index.html",
-      "_dayjs.min-gtRcTI_t.js",
-      "_useMutation-DHxa9luZ.js",
-      "_index.esm-B9i3e9eI.js",
-      "_index-fxfmHLMD.js",
-      "_uiStore-C-GKzjkG.js",
-      "_index-7e-iLNtt.js",
-      "_row-DklaSDqA.js"
-    ],
-    "css": [
-      "assets/ChartPage-CzEqwa0g.css"
+      "_strategyParams-BqhUW7K8.js",
+      "_index-C5Wk2AJT.js",
+      "_index-B7PsVLh8.js",
+      "_format-D2WTgm17.js",
+      "_index-QCPUNS7z.js"
     ]
   },
   "src/pages/screener/ScreenerPage.tsx": {
-    "file": "assets/ScreenerPage-z0Qvasv8.js",
+    "file": "assets/ScreenerPage-DC-gPetU.js",
     "name": "ScreenerPage",
     "src": "src/pages/screener/ScreenerPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_useMutation-DHxa9luZ.js",
-      "_dayjs.min-gtRcTI_t.js",
-      "_index.esm-B9i3e9eI.js",
+      "_uiStore-BPYhc0QT.js",
+      "_useMutation-CxunK0iR.js",
+      "_dayjs.min-cozNqnWN.js",
       "_xlsx-nGF3hY23.js",
-      "_strategyParams-izYNUM8A.js",
-      "_format-DNqbATIy.js",
-      "_uiStore-C-GKzjkG.js",
-      "_index-B5cY3sBr.js",
-      "_row-DklaSDqA.js",
-      "_index-CE7r5BDB.js",
-      "_index-7e-iLNtt.js",
-      "_index-DlSUlFLD.js",
-      "_index-Dedk05Hw.js",
-      "_ShoppingCartOutlined-ySOf3TLm.js"
+      "_strategyParams-BqhUW7K8.js",
+      "_format-D2WTgm17.js",
+      "_index-C5Wk2AJT.js",
+      "_index-B7PsVLh8.js",
+      "_index-QCPUNS7z.js",
+      "_index-BNPACXJl.js"
     ],
     "dynamicImports": [
       "node_modules/html2canvas/dist/html2canvas.esm.js",
@@ -230,77 +176,71 @@
       "node_modules/canvg/lib/index.es.js"
     ],
     "css": [
-      "assets/ScreenerPage-CpBjxdFc.css"
+      "assets/ScreenerPage-Ip416VpE.css"
     ]
   },
   "src/pages/signals/SignalsBacktestPage.tsx": {
-    "file": "assets/SignalsBacktestPage-BiWoQSXL.js",
+    "file": "assets/SignalsBacktestPage-DAWmwQMv.js",
     "name": "SignalsBacktestPage",
     "src": "src/pages/signals/SignalsBacktestPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_useMutation-DHxa9luZ.js",
-      "_dayjs.min-gtRcTI_t.js",
+      "_useMutation-CxunK0iR.js",
+      "_dayjs.min-cozNqnWN.js",
       "_xlsx-nGF3hY23.js",
-      "_index-fxfmHLMD.js",
-      "_row-DklaSDqA.js",
-      "_index-CE7r5BDB.js",
-      "_index-DDez8Xas.js",
-      "_ReloadOutlined-BYi9fN6V.js",
-      "_index-Dedk05Hw.js"
+      "_index-BHxbWrLa.js",
+      "_index-B7PsVLh8.js",
+      "_index-B0IUPymE.js",
+      "_ReloadOutlined-el01FqOk.js",
+      "_index-BNPACXJl.js"
     ]
   },
   "src/pages/signals/SignalsPage.tsx": {
-    "file": "assets/SignalsPage-2m6XTyqJ.js",
+    "file": "assets/SignalsPage-9xw9keIx.js",
     "name": "SignalsPage",
     "src": "src/pages/signals/SignalsPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_dayjs.min-gtRcTI_t.js",
-      "_useMutation-DHxa9luZ.js",
-      "_strategyParams-izYNUM8A.js",
-      "_uiStore-C-GKzjkG.js",
-      "_ShoppingCartOutlined-ySOf3TLm.js",
-      "_row-DklaSDqA.js",
-      "_index-DlSUlFLD.js",
-      "_index-CE7r5BDB.js",
-      "_index-7e-iLNtt.js",
-      "_ReloadOutlined-BYi9fN6V.js"
+      "_uiStore-BPYhc0QT.js",
+      "_dayjs.min-cozNqnWN.js",
+      "_useMutation-CxunK0iR.js",
+      "_strategyParams-BqhUW7K8.js",
+      "_index-B7PsVLh8.js",
+      "_index-QCPUNS7z.js",
+      "_ReloadOutlined-el01FqOk.js"
     ],
     "css": [
       "assets/SignalsPage-DnfoKAKG.css"
     ]
   },
   "src/pages/strategy/EventJudgmentPage.tsx": {
-    "file": "assets/EventJudgmentPage-B3JUT5E_.js",
+    "file": "assets/EventJudgmentPage-ByM0qt-O.js",
     "name": "EventJudgmentPage",
     "src": "src/pages/strategy/EventJudgmentPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_row-DklaSDqA.js",
-      "_index-DDez8Xas.js",
-      "_index-aKPZZ5hD.js",
-      "_index-CE7r5BDB.js",
-      "_index-B5cY3sBr.js",
-      "_index-Dedk05Hw.js"
+      "_index-B7PsVLh8.js",
+      "_index-B0IUPymE.js",
+      "_index-I3bLpLS_.js",
+      "_index-C5Wk2AJT.js",
+      "_index-BNPACXJl.js"
     ]
   },
   "src/pages/strategy/StrategyCenterPage.tsx": {
-    "file": "assets/StrategyCenterPage-DRrgKMeA.js",
+    "file": "assets/StrategyCenterPage-CefH6vD0.js",
     "name": "StrategyCenterPage",
     "src": "src/pages/strategy/StrategyCenterPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_dayjs.min-gtRcTI_t.js",
-      "_strategyParams-izYNUM8A.js",
-      "_row-DklaSDqA.js",
-      "_index-B5cY3sBr.js",
-      "_index-aKPZZ5hD.js",
-      "_index-CE7r5BDB.js"
+      "_dayjs.min-cozNqnWN.js",
+      "_strategyParams-BqhUW7K8.js",
+      "_index-B7PsVLh8.js",
+      "_index-C5Wk2AJT.js",
+      "_index-I3bLpLS_.js"
     ],
     "css": [
       "assets/StrategyCenterPage-BUhTLC9Y.css"

@@ -7,7 +7,7 @@ const root=path.resolve(__dirname,'..'),frontend=path.join(root,'vendor/finaltra
  const alias=[{find:'@/app/App',replacement:path.join(root,'desktop/finaltrade-app.tsx')},{find:'@/app/providers',replacement:path.join(root,'desktop/research-providers.tsx')},{find:'@/shared/components/PageHeader',replacement:path.join(root,'desktop/research-page-header.tsx')},{find:'@/shared/api/client',replacement:path.join(root,'desktop/research-api-client.ts')},{find:'@',replacement:path.join(frontend,'src')}];
  const pinnedDependencies={name:'pinned-reference-dependencies',enforce:'pre',async resolveId(id,importer){if(!importer||id.startsWith('.')||id.startsWith('/')||id.startsWith('@/')||id.includes(':')||id.startsWith('\0')||id.startsWith('vite/')||importer.replaceAll('\\','/').includes('/node_modules/'))return null;return this.resolve(id,path.join(dependencies,'src/main.tsx'),{skipSelf:true});}};
  const typography={name:'reference-typography',enforce:'pre',resolveId(source,importer){if(['./Ellipsis','./Ellipsis.js'].includes(source)&&/\/node_modules\/antd\/(es|lib)\/typography\/Base\/index(?:\.js|\.mjs)?$/.test((importer||'').replaceAll('\\','/')))return path.join(frontend,'src/patches/antdEllipsisMeasure.tsx');}};
- const offlineFonts={name:'desktop-fonts',enforce:'pre',transform(code,id){if(id.endsWith('.css'))return {code:code.replace(/@import\s+url\([^;]*fonts\.googleapis\.com[^;]*;\s*/g,''),map:null};}};
+ const offlineFonts={name:'desktop-fonts',enforce:'pre',transform(code,id){if(id.endsWith('.css'))return {code:code.replace(/@import\s+url\([^)]*fonts\.googleapis\.com[^)]*\)\s*;\s*/g,''),map:null};}};
  const notices={name:'bundled-library-notices',generateBundle(){
   const packages=new Map();
   for(const id of this.getModuleIds()){
@@ -25,9 +25,6 @@ const root=path.resolve(__dirname,'..'),frontend=path.join(root,'vendor/finaltra
  const integration={name:'project-workflow',enforce:'pre',transform(code,id){
   code=code.replaceAll('\r\n','\n');
   if(id.replaceAll('\\','/').endsWith('/pages/screener/ScreenerPage.tsx')){
-   const first=code.indexOf('      <Alert\n        type={runMeta?.runId'),last=code.indexOf('      <Card className="glass-card"',first);
-   if(first<0||last<0)throw Error('Screener status component changed; review the adaptation');
-   code=code.slice(0,first)+`      <Alert type={runMeta?.degraded ? 'warning' : 'info'} showIcon title={runMeta?.runId ? '筛选结果已载入' : '先加载行情，再逐步筛选'} description={runMeta?.runId ? (runMeta.degraded ? '部分股票的基础数据不完整，请结合表格中的来源状态核对。' : '结果已与策略运行和回测共用，可以继续筛选或使用当前股票池。') : '点击加载输入池，然后按第 1～4 步运行；每一步旁边的设置按钮可以调整条件。'} />\n\n`+code.slice(last);
    code+=`\nwindow.addEventListener('atrade-market-source-changed',()=>{memoryScreenerCache=null;try{const raw=JSON.parse(localStorage.getItem(SCREENER_CACHE_KEY)||'null');if(raw){raw.pools=emptyStepPools;raw.raw_input_pool=[];raw.run_meta=null;raw.executed_step=0;raw.active_pool='input';raw.input_pool_key='';localStorage.setItem(SCREENER_CACHE_KEY,JSON.stringify(raw));}localStorage.removeItem(SIGNAL_RUN_CACHE_KEY);const form=JSON.parse(localStorage.getItem(BACKTEST_FORM_CACHE_KEY)||'null');if(form){form.run_id='';localStorage.setItem(BACKTEST_FORM_CACHE_KEY,JSON.stringify(form));}}catch{}})\n`;
   }
   if(id.replaceAll('\\','/').endsWith('/pages/backtest/BacktestPage.tsx')){

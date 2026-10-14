@@ -1,5 +1,6 @@
 ﻿import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './ScreenerPage.css'
+import { DataQualityAlert } from '@/shared/components/DataQualityAlert'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import {
@@ -1638,6 +1639,21 @@ export function ScreenerPage() {
     addRowToPoolManually(targetPool, row)
   }
 
+  const openStock = useCallback((row: ScreenerResult) => {
+    saveScreenerCache(latestCacheSnapshotRef.current)
+    setSelectedSymbol(row.symbol, row.name)
+    const context = new URLSearchParams({ signal_strategy_id: strategyId })
+    if (runMeta?.asOfDate) context.set('signal_as_of_date', runMeta.asOfDate)
+    const route = `/stocks/${row.symbol}/chart?${context}`
+    // The desktop chart lives outside this frame. Keep the funnel mounted so
+    // its table filters, selection and pagination survive the round trip.
+    if (window.location.origin === 'atrade://reference' && window.parent !== window) {
+      window.parent.postMessage({ channel: 'atrade.research.v1', action: 'route', payload: { route } }, 'atrade://app')
+    } else {
+      navigate(route)
+    }
+  }, [navigate, runMeta?.asOfDate, setSelectedSymbol, strategyId])
+
   const visibleDataColumns = useMemo<ColumnsType<ScreenerResult>>(() => {
     return columnOrder
       .filter((key) => columnVisible[key])
@@ -1645,6 +1661,25 @@ export function ScreenerPage() {
         const column: ColumnsType<ScreenerResult>[number] = {
           ...tableColumnMap[key],
           title: columnTitleMap[key],
+        }
+
+        if (key === 'symbol' || key === 'name') {
+          column.render = (_value, row) => (
+            <Button
+              type="link"
+              size="small"
+              className="screener-stock-link"
+              data-screener-stock-link={key}
+              data-screener-stock-symbol={row.symbol}
+              title={`查看 ${row.name || row.symbol} 的行情与策略`}
+              onClick={(event) => {
+                event.stopPropagation()
+                openStock(row)
+              }}
+            >
+              {row[key] || '--'}
+            </Button>
+          )
         }
 
         if (sortableFields.includes(key as TableSortField)) {
@@ -1725,6 +1760,7 @@ export function ScreenerPage() {
     columnTitleMap,
     columnVisible,
     keywordFilter,
+    openStock,
     pathStateFilters,
     sortDirection,
     sortField,
@@ -2775,13 +2811,9 @@ export function ScreenerPage() {
         <Space size={4}>
           <Button
             type="link"
-            onClick={() => {
-              saveScreenerCache(latestCacheSnapshotRef.current)
-              setSelectedSymbol(row.symbol, row.name)
-              navigate(`/stocks/${row.symbol}/chart`)
-            }}
+            onClick={() => openStock(row)}
           >
-            看图标注
+            个股行情与策略
           </Button>
           <Button
             type="link"
@@ -2820,72 +2852,50 @@ export function ScreenerPage() {
       ),
     }
     return [...visibleDataColumns, actionColumn]
-  }, [addRowToPoolManually, message, navigate, nextPoolKey, runMeta?.asOfDate, setSelectedSymbol, visibleDataColumns])
+  }, [addRowToPoolManually, message, nextPoolKey, openStock, runMeta?.asOfDate, visibleDataColumns])
 
   return (
-    <Space orientation="vertical" size={16} className="screener-full-width">
+    <Space data-research="page" data-page="screener" orientation="vertical" size={16} className="screener-full-width">
       <PageHeader
         title="选股漏斗控制台"
         subtitle="支持按第1~第4步逐步运行。每一步可独立配置，运行后再查看对应股票池。"
         badge="分步运行"
       />
 
-      <Alert
-        type={runMeta?.runId ? (runMeta.degraded ? 'warning' : 'info') : 'warning'}
-        showIcon
-        title={runMeta?.runId ? `Run追踪: ${runMeta.runId}` : 'Run追踪: 暂无 run_id'}
-        description={(
-          <Space wrap>
-            {runMeta?.runId ? (
-              <>
-                <Typography.Text type="secondary">当前漏斗结果固定关联该 run_id。</Typography.Text>
-                <Typography.Text type="secondary">筛选日期: {runMeta.asOfDate ?? '最新'}</Typography.Text>
-                <Typography.Text type="secondary">
-                  状态: {runMeta.degraded ? `降级(${runMeta.degradedReason ?? '未知原因'})` : '正常'}
-                </Typography.Text>
-              </>
-            ) : (
-              <Typography.Text type="secondary">
-                点击"加载输入池""运行第1步"或"快速一键运行"都会生成新的 run_id，并同步到 Signals/Backtest。
-              </Typography.Text>
-            )}
-          </Space>
-        )}
-      />
+      {runMeta?.degraded ? <DataQualityAlert reason={runMeta.degradedReason} /> : <Alert type="info" showIcon title={runMeta?.runId ? '筛选结果已载入' : '先加载行情，再逐步筛选'} description={runMeta?.runId ? '结果已与策略运行和回测共用，可以继续筛选或使用当前股票池。' : '点击加载输入池，然后按第 1～4 步运行；每一步旁边的设置按钮可以调整条件。'} />}
 
-      <Card className="glass-card" variant="borderless">
+      <Card data-research="screener-config" className="glass-card" variant="borderless">
         <Space orientation="vertical" size={14} className="screener-full-width">
           <Typography.Text strong>筛选参数</Typography.Text>
-          <Row gutter={[16, 12]}>
-            <Col xs={24} md={12}>
-              <Controller
-                control={control}
-                name="board_filters"
-                render={({ field }) => (
-                  <Checkbox.Group
-                    value={field.value}
-                    onChange={(value) => {
-                      const next = value as FormValues['board_filters']
-                      field.onChange(next)
-                      if (rawInputPool.length > 0 && inputPoolKey === currentInputPoolKey) {
-                        setPools((prev) => ({
-                          ...prev,
-                          input: filterRowsByBoards(rawInputPool, next),
-                        }))
-                      }
-                      invalidateFrom(1)
-                    }}
-                    options={[
-                      { label: boardFilterLabelMap.main, value: 'main' },
-                      { label: boardFilterLabelMap.gem, value: 'gem' },
-                      { label: boardFilterLabelMap.star, value: 'star' },
-                      { label: boardFilterLabelMap.beijing, value: 'beijing' },
-                      { label: boardFilterLabelMap.st, value: 'st' },
-                    ]}
-                  />
-                )}
-              />
-            </Col>
+          <Row data-research="fields"><Col xs={24} md={12}>
+            <Controller
+              control={control}
+              name="board_filters"
+              render={({ field }) => (
+                <Checkbox.Group
+                  value={field.value}
+                  onChange={(value) => {
+                    const next = value as FormValues['board_filters']
+                    field.onChange(next)
+                    if (rawInputPool.length > 0 && inputPoolKey === currentInputPoolKey) {
+                      setPools((prev) => ({
+                        ...prev,
+                        input: filterRowsByBoards(rawInputPool, next),
+                      }))
+                    }
+                    invalidateFrom(1)
+                  }}
+                  options={[
+                    { label: boardFilterLabelMap.main, value: 'main' },
+                    { label: boardFilterLabelMap.gem, value: 'gem' },
+                    { label: boardFilterLabelMap.star, value: 'star' },
+                    { label: boardFilterLabelMap.beijing, value: 'beijing' },
+                    { label: boardFilterLabelMap.st, value: 'st' },
+                  ]}
+                />
+              )}
+            />
+          </Col>
             <Col xs={24} md={6}>
               <Controller
                 control={control}
@@ -2936,9 +2946,6 @@ export function ScreenerPage() {
                 }}
               />
             </Col>
-          </Row>
-
-          <Row gutter={[12, 12]}>
             <Col xs={24} md={8}>
               <Space orientation="vertical" size={4} className="screener-space-compact-4">
                 <Typography.Text type="secondary">策略</Typography.Text>
@@ -2957,8 +2964,7 @@ export function ScreenerPage() {
                     }))}
                 />
               </Space>
-            </Col>
-            <Col xs={24} md={16}>
+            </Col></Row><details className="research-fold"><summary>筛选策略说明</summary><div className="research-fold-body"><Row data-research="fields"><Col xs={24} md={16}>
               <DismissibleAlert
                 dismissKey="screener.strategy-info"
                 type="info"
@@ -2975,8 +2981,9 @@ export function ScreenerPage() {
                   </Space>
                 }
               />
-            </Col>
-          </Row>
+            </Col></Row></div></details>
+
+
 
           <Space>
             <Button
@@ -3003,44 +3010,7 @@ export function ScreenerPage() {
         </Space>
       </Card>
 
-      <Card className="glass-card" variant="borderless">
-        <Space orientation="vertical" size={10} className="screener-full-width">
-          <Typography.Text strong>快捷搜索与拖动加票</Typography.Text>
-          <Input
-            allowClear
-            value={quickSearchKeyword}
-            onChange={(event) => setQuickSearchKeyword(event.target.value)}
-            placeholder="输入股票代码或名称，拖动结果卡片到任意池（推荐拖到终选池）"
-          />
-          <Space wrap size={[8, 8]}>
-            {quickSearchRows.length > 0 ? (
-              quickSearchRows.map((row) => (
-                <Tag
-                  key={`quick-${row.symbol}`}
-                  color="processing"
-                  className="screener-tag-grab"
-                  draggable
-                  onDragStart={(event) => {
-                    event.dataTransfer.effectAllowed = 'move'
-                    event.dataTransfer.setData('text/plain', row.symbol)
-                    setDraggingSymbol(row.symbol)
-                  }}
-                  onDragEnd={() => {
-                    setDraggingSymbol(null)
-                    setDragOverPool(null)
-                  }}
-                >
-                  {row.symbol.toUpperCase()} {row.name}
-                </Tag>
-              ))
-            ) : (
-              <Typography.Text type="secondary">暂无匹配结果</Typography.Text>
-            )}
-          </Space>
-        </Space>
-      </Card>
-
-      <Row gutter={[12, 12]}>
+      <Row data-research="pool-grid" gutter={[12, 12]}>
         {poolOrder.map((poolKey) => {
           const requiredStep = poolStepIndex[poolKey]
           const isAvailable = requiredStep === 0 || requiredStep <= executedStep
@@ -3242,34 +3212,59 @@ export function ScreenerPage() {
                     </div>
                   )}
                   {poolKey === 'watch' ? (
-                    <Typography.Text type="secondary" className="screener-text-break-12">
+                    <Typography.Text type="secondary" className="screener-text-break-12 research-pool-config-hint" title={watchConfigHint}>
                       {watchConfigHint}
                     </Typography.Text>
                   ) : poolKey !== 'input' && poolKey !== 'final' ? (
-                    <Typography.Text type="secondary" className="screener-text-break-12">
+                    <Typography.Text type="secondary" className="screener-text-break-12 research-pool-config-hint" title={stepConfigHint[poolKey]}>
                       {stepConfigHint[poolKey]}
                     </Typography.Text>
                   ) : null}
-                  <Typography.Text type="secondary" className="screener-text-break">
-                    {isAvailable
-                      ? poolKey === 'final'
-                        ? '任意池可手工拖入终选池'
-                        : poolKey === 'watch'
-                          ? '基于输入池按规则自动筛选'
-                          : '点击查看该股票池'
-                      : `请先运行到第${requiredStep}步`}
-                  </Typography.Text>
-                  {isDropTarget ? (
-                    <Typography.Text type="secondary" className="screener-text-break">
-                      可拖动股票到此池手工添加
-                    </Typography.Text>
-                  ) : null}
+                  {!isAvailable ? <Typography.Text type="secondary">{`请先运行到第${requiredStep}步`}</Typography.Text> : null}
                 </Space>
               </Card>
             </Col>
           )
         })}
       </Row>
+
+      <span className="research-inline-note">点击股票池查看列表；拖动证券到目标池可手工添加。每一步的设置按钮可查看完整规则。</span>
+      <details className="research-fold" ><summary>搜索证券并拖入股票池</summary><div className="research-fold-body"><Card className="glass-card" variant="borderless">
+        <Space orientation="vertical" size={10} className="screener-full-width">
+          <Typography.Text strong>快捷搜索与拖动加票</Typography.Text>
+          <Input
+            allowClear
+            value={quickSearchKeyword}
+            onChange={(event) => setQuickSearchKeyword(event.target.value)}
+            placeholder="输入股票代码或名称，拖动结果卡片到任意池（推荐拖到终选池）"
+          />
+          <Space wrap size={[8, 8]}>
+            {quickSearchRows.length > 0 ? (
+              quickSearchRows.map((row) => (
+                <Tag
+                  key={`quick-${row.symbol}`}
+                  color="processing"
+                  className="screener-tag-grab"
+                  draggable
+                  onDragStart={(event) => {
+                    event.dataTransfer.effectAllowed = 'move'
+                    event.dataTransfer.setData('text/plain', row.symbol)
+                    setDraggingSymbol(row.symbol)
+                  }}
+                  onDragEnd={() => {
+                    setDraggingSymbol(null)
+                    setDragOverPool(null)
+                  }}
+                >
+                  {row.symbol.toUpperCase()} {row.name}
+                </Tag>
+              ))
+            ) : (
+              <Typography.Text type="secondary">暂无匹配结果</Typography.Text>
+            )}
+          </Space>
+        </Space>
+      </Card></div></details>
 
       {inputPoolOutdated ? (
         <Alert
@@ -3280,7 +3275,7 @@ export function ScreenerPage() {
         />
       ) : null}
 
-      <Card className="glass-card" variant="borderless">
+      <Card data-research="screener-results" className="glass-card" variant="borderless">
         <Space orientation="vertical" size={10} className="screener-full-width">
           <Row justify="space-between" align="middle">
             <Col>
@@ -3348,27 +3343,30 @@ export function ScreenerPage() {
             }}
             dataSource={filteredRows}
             columns={tableRenderColumns}
-            onChange={(_, filters, sorter) => {
+            onChange={(_, filters, sorter, extra) => {
+              // Pagination has its own handler below; reassigning the filter
+              // arrays here would trigger the effect that resets to page one.
+              if (extra.action === 'paginate') return
               const trendValues = Array.isArray(filters.trend_class)
                 ? filters.trend_class
-                    .map((value) => String(value))
-                    .filter((value): value is TrendClass => isTrendClass(value))
+                  .map((value) => String(value))
+                  .filter((value): value is TrendClass => isTrendClass(value))
                 : []
               const stageValues = Array.isArray(filters.stage)
                 ? filters.stage
-                    .map((value) => String(value))
-                    .filter((value): value is StageType => isStageType(value))
+                  .map((value) => String(value))
+                  .filter((value): value is StageType => isStageType(value))
                 : []
               const pathStateValues = Array.isArray(filters.path_state)
                 ? filters.path_state
-                    .map((value) => String(value))
-                    .filter((value): value is ScreenerPathState =>
-                      value === '上涨路径中' || value === '回踩蓄势' || value === '高位回撤' || value === '整理观察')
+                  .map((value) => String(value))
+                  .filter((value): value is ScreenerPathState =>
+                    value === '上涨路径中' || value === '回踩蓄势' || value === '高位回撤' || value === '整理观察')
                 : []
               const themeStageValues = Array.isArray(filters.theme_stage)
                 ? filters.theme_stage
-                    .map((value) => String(value))
-                    .filter((value): value is ThemeStage => isThemeStage(value))
+                  .map((value) => String(value))
+                  .filter((value): value is ThemeStage => isThemeStage(value))
                 : []
               const keywordValue = Array.isArray(filters.symbol) && filters.symbol.length > 0
                 ? String(filters.symbol[0] ?? '')
@@ -3427,7 +3425,7 @@ export function ScreenerPage() {
                 setDragOverPool(null)
                 setDragOverSymbol(null)
               },
-              })}
+            })}
             scroll={{ x: 1550 }}
             loading={loadInputMutation.isPending || (b1Loading && activePool === 'watch')}
             pagination={{

@@ -47,6 +47,8 @@ app.whenReady().then(async()=>{
   const pendingPlan=await frame.executeJavaScript(`JSON.parse(localStorage.getItem('tdx-sim-pending-buy-orders-v1'))[0]`);
   await evaluate('AT.navigate("R01");true');
   await wait('document.body.innerText.includes("集中维护策略参数")','original strategy parameter editor');
+  await require('./strategy-navigation-check.cjs')({evaluate,frame,wait});
+  await frame.executeJavaScript(`(()=>{const fold=[...document.querySelectorAll('details')].find(el=>el.querySelector('summary')?.innerText==='策略对比与视图预设');fold.open=true;return true})()`);
   await wait('!!document.querySelector("input[placeholder=\\"输入预设名后保存\\"]")','strategy preset form');
   await frame.executeJavaScript(`(()=>{const el=document.querySelector('input[placeholder="输入预设名后保存"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'策略参数保存测试');el.dispatchEvent(new Event('input',{bubbles:true}));return true;})()`);
   await new Promise(resolve=>setTimeout(resolve,80));await clickText('保存预设');
@@ -86,6 +88,9 @@ app.whenReady().then(async()=>{
   assert.equal(task.result.strategy_id,'score_only_rank_v1');assert.ok(task.result.trades.length>0);
   assert.equal(task.result.range.date_from,fixture.start);assert.equal(task.result.range.date_to,fixture.end);
   console.log('PASS actual UI backtest, trades='+task.result.trades.length);
+  await require('./trade-detail-table-check.cjs')({frame,wait,clickText});
+  await evaluate('AT.navigate("R05");true');
+  await wait('document.querySelector("h1")?.innerText==="收益平原"','dedicated plateau view');
   await frame.executeJavaScript(`(()=>{const title=[...document.querySelectorAll('.ant-card-head-title')].find(el=>el.innerText.includes('收益平原参数与进度'));const toggle=title?.closest('.ant-card-head').querySelector('.ant-card-extra button');if(toggle?.innerText.trim()==='▶')toggle.click();return true;})()`);
   await wait('!![...document.querySelectorAll("button")].find(el=>el.innerText.trim()==="开始平原扫描"&&!el.disabled)','expanded plateau submit form');
   await clickText('开始平原扫描');
@@ -115,7 +120,9 @@ app.whenReady().then(async()=>{
   for(let i=0;i<300&&await evaluate('document.querySelector("#page-ai-panel").hidden');i++)await new Promise(resolve=>setTimeout(resolve,100));
   assert.equal(await evaluate('document.querySelector("#page-ai-panel").hidden'),false);
   const ai=await evaluate('AT.pageAIContext.capture()');assert.equal(ai.page.id,'R05');assert.equal(ai.page.title,'收益平原');assert.ok(ai.evidence);
-  await evaluate('AT.pageAI.close();AT.navigate("G02");true');
+  await evaluate('AT.pageAI.close();true');
+  await require('./research-layout-check.cjs')({win,frame,evaluate,wait});
+  await evaluate('AT.navigate("G02");true');
   await wait('document.querySelector("h1")?.innerText==="研究任务"&&document.querySelectorAll(".ant-table-row").length>=2','global task center includes both calculations');
   assert.equal(await evaluate('__originalReferenceFrame.isConnected'),true);
   const runRequest=await frame.executeJavaScript(`JSON.parse(localStorage.getItem('tdx-trend-backtest-tasks-v1')).state.payloadById[${JSON.stringify(task.task_id)}]`);
@@ -136,6 +143,7 @@ app.whenReady().then(async()=>{
   const changedDirectory=path.join(directory,'second-market');fs.cpSync(path.join(directory,'market'),changedDirectory,{recursive:true});
   assert.equal((await evaluate(`atradeDesktop.market('market.configure',{path:${JSON.stringify(changedDirectory)}})`)).ok,true);
   const blocked=await frame.executeJavaScript(`fetch('/api/signals?mode=full_market').then(async response=>({status:response.status,body:await response.json()}))`);assert.equal(blocked.status,409);assert.equal(blocked.body.code,'SOURCE_IN_USE');
+  const blockedStock=await frame.executeJavaScript(`fetch('/api/atrade/stocks/sh600000').then(response=>response.status)`);assert.equal(blockedStock,409,'native stock evidence cannot combine a new market source with a running old-source task');
   assert.equal((await frame.executeJavaScript(`fetch('/api/atrade/status').then(response=>response.json())`)).source_changed,true);
   await evaluate('AT.navigate("G02");true');await wait('document.querySelector("h1")?.innerText==="研究任务"','stop task after source switch');
   await rowButton('停止');
@@ -148,22 +156,7 @@ app.whenReady().then(async()=>{
   assert.equal(await evaluate('__originalReferenceFrame.isConnected'),true);
   assert.equal(await frame.executeJavaScript('localStorage.getItem("atrade.reference.origin-check")'),'saved');
   await clickText('加载输入池');await wait('!!document.querySelector(".ant-table-row")','chart link from actual screener rows');
-  await clickText('看图标注');await wait('!!document.querySelector(".chart-date-picker-full input")','stock chart and Chinese date input');
-  console.log('PASS actual chart navigation');
-  const symbol=await frame.executeJavaScript('location.pathname.split("/")[2]');
-  await clickText('加入跟踪池');
-  for(let i=0;i<300;i++){const list=await evaluate(`atradeDesktop.market('market.watchlist.list')`);if(list.ok&&list.data.items?.some(row=>row.symbol===symbol))break;if(i===299)throw Error('Stock was not saved to the project watchlist');await new Promise(resolve=>setTimeout(resolve,100));}
-  console.log('PASS actual watchlist save');
-  await frame.executeJavaScript('document.querySelector(".chart-date-picker-full input").focus();true');
-  await frame.executeJavaScript(`(()=>{const el=document.querySelector('.chart-date-picker-full input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,${JSON.stringify(fixture.end)});el.dispatchEvent(new Event('input',{bubbles:true}));return true})()`);
-  await new Promise(resolve=>setTimeout(resolve,100));await frame.executeJavaScript(`document.querySelector('.chart-date-picker-full input').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',keyCode:13,which:13,bubbles:true}));true`);
-  await clickText('查看人工启动日分时');
-  await wait('document.body.innerText.includes("该日期没有可用分时")','missing LC1 produces an honest message instead of simulated minutes');
-  await frame.executeJavaScript('document.querySelector(".ant-modal-close").click();true');
-  await clickText('个股行情');
-  for(let i=0;i<300&&await evaluate('AT.state.page')!=='G01';i++)await new Promise(resolve=>setTimeout(resolve,100));
-  assert.equal(await evaluate('AT.state.page'),'G01');assert.equal(await evaluate('AT.state.stock'),symbol);
-  console.log('PASS watchlist persistence, date keyboard input, real intraday routing and project stock-detail navigation');
+  await require('./unified-stock-check.cjs')({evaluate,frame,wait,clickText,task,fixture});
   assert.deepEqual(errors.filter(message=>!/^Failed to load resource:.*409/.test(message)),[],'native pages load without runtime errors (the intentional source rejection returns 409)');
   console.log('PASS native original screener: 40 real-file symbols, four steps, 16 strategies, saved strategy preset, UI backtest with actual trades, actual four-point plateau, stable origin and preserved editor.');
  }finally{if(win)win.destroy();}

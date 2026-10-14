@@ -17,6 +17,6 @@ manifest.files=paths.sort((a,b)=>a.localeCompare(b)).map(relative=>{
 });
 manifest.upstreamSourceState=manifest.upstreamSourceState||manifest.sourceState;
 manifest.sourceState='working-tree-with-atrade-fixes';
-manifest.atradePatchRevision='strategy-safety-v1';
+manifest.atradePatchRevision='strategy-safety-grid-workspace-v3';
 fs.writeFileSync(file,JSON.stringify(manifest,null,2)+'\n');
 console.log(`Recorded ${manifest.files.length} files; ${manifest.files.filter(entry=>'upstreamSha256' in entry).length} locally maintained files.`);

@@ -172,7 +172,7 @@
   function applyPreset(page,index) {const value=presetsFor(page)[index]?.settings,group=page==='T03'?'screen':page==='T04'?'trends':'rebounds';if(!value||value.group!==group)return;for(const key of Object.keys(draft[group]))if(Object.hasOwn(value.values||{},key)&&typeof value.values[key]===typeof draft[group][key])draft[group][key]=value.values[key];if(page==='T03'){draft.screen.page=1;for(const key of ['growth','pe','water','emotion'])if(typeof value.scenario?.[key]==='string')scenario[key]=value.scenario[key];}else draft.research.asOf=/^\d{4}-\d{2}-\d{2}$/.test(value.asOf||'')?value.asOf:'';Object.assign(localUI(page),{offset:0,query:typeof value.query==='string'?value.query:'',sort:typeof value.sort==='string'?value.sort:null,order:['asc','desc'].includes(value.order)?value.order:null});feedback=null;refresh(page);}
   function overview(entry) {
     const counts=entry.data?.counts||{},tiles=[['T04','趋势候选',counts.trends],['T07','断板再涨停',counts.rebounds],['T08','涨停候选',counts.limitUp],['T09','跟踪证券',entry.data?.watchlistCount]];
-    const links=[['T02','情绪估值','自动对照同行 PE 与行业历史，直接查看估值位置。'],['T03','跨行业估值筛选','按真实财报与行业整理候选，保留报告期与数据缺口。'],['T04','趋势龙头','比较 20 / 60 日涨幅、均线位置和成交量。'],['T05','板块资金动向','同图比较板块成交额与热度，独立查看主力净流入。'],['T06','异动监管','跟踪公开重点监控与严重异动名单，查看临近期满、延期与来源。'],['T07','断板再涨停','沿历史日线追踪连板结束与再次涨停。'],['T08','连板龙头','跟踪最高板候选、昨日高标与接力晋级，对照趋势变化。'],['T09','统一跟踪池','整理观察、计划和持仓状态，记录后续验证。']];
+    const links=[['T02','情绪估值','自动对照同行 PE 与行业历史，直接查看估值位置。'],['T03','跨行业估值筛选','按真实财报与行业整理候选，保留报告期与数据缺口。'],['T04','趋势龙头','比较 20 / 60 日涨幅、均线位置和成交量。'],['T05','板块资金动向','同图比较板块成交额与热度，独立查看主力净流入。'],['T06','异动监管','跟踪公开重点监控与严重异动名单，查看临近期满、延期与来源。'],['T07','断板再涨停','沿历史日线追踪连板结束与再次涨停。'],['T10','情绪周期','回看四阶段、昨日高标反馈与题材内跟随关系。'],['T08','连板龙头','跟踪最高板候选、昨日高标与接力晋级，对照趋势变化。'],['T09','统一跟踪池','整理观察、计划和持仓状态，记录后续验证。']];
     return head('T01','从真实数据中整理研究线索',button('刷新','refresh'))+dateControls()+messages(entry)+`<div class="analysis-tools-metrics">${tiles.map(([page,label,value])=>`<button type="button" class="panel analysis-tools-metric" data-nav="${page}"><span>${label}</span><strong>${num(value,0)}</strong><small>${entry.data?.asOf?E(entry.data.asOf):entry.busy?'读取中':'等待数据'}</small></button>`).join('')}</div><section class="panel analysis-tools-panel"><div class="analysis-tools-section-heading"><h2>研究入口</h2><span>每个结果保留数据日期与筛选口径</span></div><div class="analysis-tools-directory">${links.map(([page,title,description])=>`<button type="button" data-nav="${page}"><strong>${title}<span>→</span></strong><p>${description}</p></button>`).join('')}</div>${sourceNote(entry.data)}</section>`;
   }
   function computeValuation(snapshot,settings=scenario) {
@@ -465,7 +465,7 @@
     refresh('T05');queueMicrotask(()=>$('[data-analysis-flow-chart]')?.focus({preventScroll:true}));
   });
   function getAIContext() {
-    const page=AT.state.page;if(!pages.has(page))return null;
+    const page=AT.state.page;if(page==='T10')return AT.emotionCycle?.getAIContext()||null;if(!pages.has(page))return null;
     const request=requestFor(page),key=request?`${version}|${page}|${JSON.stringify(request)}`:'',entry=resources.get(key),data=entry?.data;
     const pick=(value,keys)=>Object.fromEntries(keys.filter(key=>value?.[key]!==undefined).map(key=>[key,value[key]]));
     const safeText=value=>String(value??'').replace(/(?:[a-z]:[\\/]|\\\\)[^\s<>"']+/gi,'[本地路径已省略]').slice(0,600);

@@ -8,7 +8,7 @@ runpy.run_path(str(ROOT/'tests/finaltrade-fixture.py'))['create_fixture'](direct
 oracle=Path(sys.argv[1]) if len(sys.argv)>1 else Path('G:/CODE/Final trade/backend')
 manifest=json.loads((ROOT/'vendor/finaltrade/source-manifest.json').read_text(encoding='utf-8'))
 for item in manifest['files']:
- if item['path'].startswith('backend/'):
+ if item['path'].startswith('backend/') and item.get('upstreamSha256',item['sha256']) is not None:
   source=oracle/item['path'].removeprefix('backend/')
   if hashlib.sha256(source.read_bytes()).hexdigest()!=item.get('upstreamSha256',item['sha256']):raise RuntimeError('Oracle source changed: '+item['path'])
 def run(name):

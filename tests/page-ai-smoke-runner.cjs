@@ -47,7 +47,7 @@ async function requestCount(count, label) {
     await wake();
     await new Promise(resolve => setTimeout(resolve, 60));
   }
-  throw new Error('Local provider did not receive '+label);
+  throw new Error('Local provider did not receive '+label+': '+await evaluate('document.querySelector("#page-ai-panel")?.innerText'));
 }
 async function expectAnswer(marker) {
   await until(`Array.from(document.querySelectorAll('.page-ai-answer')).some(el=>el.textContent.includes(${JSON.stringify(marker)}))&&!document.querySelector('#page-ai-question').readOnly`, '回答 '+marker);

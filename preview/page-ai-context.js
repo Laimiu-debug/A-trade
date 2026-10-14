@@ -154,7 +154,7 @@
     if(tables.length>MAX_TABLES)result.limitations.push(`当前有 ${tables.length} 个表格，本次仅附前 ${MAX_TABLES} 个。`);
     for(const table of result.tables)if(table.loadedRows>table.shownRows)result.limitations.push(`${table.title}本页有 ${table.loadedRows} 行，本次附前 ${table.shownRows} 行。`);
     let structured=null;
-    const provider=id==='M01'?api?.marketUI:api?.analysisTools;
+    const provider=['M01','G01'].includes(id)?api?.marketUI:api?.analysisTools;
     if(root===main&&api?.isDesktop&&typeof provider?.getAIContext==='function')try{structured=provider.getAIContext();}catch{result.limitations.push('当前页面结构化数据暂不可读，仅保留可见内容。');}
     if(structured?.pageId===id) {
       const safe=sanitize(structured);result.dataDates=safe.dataDates||[];result.filters={...result.filters,...safe.filters};result.evidence={status:safe.status,...safe.evidence};result.summary=[safe.summary,result.summary].filter(Boolean).join(' ').slice(0,6500);result.limitations.push(...safe.limitations||[]);

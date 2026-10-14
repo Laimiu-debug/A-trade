@@ -140,3 +140,10 @@
 .screener-table-row-dragover {
   background: rgba(15, 139, 111, 0.08) !important;
 }
+.screener-stock-link.ant-btn {
+  height: auto;
+  padding: 0;
+  font: inherit;
+  white-space: normal;
+  text-align: left;
+}

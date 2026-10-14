@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 from service import tdx
 
@@ -49,7 +50,7 @@ class SecuritySearch:
             self.owner._set("securityNameCatalogue", self.cache)
         return catalogue, warnings, False
 
-    def search(self, query, *, kind, offset, limit):
+    def items(self, kind):
         catalogue, warnings, cached = self.catalogue()
         items = {}
         for row in self.owner.db.execute("SELECT * FROM securities"):
@@ -69,6 +70,51 @@ class SecuritySearch:
                 items[symbol] = {"symbol": symbol, "code": symbol[2:], "name": metadata["name"],
                                  "initials": metadata.get("initials", ""), "market": symbol[:2],
                                  "kind": "stock", "latestDate": None}
+
+        return items, warnings, cached
+
+    def resolve(self, question):
+        """Resolve explicit names/codes locally; never call a model or download bars."""
+        if not isinstance(question, str) or not 1 <= len(question) <= 4000:
+            raise ValueError("问题须为 1 至 4000 字")
+        text = question.lower()
+        items, _, _ = self.items("stock")
+        groups, covered = [], []
+        for match in re.finditer(r"(?<![a-z0-9])(?:(sh|sz|bj)\s*)?(\d{6})(?!\d)", text):
+            market, code = match.groups()
+            matches = [row for row in items.values() if row["code"] == code and (not market or row["market"] == market)]
+            groups.append({"mention": match.group(), "items": matches})
+        # Longest names first, so a short name contained in another name cannot
+        # silently select a second security. Identical names remain ambiguous.
+        names = sorted({row["name"].lower() for row in items.values()
+                        if len(row["name"]) >= 2 and row["name"] != "名称待补全"}, key=lambda name: (-len(name), name))
+        for name in names:
+            positions = [m.span() for m in re.finditer(re.escape(name), text)]
+            accepted = [(a, b) for a, b in positions if not any(a >= c and b <= d for c, d in covered)]
+            if not accepted:
+                continue
+            covered.extend(accepted)
+            groups.append({"mention": name, "items": [row for row in items.values() if row["name"].lower() == name]})
+        explicit = {group["items"][0]["symbol"] for group in groups if len(group["items"]) == 1}
+        targets, ambiguous, unknown = {}, [], []
+        for group in groups:
+            selected = [row for row in group["items"] if row["symbol"] in explicit]
+            if len(selected) == 1:
+                group = {**group, "items": selected}
+            if len(group["items"]) == 1:
+                row = group["items"][0]
+                targets[row["symbol"]] = {key: row[key] for key in ("symbol", "code", "name")}
+            elif group["items"]:
+                ambiguous.append({"mention": group["mention"], "items": [{key: row[key] for key in ("symbol", "code", "name")} for row in group["items"][:8]]})
+            else:
+                unknown.append(group["mention"])
+        if len(targets) > 3 or len(ambiguous) > 3 or len(unknown) > 3:
+            raise ValueError("一次最多分析 3 只股票，请缩小提问范围")
+        return {"items": list(targets.values()), "ambiguous": ambiguous, "unknown": unknown,
+                "scope": "本地证券名称与代码目录；不包含简称猜测或历史名称还原"}
+
+    def search(self, query, *, kind, offset, limit):
+        items, warnings, cached = self.items(kind)
 
         def fields(item):
             return [item[key].lower() for key in ("symbol", "code", "name", "initials")]

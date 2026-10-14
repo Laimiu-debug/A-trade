@@ -121,6 +121,12 @@
       "bytes": 20242
     },
     {
+      "path": "backend/app/core/plateau_features.py",
+      "sha256": "a113f74b04dcdf055a5bba2ca019801ef68ccf5e7db18e3c23686c471e14bf0b",
+      "bytes": 1099,
+      "upstreamSha256": null
+    },
+    {
       "path": "backend/app/core/screener.py",
       "sha256": "4f4a125a01c3b6d65381627e8cd3a22397be9c637765b1bd5fe49d855f9fac23",
       "bytes": 14384
@@ -193,7 +199,7 @@
     },
     {
       "path": "backend/app/models.py",
-      "sha256": "790d4cac0469d613c0e8e99eea396b9f3899ca5bcd5596dc330e8f5997632182",
+      "sha256": "8a3912908240c3fdfb429e1d6849e237a25dfbafc7e64133a26345de603d3202",
       "bytes": 64618,
       "upstreamSha256": "6a62fe8eb69c3aab8d3bf85a8a56a35ff82b74ad9bb950520f04766e45baff52"
     },
@@ -234,8 +240,8 @@
     },
     {
       "path": "backend/app/store.py",
-      "sha256": "869f2e8b8b88faddb547680bce91ebafcc2d78e50ee1311d25257b883e0dff20",
-      "bytes": 868878,
+      "sha256": "8d77916fabf46fb0e8ef6dfcda22931939e6ed7b2e1e8e38add17cbc542aca26",
+      "bytes": 869900,
       "upstreamSha256": "6cf84239fcc8ce3fd5bc941682e7eb5a2718d68968b0706170563503924459be"
     },
     {
@@ -385,8 +391,8 @@
     },
     {
       "path": "frontend/src/pages/backtest/BacktestPage.tsx",
-      "sha256": "84324dfc565802bb532a33cdefc6f111d21f1119781ede98f490a58a81430b91",
-      "bytes": 350546,
+      "sha256": "72f342d2044cb1a23c720ee1c121449c2a3142017da559b940420d375aecabdb",
+      "bytes": 349620,
       "upstreamSha256": "39cb14c1a6d8a7302590559f805fc349260e6140ca9a0a38af07b96fce93c39a"
     },
     {
@@ -461,13 +467,14 @@
     },
     {
       "path": "frontend/src/pages/screener/ScreenerPage.css",
-      "sha256": "140dbd0c725b0e92c1cdb5abc308d5c1e77d1454a720167e7eb6d2079bd3608a",
-      "bytes": 3027
+      "sha256": "cf5a0f4a36f092b371d956fa1ae0f086e271b2fe82e7b0bb229e3604d5f02978",
+      "bytes": 3157,
+      "upstreamSha256": "140dbd0c725b0e92c1cdb5abc308d5c1e77d1454a720167e7eb6d2079bd3608a"
     },
     {
       "path": "frontend/src/pages/screener/ScreenerPage.tsx",
-      "sha256": "4e65c536a82eb530a75f3079612c7a415055869c2c1f636d507d5a7add863570",
-      "bytes": 125194,
+      "sha256": "7527da8fdf8539848601d0b85aba074d27c5897389c1fe70b4c75d7e05162048",
+      "bytes": 126102,
       "upstreamSha256": "2c260e653de9f6e2a05f08365d1b5f2b370cefbac8b50919574648a4cf69a25d"
     },
     {
@@ -502,8 +509,9 @@
     },
     {
       "path": "frontend/src/pages/signals/SignalsPage.tsx",
-      "sha256": "d33fd3665cab1c95e2428534f86f7c753ffd22d90cd03b63e6d837025cef72ac",
-      "bytes": 91082
+      "sha256": "6c0b26ba0831c289addf622adcd9fc770922b3756204ca606c2a1b681e6e1638",
+      "bytes": 91601,
+      "upstreamSha256": "d33fd3665cab1c95e2428534f86f7c753ffd22d90cd03b63e6d837025cef72ac"
     },
     {
       "path": "frontend/src/pages/strategy/compareView.ts",
@@ -522,8 +530,9 @@
     },
     {
       "path": "frontend/src/pages/strategy/StrategyCenterPage.tsx",
-      "sha256": "b42c35900653df295d99cab2da45777082d65637d56d311277c0585b40db38a3",
-      "bytes": 43767
+      "sha256": "3251b42601a60e1acbea2bc41f8ff3fc9e0c71b7619f9112f15aeedd4d6ec118",
+      "bytes": 44186,
+      "upstreamSha256": "b42c35900653df295d99cab2da45777082d65637d56d311277c0585b40db38a3"
     },
     {
       "path": "frontend/src/pages/trade/TradePage.tsx",
@@ -621,9 +630,21 @@
       "bytes": 4017
     },
     {
+      "path": "frontend/src/shared/components/DataQualityAlert.tsx",
+      "sha256": "49b4cc01ae3510ec6c424a7d9f0342f5e6f33a10962c306ad5e97b1c2061b613",
+      "bytes": 505,
+      "upstreamSha256": null
+    },
+    {
       "path": "frontend/src/shared/components/DismissibleAlert.tsx",
       "sha256": "298ca2816a5ca6df02b34f51076e2f9bf9ee5313e0b7220a68eca2b20fbc8930",
       "bytes": 2627
+    },
+    {
+      "path": "frontend/src/shared/components/EditableDetailTable.tsx",
+      "sha256": "232adc087523d15ac2e44056d106c227afd287d37224f8a259c301b56bdcb411",
+      "bytes": 8899,
+      "upstreamSha256": null
     },
     {
       "path": "frontend/src/shared/components/PageHeader.tsx",
@@ -671,9 +692,21 @@
       "bytes": 472
     },
     {
+      "path": "frontend/src/shared/utils/dataQuality.ts",
+      "sha256": "7d853004d242a9e0998f77200637f4df3d717f5e9fbf81fcc3e5aa6fc4f58f53",
+      "bytes": 4983,
+      "upstreamSha256": null
+    },
+    {
       "path": "frontend/src/shared/utils/format.ts",
       "sha256": "0db1c3a7435152f202248c498a18a20a23dfa1ee2540e9cdca330581455e5cd8",
       "bytes": 563
+    },
+    {
+      "path": "frontend/src/shared/utils/plateauGrid.ts",
+      "sha256": "0b6322c9956b67f58738e2519b0cb06fed0fbf0cdf402a005586189f9efd4064",
+      "bytes": 1704,
+      "upstreamSha256": null
     },
     {
       "path": "frontend/src/shared/utils/plateauSafety.ts",
@@ -708,8 +741,15 @@
     },
     {
       "path": "frontend/src/shared/utils/strategyParams.ts",
-      "sha256": "c6c832d58ea40c74a012a814af1364eb2064a096cd2e7c26a8a83f2cef0ee854",
-      "bytes": 14366
+      "sha256": "c1ff6414fdfe2da3dfb32cd7dd80f44b6de0b79257387288e319c6623734f5f4",
+      "bytes": 14829,
+      "upstreamSha256": "c6c832d58ea40c74a012a814af1364eb2064a096cd2e7c26a8a83f2cef0ee854"
+    },
+    {
+      "path": "frontend/src/shared/utils/tablePreferences.ts",
+      "sha256": "bb264496ab8c6d0fb5868ec6c87bc9b7302981d49834c3344e3012e492055c8d",
+      "bytes": 1833,
+      "upstreamSha256": null
     },
     {
       "path": "frontend/src/shared/utils/thsVolumeSignal.ts",
@@ -777,9 +817,21 @@
       "bytes": 24657
     },
     {
+      "path": "frontend/src/test/dataQuality.test.ts",
+      "sha256": "d0dda02f09b6335449002b724d794a768c1d06d9e8e81873a0fd80b5193a4a99",
+      "bytes": 1412,
+      "upstreamSha256": null
+    },
+    {
       "path": "frontend/src/test/dismissibleAlert.test.tsx",
       "sha256": "f37c5dcb479cf5a12dd634b4de4ca08db50dbba456e9f02b0f4d51948263d9b5",
       "bytes": 1787
+    },
+    {
+      "path": "frontend/src/test/plateauGrid.test.ts",
+      "sha256": "af351967ea2c8383d890f755b9b2689ca105a3d0055651a199433e32f37f0f7e",
+      "bytes": 1442,
+      "upstreamSha256": null
     },
     {
       "path": "frontend/src/test/plateauSafety.test.ts",
@@ -839,8 +891,15 @@
     },
     {
       "path": "frontend/src/test/strategyParams.test.ts",
-      "sha256": "ec4150f6cd5842448874bc96b6b5776049550b9dcc3e6ed89a5f35dda8f34570",
-      "bytes": 619
+      "sha256": "dcb0b0e19dc385095760e26bf11a456bff48722c5795e511c01bb58c159e726a",
+      "bytes": 1187,
+      "upstreamSha256": "ec4150f6cd5842448874bc96b6b5776049550b9dcc3e6ed89a5f35dda8f34570"
+    },
+    {
+      "path": "frontend/src/test/tablePreferences.test.ts",
+      "sha256": "7fdc72880938f8da59a7e04ccf3d077b3d6a494edde7f918f8bfb522040ba91b",
+      "bytes": 2174,
+      "upstreamSha256": null
     },
     {
       "path": "frontend/src/test/tradePage.test.tsx",
@@ -855,5 +914,5 @@
     }
   ],
   "upstreamSourceState": "working-tree",
-  "atradePatchRevision": "strategy-safety-v1"
+  "atradePatchRevision": "strategy-safety-grid-workspace-v3"
 }

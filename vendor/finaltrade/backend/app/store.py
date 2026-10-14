@@ -12107,6 +12107,11 @@ class InMemoryStore:
 
         sampling_mode = payload.sampling_mode
         sample_points = self._resolve_plateau_sample_points(payload)
+        if sampling_mode == "grid":
+            if grid_total_combinations > 2000:
+                raise ValueError(f"完整网格共 {grid_total_combinations} 点，超过单次2000点；请缩小参数范围或使用区间采样")
+            # A grid is the complete Cartesian product. Never evaluate a lexicographic prefix.
+            sample_points = grid_total_combinations
 
         params_to_evaluate: list[BacktestPlateauParams] = []
         total_combinations = int(grid_total_combinations)
@@ -12245,6 +12250,7 @@ class InMemoryStore:
                     run_payload,
                     control_callback=control_callback,
                     prebuilt_universe=universe,
+                    feature_cache=(cached_row, cached_snapshot),
                 )
                 if task_id and detail_key:
                     self._persist_backtest_plateau_point_detail(
@@ -12363,12 +12369,17 @@ class InMemoryStore:
         indexed_params = list(enumerate(params_to_evaluate))
         indexed_params.sort(key=lambda item: (item[1].window_days, item[1].max_symbols))
 
+        from .core.plateau_features import feature_readers
+
+        cached_row, cached_snapshot = feature_readers(
+            self._build_row_from_candles,
+            self._calc_wyckoff_snapshot,
+            lambda: str((self._get_backtest_runtime_event_judgment_binding() or {}).get("profile_hash", "")),
+        )
         _plateau_engine = BacktestEngine(
             get_candles=self._ensure_candles,
-            build_row=self._build_row_from_candles,
-            calc_snapshot=lambda row, window_days, as_of_date: self._calc_wyckoff_snapshot(
-                row, window_days=window_days, as_of_date=as_of_date,
-            ),
+            build_row=cached_row,
+            calc_snapshot=cached_snapshot,
             resolve_symbol_name=self._resolve_symbol_name,
             strategy_signal_filter=lambda strategy_id, row, snapshot, params: self._strategy_registry.generate_signals(
                 strategy_id=strategy_id,
@@ -13386,6 +13397,7 @@ class InMemoryStore:
         progress_callback: Callable[[str, int, int, str], None] | None = None,
         control_callback: Callable[[], None] | None = None,
         prebuilt_universe: tuple[list[str], dict[str, set[str]] | None, list[str]] | None = None,
+        feature_cache: tuple[Callable, Callable] | None = None,
     ) -> BacktestResponse:
         payload, active_event_profile, active_event_profile_id, active_event_profile_hash = (
             self._bind_backtest_event_judgment_profile(payload)
@@ -13400,6 +13412,7 @@ class InMemoryStore:
                 progress_callback=progress_callback,
                 control_callback=control_callback,
                 prebuilt_universe=prebuilt_universe,
+                feature_cache=feature_cache,
             )
 
     def _run_backtest_bound(
@@ -13409,6 +13422,7 @@ class InMemoryStore:
         progress_callback: Callable[[str, int, int, str], None] | None = None,
         control_callback: Callable[[], None] | None = None,
         prebuilt_universe: tuple[list[str], dict[str, set[str]] | None, list[str]] | None = None,
+        feature_cache: tuple[Callable, Callable] | None = None,
     ) -> BacktestResponse:
         strategy_meta, normalized_strategy_params, strategy_params_hash = self._resolve_strategy_runtime(
             strategy_id=payload.strategy_id,
@@ -13784,8 +13798,8 @@ class InMemoryStore:
 
         engine = BacktestEngine(
             get_candles=self._ensure_candles,
-            build_row=self._build_row_from_candles,
-            calc_snapshot=lambda row, window_days, as_of_date: self._calc_wyckoff_snapshot(
+            build_row=feature_cache[0] if feature_cache else self._build_row_from_candles,
+            calc_snapshot=feature_cache[1] if feature_cache else lambda row, window_days, as_of_date: self._calc_wyckoff_snapshot(
                 row,
                 window_days=window_days,
                 as_of_date=as_of_date,
@@ -15094,7 +15108,9 @@ class InMemoryStore:
         grid_total = 1
         for size in axis_sizes:
             grid_total *= max(1, int(size))
-        return max(1, min(int(grid_total), sample_points))
+        if grid_total > 2000:
+            raise ValueError(f"完整网格共 {grid_total} 点，超过单次2000点；请缩小参数范围或使用区间采样")
+        return max(1, int(grid_total))
 
     def _build_backtest_plateau_task_state_payload(self) -> dict[str, object]:
         with self._backtest_plateau_task_lock:

@@ -31,6 +31,7 @@ DEFAULTS = {
               "breakoutDays": 20, "minAmount": 0, "limit": 200},
     "rebounds": {"minBoards": 2, "minGap": 1, "maxGap": 10, "lookbackDays": 60, "limit": 200},
     "ladder": {"historyDays": 60, "board": "all", "minHeight": 2, "excludeST": True},
+    "sentiment": {"historyDays": 120, "excludeST": True, "themeId": ""},
     "overview": {},
 }
 
@@ -80,6 +81,8 @@ def parameters(tool, payload):
         raise ValueError("异动类型不支持")
     if "board" in result and (not isinstance(result["board"], str) or result["board"] not in {"all", "main", "chinext", "star", "bse"}):
         raise ValueError("交易板块不支持")
+    if "themeId" in result and (not isinstance(result["themeId"], str) or len(result["themeId"]) > 80):
+        raise ValueError("题材标识无效")
     return result, validate_as_of(payload.get("asOf"))
 
 
@@ -264,6 +267,28 @@ class AnalysisService:
         params, as_of = parameters(tool, payload)
         records = 80 + max(60, params.get("lookbackDays", 0), params.get("historyDays", 0))
         universe = self.owner.research.universe(as_of=as_of, records=records, refresh=payload.get("refresh", False))
+        if tool == "sentiment":
+            from service.emotion_cycle import build_emotion, themes_dispatch, VERSION as EMOTION_VERSION
+            themes = themes_dispatch(self.owner, "market.emotion.themes.list", {})["items"]
+            result = build_emotion(self.owner.research, universe, params, themes)
+            warnings = [x for x in LIMITATIONS if "120 根" not in x]
+            warnings += ["四阶段名称参考公开讲解；数值阈值为本产品可复核的观察规则，并非92科比原版公式或买卖信号。",
+                         "最高连板只作为空间龙头候选；日线不能确认人气、封单、炸板回封或盘中带动关系。",
+                         "题材归属使用具备生效日期的手工确认/当日板块快照，缺少归属时不自动认定跟风、补涨和新题材切换。"]
+            if universe.get("failures"):
+                warnings.insert(0, f"{len(universe['failures'])} 个文件读取失败，覆盖和阶段判断可能受限")
+            if universe.get("cacheWarning"):
+                warnings.insert(0, universe["cacheWarning"])
+            if (result.get("current") or {}).get("scope") == "sample":
+                warnings.insert(0, "当前不足1000只有效股票，仅展示所选目录的样本周期，不能代表全市场")
+            if as_of and universe["asOf"] and as_of != universe["asOf"]:
+                warnings.insert(0, f"请求日期 {as_of} 的最近实际交易日为 {universe['asOf']}")
+            self.owner.research.assert_current(universe)
+            return {**result, "asOf": universe["asOf"], "requestedAsOf": as_of,
+                    "computedAt": universe["computedAt"], "cached": universe["cached"], "source": universe["source"],
+                    "provider": "tdx_local_emotion", "version": EMOTION_VERSION, "parameters": params,
+                    "sourceRevision": universe.get("sourceRevision", ""), "dataRevision": universe.get("dataRevision", ""),
+                    "stale": bool(universe.get("cacheWarning")), "warnings": warnings}
         key = (universe["source"], as_of, universe.get("sourceRevision", ""), universe.get("dataRevision", ""), universe["generation"], records)
         if key in self._features:
             features = self._features.pop(key)

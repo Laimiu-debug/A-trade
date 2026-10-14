@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import './SignalsPage.css'
+import { DataQualityAlert } from '@/shared/components/DataQualityAlert'
 import dayjs, { type Dayjs } from 'dayjs'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
@@ -1538,7 +1539,7 @@ export function SignalsPage() {
   const signalNotes = Array.isArray(signalQuery.data?.notes) ? signalQuery.data.notes : []
 
   return (
-    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+    <Space data-research="page" data-page="signals" orientation="vertical" size={16} style={{ width: '100%' }}>
       <PageHeader
         title={signalPageCopy.title}
         subtitle={signalPageCopy.subtitle}
@@ -1555,39 +1556,10 @@ export function SignalsPage() {
       ) : null}
 
       {signalQuery.data?.degraded ? (
-        <Alert
-          type="warning"
-          showIcon
-          title="当前结果处于降级模式"
-          description={signalQuery.data.degraded_reason ?? '数据源部分不可用，已使用降级结果。'}
-        />
+        <DataQualityAlert reason={signalQuery.data.degraded_reason} />
       ) : null}
 
-      {signalPageCopy.detailTitle ? (
-        <Alert
-          type="info"
-          showIcon
-          title={signalPageCopy.detailTitle}
-          description={signalPageCopy.detailDescription}
-        />
-      ) : null}
-
-      {signalNotes.length > 0 ? (
-        <Alert
-          type="info"
-          showIcon
-          title="策略能力提示"
-          description={(
-            <ul className="signals-notes-list">
-              {signalNotes.map((note, idx) => (
-                <li key={`${idx}-${note}`}>{note}</li>
-              ))}
-            </ul>
-          )}
-        />
-      ) : null}
-
-      {mode === 'trend_pool' ? (
+      <div data-research="signal-source">{mode === 'trend_pool' ? (
         <Alert
           type={runId ? 'info' : 'warning'}
           showIcon
@@ -1641,104 +1613,9 @@ export function SignalsPage() {
           title="Run追踪: 全市场模式"
           description="当前为 full_market，不依赖 run_id。切回趋势池模式后需绑定 run_id。"
         />
-      )}
+      )}</div>
 
-      <Card className="glass-card" variant="borderless">
-        <Space orientation="vertical" size={10} style={{ width: '100%' }}>
-          <Row justify="space-between" align="middle">
-            <Col>
-              <Typography.Text strong>信号说明（ABC / 威科夫事件 / 判定逻辑）</Typography.Text>
-            </Col>
-            <Col>
-              <Button type="link" onClick={() => setGuideExpanded((previous) => !previous)}>
-                {guideExpanded ? '收起说明' : '展开说明'}
-              </Button>
-            </Col>
-          </Row>
-
-          {!guideExpanded ? (
-            <Typography.Text type="secondary">
-              点击“展开说明”查看 ABC 主信号定义、12 个威科夫事件释义、威科夫量价思想与标准周期示意图。
-            </Typography.Text>
-          ) : (
-            <>
-              <Typography.Text type="secondary">
-                这里介绍的是威科夫量价事件的市场思想，用于理解主力行为与阶段转换，不是软件计算流程说明。
-              </Typography.Text>
-
-              <Row gutter={[12, 12]}>
-                {signalMeaningGuide.map((item) => (
-                  <Col key={item.code} xs={24} md={8}>
-                    <Card size="small">
-                      <Space orientation="vertical" size={6} style={{ width: '100%' }}>
-                        <Space>
-                          <Typography.Text strong>主信号</Typography.Text>
-                          <Tag color={signalColor[item.code]}>{item.code}</Tag>
-                        </Space>
-                        <Typography.Text type="secondary">{item.description}</Typography.Text>
-                      </Space>
-                    </Card>
-                  </Col>
-                ))}
-              </Row>
-
-              <Card size="small">
-                <Space orientation="vertical" size={8} style={{ width: '100%' }}>
-                  <Typography.Text strong>标准威科夫事件周期示意图</Typography.Text>
-                  <img
-                    src={wyckoffCycleDiagram}
-                    alt="标准威科夫周期示意图：吸筹、拉升、派发、下跌及关键事件"
-                    className="signals-wyckoff-diagram"
-                  />
-                  <Typography.Text type="secondary">
-                    图示为教学模板。真实市场中事件可能重叠、变形或跳步，需结合量价强弱与市场环境综合判断。
-                  </Typography.Text>
-                </Space>
-              </Card>
-
-              <Table
-                size="small"
-                rowKey="event"
-                pagination={false}
-                dataSource={wyckoffEventGuide}
-                columns={[
-                  {
-                    title: '事件',
-                    dataIndex: 'event',
-                    width: 90,
-                    render: (value: string) => <Tag color="blue">{value}</Tag>,
-                  },
-                  { title: '中文含义', dataIndex: 'name', width: 130 },
-                  { title: '说明', dataIndex: 'description' },
-                ]}
-              />
-
-              <Card size="small">
-                <Space orientation="vertical" size={6} style={{ width: '100%' }}>
-                  <Typography.Text strong>派发前段补充事件（教学扩展）</Typography.Text>
-                  {distributionIntroGuide.map((item) => (
-                    <Typography.Text key={item.event} type="secondary">
-                      <Tag color="gold">{item.event}</Tag>
-                      {item.description}
-                    </Typography.Text>
-                  ))}
-                </Space>
-              </Card>
-
-              <Space orientation="vertical" size={4} style={{ width: '100%' }}>
-                <Typography.Text strong>威科夫量价思想与事件逻辑</Typography.Text>
-                {wyckoffLogicGuide.map((item, index) => (
-                  <Typography.Text key={item} type="secondary">
-                    {index + 1}. {item}
-                  </Typography.Text>
-                ))}
-              </Space>
-            </>
-          )}
-        </Space>
-      </Card>
-
-      <Row gutter={[12, 12]}>
+      <Row data-research="stat-grid" gutter={[12, 12]}>
         <Col xs={24} sm={12} md={8} lg={4}>
           <Card className="glass-card" variant="borderless">
             <Statistic title="有效信号" value={kpi.valid} />
@@ -1771,254 +1648,128 @@ export function SignalsPage() {
         </Col>
       </Row>
 
-      <Card className="glass-card" variant="borderless">
-        <Space orientation="vertical" size={12} style={{ width: '100%' }}>
-          <Row gutter={[12, 12]}>
-            <Col xs={24} md={12} lg={8}>
-              <Typography.Text type="secondary">扫描模式</Typography.Text>
-              <div>
-                <Radio.Group
-                  value={mode}
-                  onChange={(event) => setMode(event.target.value as SignalScanMode)}
-                  optionType="button"
-                  options={[
-                    { label: '趋势池后置', value: 'trend_pool' },
-                    { label: '全市场扫描', value: 'full_market' },
-                  ]}
-                />
-              </div>
-            </Col>
-            <Col xs={24} md={12} lg={4}>
-              <Typography.Text type="secondary">窗口(天)</Typography.Text>
-              <InputNumber
-                value={windowDays}
-                min={20}
-                max={240}
-                style={{ width: '100%' }}
-                onChange={(value) => {
-                  if (typeof value === 'number' && Number.isFinite(value)) {
-                    setWindowDays(Math.round(value))
-                  }
-                }}
-              />
-            </Col>
-            <Col xs={24} md={12} lg={4}>
-              <Typography.Text type="secondary">最低评分</Typography.Text>
-              <InputNumber
-                value={minScore}
-                min={0}
-                max={100}
-                style={{ width: '100%' }}
-                onChange={(value) => {
-                  if (typeof value === 'number' && Number.isFinite(value)) {
-                    setMinScore(value)
-                  }
-                }}
-              />
-            </Col>
-            <Col xs={24} md={12} lg={4}>
-              <Typography.Text type="secondary">最少事件数</Typography.Text>
-              <InputNumber
-                value={minEventCount}
-                min={1}
-                max={12}
-                style={{ width: '100%' }}
-                onChange={(value) => {
-                  if (typeof value === 'number' && Number.isFinite(value)) {
-                    setMinEventCount(Math.round(value))
-                  }
-                }}
-              />
-            </Col>
-            <Col xs={24} md={12} lg={4}>
-              <Typography.Text type="secondary">条件</Typography.Text>
-              <div className="signals-filter-gap">
-                <Checkbox
-                  checked={requireSequence}
-                  onChange={(event) => setRequireSequence(event.target.checked)}
-                >
-                  要求序列完整
-                </Checkbox>
-              </div>
-            </Col>
-          </Row>
-
-          <Row gutter={[12, 12]}>
-            <Col xs={24} md={12} lg={8}>
-              <Typography.Text type="secondary">策略</Typography.Text>
-              <Select
-                loading={strategyCatalogQuery.isLoading}
-                value={strategyId}
-                onChange={(value) => {
-                  const next = String(value) as StrategyId
-                  setStrategyId(next)
-                  setStrategyParams(getSharedStrategyParams(next))
-                }}
-                options={(strategyItems.length > 0
-                  ? strategyItems
-                  : [{ strategy_id: 'wyckoff_trend_v1', name: '维科夫趋势V1', version: '1.0.0', enabled: true }])
-                  .map((item) => ({
-                    value: item.strategy_id,
-                    label: `${item.name} (${item.version})${item.enabled === false ? ' - 已禁用' : ''}`,
-                    disabled: item.enabled === false,
-                  }))}
-              />
-            </Col>
-            <Col xs={24} md={12} lg={16}>
-              <DismissibleAlert
-                dismissKey="signals.strategy-info"
-                type="info"
-                showIcon
-                title={selectedStrategy ? `策略：${selectedStrategy.name}` : '策略信息'}
-                description={
-                  selectedStrategy
-                    ? `id=${selectedStrategy.strategy_id}, version=${selectedStrategy.version}, cap=matrix:${strategySupportsMatrix ? 1 : 0}|age:${strategySupportsSignalAgeFilter ? 1 : 0}|delay:${strategySupportsEntryDelay ? 1 : 0}`
-                    : '未加载到策略目录，先按默认策略继续。'
-                }
-              />
-            </Col>
-          </Row>
-
-          {!strategySupportsSignalAgeFilter ? (
-            <Alert
-              type="warning"
-              showIcon
-              title="当前策略不支持信号年龄过滤"
-              description="已自动忽略 signal_age_min / signal_age_max，并固定为默认值。"
+      <Card data-research="signal-config" className="glass-card" variant="borderless">
+        <Space orientation="vertical" size={12} style={{ width: '100%' }}><Row data-research="fields"><Col xs={24} md={12} lg={8}>
+          <Typography.Text type="secondary">扫描模式</Typography.Text>
+          <div>
+            <Radio.Group
+              value={mode}
+              onChange={(event) => setMode(event.target.value as SignalScanMode)}
+              optionType="button"
+              options={[
+                { label: '趋势池后置', value: 'trend_pool' },
+                { label: '全市场扫描', value: 'full_market' },
+              ]}
             />
-          ) : null}
-          <DismissibleAlert
-            dismissKey="signals.strategy-center-tip"
-            type="info"
-            showIcon
-            title="策略参数与预设已迁移到策略中心"
-            description={
-              <Space wrap size={8}>
-                <Typography.Text type="secondary">当前页面仅保留策略选择，参数统一在策略中心维护。</Typography.Text>
-                <Button type="link" size="small" onClick={() => navigate('/strategy')}>
-                  前往策略中心
-                </Button>
-              </Space>
-            }
-          />
-
-          {mode === 'trend_pool' ? (
-            <Row gutter={[12, 12]}>
-              <Col xs={24} lg={12}>
-                <Typography.Text type="secondary">趋势池来源</Typography.Text>
-                <div>
-                  <Radio.Group
-                    value={trendStep}
-                    onChange={(event) => setTrendStep(event.target.value as TrendPoolStep)}
-                    optionType="button"
-                    options={[
-                      { label: '自动(step4>step3)', value: 'auto' },
-                      { label: '仅Step4', value: 'step4' },
-                      { label: '仅Step3', value: 'step3' },
-                      { label: '仅Step2', value: 'step2' },
-                      { label: '仅Step1', value: 'step1' },
-                    ]}
-                  />
-                </div>
-              </Col>
-              <Col xs={24} lg={12}>
-                <Typography.Text type="secondary">
-                  板块过滤：
-                  {boardFilters.length > 0
-                    ? boardFilters.map((item) => BOARD_FILTER_LABELS[item]).join('、')
-                    : '未设置（等同全板块）'}
-                </Typography.Text>
-                <div className="signals-filter-gap">
-                  <Checkbox.Group
-                    value={boardFilters}
-                    onChange={(values) => setBoardFilters(sanitizeBoardFilters(values))}
-                    options={ALLOWED_BOARD_FILTERS.map((item) => ({
-                      label: BOARD_FILTER_LABELS[item],
-                      value: item,
-                    }))}
-                  />
-                </div>
-              </Col>
-            </Row>
-          ) : null}
-
-          {mode === 'full_market' ? (
-            <Row gutter={[12, 12]}>
-              <Col xs={24} lg={12}>
-                <Typography.Text type="secondary">
-                  市场过滤：
-                  {marketFilters.length > 0
-                    ? marketFilters.map((item) => MARKET_FILTER_LABELS[item]).join('、')
-                    : '未设置（等同全市场）'}
-                </Typography.Text>
-                <div className="signals-filter-gap">
-                  <Checkbox.Group
-                    value={marketFilters}
-                    onChange={(values) => setMarketFilters(sanitizeMarketFilters(values))}
-                    options={ALLOWED_MARKET_FILTERS.map((item) => ({
-                      label: MARKET_FILTER_LABELS[item],
-                      value: item,
-                    }))}
-                  />
-                </div>
-              </Col>
-              <Col xs={24} lg={12}>
-                <Typography.Text type="secondary">
-                  板块过滤：
-                  {boardFilters.length > 0
-                    ? boardFilters.map((item) => BOARD_FILTER_LABELS[item]).join('、')
-                    : '未设置（等同全板块）'}
-                </Typography.Text>
-                <div className="signals-filter-gap">
-                  <Checkbox.Group
-                    value={boardFilters}
-                    onChange={(values) => setBoardFilters(sanitizeBoardFilters(values))}
-                    options={ALLOWED_BOARD_FILTERS.map((item) => ({
-                      label: BOARD_FILTER_LABELS[item],
-                      value: item,
-                    }))}
-                  />
-                </div>
-              </Col>
-            </Row>
-          ) : null}
-
-          <Row gutter={[12, 12]}>
-            <Col xs={24} md={12} lg={6}>
-              <Typography.Text type="secondary">快照日期（留空=最新）</Typography.Text>
-              <DatePicker
-                key={`signals-asof-${asOfDate || 'empty'}`}
-                allowClear
-                defaultValue={asOfDatePickerValue ?? undefined}
-                format="YYYY-MM-DD"
-                style={{ width: '100%' }}
-                onChange={(value) => {
-                  const nextDate = value ? value.format('YYYY-MM-DD') : ''
-                  if (!asOfDateTouched) {
-                    setAsOfDateTouched(true)
-                  }
-                  setAsOfDate((prev) => (prev === nextDate ? prev : nextDate))
-                }}
-              />
-            </Col>
-            <Col xs={24} md={12} lg={4}>
-              <Typography.Text type="secondary">信号年龄最小(天)</Typography.Text>
-              <InputNumber
-                min={0}
-                max={240}
-                value={signalAgeMin}
-                disabled={!strategySupportsSignalAgeFilter}
-                style={{ width: '100%' }}
-                onChange={(value) => {
-                  if (!strategySupportsSignalAgeFilter) return
-                  const nextMin = Number.isFinite(Number(value)) ? Math.max(0, Math.min(240, Math.round(Number(value)))) : 0
-                  setSignalAgeMin(nextMin)
-                  if (signalAgeMax !== null && signalAgeMax < nextMin) {
-                    setSignalAgeMax(nextMin)
-                  }
-                }}
-              />
-            </Col>
+          </div>
+        </Col>
+          <Col xs={24} md={12} lg={4}>
+            <Typography.Text type="secondary">窗口(天)</Typography.Text>
+            <InputNumber
+              value={windowDays}
+              min={20}
+              max={240}
+              style={{ width: '100%' }}
+              onChange={(value) => {
+                if (typeof value === 'number' && Number.isFinite(value)) {
+                  setWindowDays(Math.round(value))
+                }
+              }}
+            />
+          </Col>
+          <Col xs={24} md={12} lg={4}>
+            <Typography.Text type="secondary">最低评分</Typography.Text>
+            <InputNumber
+              value={minScore}
+              min={0}
+              max={100}
+              style={{ width: '100%' }}
+              onChange={(value) => {
+                if (typeof value === 'number' && Number.isFinite(value)) {
+                  setMinScore(value)
+                }
+              }}
+            />
+          </Col>
+          <Col xs={24} md={12} lg={4}>
+            <Typography.Text type="secondary">最少事件数</Typography.Text>
+            <InputNumber
+              value={minEventCount}
+              min={1}
+              max={12}
+              style={{ width: '100%' }}
+              onChange={(value) => {
+                if (typeof value === 'number' && Number.isFinite(value)) {
+                  setMinEventCount(Math.round(value))
+                }
+              }}
+            />
+          </Col>
+          <Col xs={24} md={12} lg={4}>
+            <Typography.Text type="secondary">条件</Typography.Text>
+            <div className="signals-filter-gap">
+              <Checkbox
+                checked={requireSequence}
+                onChange={(event) => setRequireSequence(event.target.checked)}
+              >
+                要求序列完整
+              </Checkbox>
+            </div>
+          </Col>
+          <Col xs={24} md={12} lg={8}>
+            <Typography.Text type="secondary">策略</Typography.Text>
+            <Select
+              loading={strategyCatalogQuery.isLoading}
+              value={strategyId}
+              onChange={(value) => {
+                const next = String(value) as StrategyId
+                setStrategyId(next)
+                setStrategyParams(getSharedStrategyParams(next))
+              }}
+              options={(strategyItems.length > 0
+                ? strategyItems
+                : [{ strategy_id: 'wyckoff_trend_v1', name: '维科夫趋势V1', version: '1.0.0', enabled: true }])
+                .map((item) => ({
+                  value: item.strategy_id,
+                  label: `${item.name} (${item.version})${item.enabled === false ? ' - 已禁用' : ''}`,
+                  disabled: item.enabled === false,
+                }))}
+            />
+          </Col>
+          <Col xs={24} md={12} lg={6}>
+            <Typography.Text type="secondary">快照日期（留空=最新）</Typography.Text>
+            <DatePicker
+              key={`signals-asof-${asOfDate || 'empty'}`}
+              allowClear
+              defaultValue={asOfDatePickerValue ?? undefined}
+              format="YYYY-MM-DD"
+              style={{ width: '100%' }}
+              onChange={(value) => {
+                const nextDate = value ? value.format('YYYY-MM-DD') : ''
+                if (!asOfDateTouched) {
+                  setAsOfDateTouched(true)
+                }
+                setAsOfDate((prev) => (prev === nextDate ? prev : nextDate))
+              }}
+            />
+          </Col></Row><details className="research-fold"><summary>股票池、市场与高级过滤</summary><div className="research-fold-body"><Row data-research="fields"><Col xs={24} md={12} lg={4}>
+            <Typography.Text type="secondary">信号年龄最小(天)</Typography.Text>
+            <InputNumber
+              min={0}
+              max={240}
+              value={signalAgeMin}
+              disabled={!strategySupportsSignalAgeFilter}
+              style={{ width: '100%' }}
+              onChange={(value) => {
+                if (!strategySupportsSignalAgeFilter) return
+                const nextMin = Number.isFinite(Number(value)) ? Math.max(0, Math.min(240, Math.round(Number(value)))) : 0
+                setSignalAgeMin(nextMin)
+                if (signalAgeMax !== null && signalAgeMax < nextMin) {
+                  setSignalAgeMax(nextMin)
+                }
+              }}
+            />
+          </Col>
             <Col xs={24} md={12} lg={4}>
               <Typography.Text type="secondary">信号年龄最大(天)</Typography.Text>
               <InputNumber
@@ -2074,10 +1825,119 @@ export function SignalsPage() {
                   setWeeklyContextMin(next)
                 }}
               />
+            </Col></Row>{mode === 'trend_pool' ? (
+              <Row data-research="fields" gutter={[12, 12]}>
+                <Col xs={24} lg={12}>
+                  <Typography.Text type="secondary">趋势池来源</Typography.Text>
+                  <div>
+                    <Radio.Group
+                      value={trendStep}
+                      onChange={(event) => setTrendStep(event.target.value as TrendPoolStep)}
+                      optionType="button"
+                      options={[
+                        { label: '自动(step4>step3)', value: 'auto' },
+                        { label: '仅Step4', value: 'step4' },
+                        { label: '仅Step3', value: 'step3' },
+                        { label: '仅Step2', value: 'step2' },
+                        { label: '仅Step1', value: 'step1' },
+                      ]}
+                    />
+                  </div>
+                </Col>
+                <Col xs={24} lg={12}>
+                  <Typography.Text type="secondary">
+                    板块过滤：
+                    {boardFilters.length > 0
+                      ? boardFilters.map((item) => BOARD_FILTER_LABELS[item]).join('、')
+                      : '未设置（等同全板块）'}
+                  </Typography.Text>
+                  <div className="signals-filter-gap">
+                    <Checkbox.Group
+                      value={boardFilters}
+                      onChange={(values) => setBoardFilters(sanitizeBoardFilters(values))}
+                      options={ALLOWED_BOARD_FILTERS.map((item) => ({
+                        label: BOARD_FILTER_LABELS[item],
+                        value: item,
+                      }))}
+                    />
+                  </div>
+                </Col>
+              </Row>
+            ) : null}
+            {mode === 'full_market' ? (
+              <Row data-research="fields" gutter={[12, 12]}>
+                <Col xs={24} lg={12}>
+                  <Typography.Text type="secondary">
+                    市场过滤：
+                    {marketFilters.length > 0
+                      ? marketFilters.map((item) => MARKET_FILTER_LABELS[item]).join('、')
+                      : '未设置（等同全市场）'}
+                  </Typography.Text>
+                  <div className="signals-filter-gap">
+                    <Checkbox.Group
+                      value={marketFilters}
+                      onChange={(values) => setMarketFilters(sanitizeMarketFilters(values))}
+                      options={ALLOWED_MARKET_FILTERS.map((item) => ({
+                        label: MARKET_FILTER_LABELS[item],
+                        value: item,
+                      }))}
+                    />
+                  </div>
+                </Col>
+                <Col xs={24} lg={12}>
+                  <Typography.Text type="secondary">
+                    板块过滤：
+                    {boardFilters.length > 0
+                      ? boardFilters.map((item) => BOARD_FILTER_LABELS[item]).join('、')
+                      : '未设置（等同全板块）'}
+                  </Typography.Text>
+                  <div className="signals-filter-gap">
+                    <Checkbox.Group
+                      value={boardFilters}
+                      onChange={(values) => setBoardFilters(sanitizeBoardFilters(values))}
+                      options={ALLOWED_BOARD_FILTERS.map((item) => ({
+                        label: BOARD_FILTER_LABELS[item],
+                        value: item,
+                      }))}
+                    />
+                  </div>
+                </Col>
+              </Row>
+            ) : null}<details className="research-fold"><summary>策略能力说明</summary><div className="research-fold-body"><Row data-research="fields"><Col xs={24} md={12} lg={16}>
+              <DismissibleAlert
+                dismissKey="signals.strategy-info"
+                type="info"
+                showIcon
+                title={selectedStrategy ? `策略：${selectedStrategy.name}` : '策略信息'}
+                description={
+                  selectedStrategy
+                    ? `id=${selectedStrategy.strategy_id}, version=${selectedStrategy.version}, cap=matrix:${strategySupportsMatrix ? 1 : 0}|age:${strategySupportsSignalAgeFilter ? 1 : 0}|delay:${strategySupportsEntryDelay ? 1 : 0}`
+                    : '未加载到策略目录，先按默认策略继续。'
+                }
+              />
             </Col>
-          </Row>
-
-          <Row gutter={[12, 12]} align="middle">
+              <DismissibleAlert
+                dismissKey="signals.strategy-center-tip"
+                type="info"
+                showIcon
+                title="策略参数与预设已迁移到策略中心"
+                description={
+                  <Space wrap size={8}>
+                    <Typography.Text type="secondary">当前页面仅保留策略选择，参数统一在策略中心维护。</Typography.Text>
+                    <Button type="link" size="small" onClick={() => navigate('/strategy')}>
+                      前往策略中心
+                    </Button>
+                  </Space>
+                }
+              /></Row></div></details></div></details>{!strategySupportsSignalAgeFilter ? (
+                <Alert
+                  type="warning"
+                  showIcon
+                  title="当前策略不支持信号年龄过滤"
+                  description="已自动忽略 signal_age_min / signal_age_max，并固定为默认值。"
+                />
+              ) : null}
+          <Row data-research="fields" gutter={[12, 12]} align="middle">
             <Col xs={24} lg={8}>
               <Input
                 allowClear
@@ -2113,8 +1973,7 @@ export function SignalsPage() {
               />
             </Col>
           </Row>
-
-          <Row justify="space-between" gutter={[12, 12]}>
+          <Row data-research="run-actions" justify="space-between" gutter={[12, 12]}>
             <Col xs={24} lg={12}>
               <Typography.Text type="secondary">
                 快照 {signalQuery.data?.as_of_date || asOfDate || '最新'} |
@@ -2161,11 +2020,10 @@ export function SignalsPage() {
                 </Button>
               </Space>
             </Col>
-          </Row>
-        </Space>
+          </Row></Space>
       </Card>
 
-      <Card className="glass-card" variant="borderless">
+      <Card data-research="signal-results" className="glass-card" variant="borderless">
         <Table
           rowKey="key"
           loading={trendPoolReady && (signalQuery.isLoading || signalQuery.isFetching)}
@@ -2189,6 +2047,121 @@ export function SignalsPage() {
           }}
         />
       </Card>
+
+      <details className="research-fold" ><summary>信号定义与策略说明</summary><div className="research-fold-body">{signalPageCopy.detailTitle ? (
+        <Alert
+          type="info"
+          showIcon
+          title={signalPageCopy.detailTitle}
+          description={signalPageCopy.detailDescription}
+        />
+      ) : null}{signalNotes.length > 0 ? (
+        <Alert
+          type="info"
+          showIcon
+          title="策略能力提示"
+          description={(
+            <ul className="signals-notes-list">
+              {signalNotes.map((note, idx) => (
+                <li key={`${idx}-${note}`}>{note}</li>
+              ))}
+            </ul>
+          )}
+        />
+      ) : null}<Card className="glass-card" variant="borderless">
+          <Space orientation="vertical" size={10} style={{ width: '100%' }}>
+            <Row justify="space-between" align="middle">
+              <Col>
+                <Typography.Text strong>信号说明（ABC / 威科夫事件 / 判定逻辑）</Typography.Text>
+              </Col>
+              <Col>
+                <Button type="link" onClick={() => setGuideExpanded((previous) => !previous)}>
+                  {guideExpanded ? '收起说明' : '展开说明'}
+                </Button>
+              </Col>
+            </Row>
+
+            {!guideExpanded ? (
+              <Typography.Text type="secondary">
+                点击“展开说明”查看 ABC 主信号定义、12 个威科夫事件释义、威科夫量价思想与标准周期示意图。
+              </Typography.Text>
+            ) : (
+              <>
+                <Typography.Text type="secondary">
+                  这里介绍的是威科夫量价事件的市场思想，用于理解主力行为与阶段转换，不是软件计算流程说明。
+                </Typography.Text>
+
+                <Row gutter={[12, 12]}>
+                  {signalMeaningGuide.map((item) => (
+                    <Col key={item.code} xs={24} md={8}>
+                      <Card size="small">
+                        <Space orientation="vertical" size={6} style={{ width: '100%' }}>
+                          <Space>
+                            <Typography.Text strong>主信号</Typography.Text>
+                            <Tag color={signalColor[item.code]}>{item.code}</Tag>
+                          </Space>
+                          <Typography.Text type="secondary">{item.description}</Typography.Text>
+                        </Space>
+                      </Card>
+                    </Col>
+                  ))}
+                </Row>
+
+                <Card size="small">
+                  <Space orientation="vertical" size={8} style={{ width: '100%' }}>
+                    <Typography.Text strong>标准威科夫事件周期示意图</Typography.Text>
+                    <img
+                      src={wyckoffCycleDiagram}
+                      alt="标准威科夫周期示意图：吸筹、拉升、派发、下跌及关键事件"
+                      className="signals-wyckoff-diagram"
+                    />
+                    <Typography.Text type="secondary">
+                      图示为教学模板。真实市场中事件可能重叠、变形或跳步，需结合量价强弱与市场环境综合判断。
+                    </Typography.Text>
+                  </Space>
+                </Card>
+
+                <Table
+                  size="small"
+                  rowKey="event"
+                  pagination={false}
+                  dataSource={wyckoffEventGuide}
+                  columns={[
+                    {
+                      title: '事件',
+                      dataIndex: 'event',
+                      width: 90,
+                      render: (value: string) => <Tag color="blue">{value}</Tag>,
+                    },
+                    { title: '中文含义', dataIndex: 'name', width: 130 },
+                    { title: '说明', dataIndex: 'description' },
+                  ]}
+                />
+
+                <Card size="small">
+                  <Space orientation="vertical" size={6} style={{ width: '100%' }}>
+                    <Typography.Text strong>派发前段补充事件（教学扩展）</Typography.Text>
+                    {distributionIntroGuide.map((item) => (
+                      <Typography.Text key={item.event} type="secondary">
+                        <Tag color="gold">{item.event}</Tag>
+                        {item.description}
+                      </Typography.Text>
+                    ))}
+                  </Space>
+                </Card>
+
+                <Space orientation="vertical" size={4} style={{ width: '100%' }}>
+                  <Typography.Text strong>威科夫量价思想与事件逻辑</Typography.Text>
+                  {wyckoffLogicGuide.map((item, index) => (
+                    <Typography.Text key={item} type="secondary">
+                      {index + 1}. {item}
+                    </Typography.Text>
+                  ))}
+                </Space>
+              </>
+            )}
+          </Space>
+        </Card></div></details>
 
       <Modal
         title="区间生成ETF回测"

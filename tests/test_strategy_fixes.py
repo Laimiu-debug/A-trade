@@ -19,8 +19,9 @@ sys.path.insert(0, str(ROOT / 'vendor/finaltrade/backend'))
 from app.core.strategy_registry import StrategyRegistry
 from app.core.strategy_plugins import ForceRhythmPlugin
 from app.core.backtest_engine import BacktestEngine
-from app.models import BacktestRunRequest, CandlePoint, BacktestPlateauPoint, BacktestPlateauResponse
+from app.models import BacktestRunRequest, CandlePoint, BacktestPlateauPoint, BacktestPlateauResponse, BacktestPlateauRunRequest
 from app.store import InMemoryStore, store
+from app.core.plateau_features import feature_readers
 
 
 def buy_indicator():
@@ -94,6 +95,48 @@ def point(profit=.1, passes=True):
 
 
 class PlateauRecommendationTests(unittest.TestCase):
+    def test_parallel_grid_points_do_not_recalculate_the_same_daily_feature(self):
+        from concurrent.futures import ThreadPoolExecutor
+        import time
+        calls=[]
+        def calculate(row, window_days, *, as_of_date=None):
+            calls.append(as_of_date);time.sleep(.02);return {'score':50}
+        read_row,read_snapshot=feature_readers(lambda symbol,date:SimpleNamespace(symbol=symbol),calculate,lambda:'same-rule')
+        row=read_row('sh600001','2024-01-01')
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            results=list(executor.map(lambda _:read_snapshot(row,60,'2024-01-01'),range(16)))
+        self.assertEqual(len(calls),1)
+        self.assertEqual(len(results),16)
+
+    def test_scan_reuses_only_identical_causal_features_and_owns_its_mutable_values(self):
+        calls=[]
+        profile=['rule-a']
+        def calculate(row, window_days, *, as_of_date=None):
+            calls.append((row.symbol,window_days,as_of_date,profile[0]))
+            return {'score':50,'events':['entry']}
+        read_row, read_snapshot=feature_readers(lambda symbol,date:SimpleNamespace(symbol=symbol,date=date),calculate,lambda:profile[0])
+        row=read_row('sh600001','2024-01-01')
+        snapshot=read_snapshot(row,60,'2024-01-01'); snapshot['events'].clear()
+        self.assertEqual(read_snapshot(row,60,'2024-01-01')['events'],['entry'])
+        self.assertEqual(len(calls),1)
+        read_snapshot(row,60,'2024-01-02')
+        read_snapshot(row,40,'2024-01-01')
+        profile[0]='rule-b';read_snapshot(row,60,'2024-01-01')
+        self.assertEqual(len(calls),4)
+        _, new_scan=feature_readers(lambda symbol,date:SimpleNamespace(symbol=symbol),calculate,lambda:profile[0])
+        new_scan(row,60,'2024-01-01')
+        self.assertEqual(len(calls),5)
+
+    def test_grid_estimate_is_complete_even_when_old_budget_was_four_points(self):
+        payload = BacktestPlateauRunRequest(base_payload=BacktestRunRequest(date_from='2024-01-01',date_to='2024-02-01'),
+            sampling_mode='grid',stop_loss_list=[.03+i*.005 for i in range(21)],take_profit_list=[.05+i*.015 for i in range(21)],sample_points=4,max_points=4)
+        self.assertEqual(store._estimate_backtest_plateau_total_points(payload),441)
+        payload.position_pct_list=[.1,.2,.3,.4,.5]
+        with self.assertRaisesRegex(ValueError,'2000'):
+            store._estimate_backtest_plateau_total_points(payload)
+        with self.assertRaisesRegex(ValueError,'2000'):
+            store._run_backtest_plateau_bound(payload)
+
     def test_ranked_point_alone_is_not_a_stable_region(self):
         self.assertIsNone(InMemoryStore._select_backtest_plateau_recommendation([]))
 

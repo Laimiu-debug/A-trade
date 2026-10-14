@@ -18,24 +18,37 @@ const Screener=lazy(()=>import('@/pages/screener/ScreenerPage').then(m=>({defaul
 const Strategy=lazy(()=>import('@/pages/strategy/StrategyCenterPage').then(m=>({default:m.StrategyCenterPage})))
 const Signals=lazy(()=>import('@/pages/signals/SignalsPage').then(m=>({default:m.SignalsPage})))
 const Backtest=lazy(()=>import('@/pages/backtest/BacktestPage').then(m=>({default:m.BacktestPage})))
-const Chart=lazy(()=>import('@/pages/chart/ChartPage').then(m=>({default:m.ChartPage})))
+// Stock routes are handed to the shared native market workspace by Integration.
+const Chart=()=> <p role="status">正在打开个股行情与策略数据…</p>
 const SignalBacktest=lazy(()=>import('@/pages/signals/SignalsBacktestPage').then(m=>({default:m.SignalsBacktestPage})))
 const Events=lazy(()=>import('@/pages/strategy/EventJudgmentPage').then(m=>({default:m.EventJudgmentPage})))
 function Integration() {
  const navigate=useNavigate(),location=useLocation(),context=useDesktopContext(),evidence=useAIAssistantStore(state=>state.pageContext),aiOpen=useAIAssistantStore(state=>state.open)
  useEffect(()=>{notifyDesktop('route',{route:location.pathname+location.search});document.title='A-trade · 策略研究'},[location.pathname,location.search])
- useEffect(()=>{notifyDesktop('evidence',evidence)},[evidence])
+ useEffect(()=>{
+  let timer:ReturnType<typeof setTimeout>,previous=''
+  const publish=()=>{
+   const allowed=/^\/(screener|signals|backtest|strategy)(?:\/|$)/.test(location.pathname)
+   const tables=allowed?Array.from(document.querySelectorAll<HTMLTableElement>('.atrade-research-content table')).filter(table=>table.getClientRects().length).slice(0,3).map((table,index)=>{
+    const heads=Array.from(table.tHead?.rows[0]?.cells||[])
+    const columns=heads.map((cell,column)=>({column,label:cell.textContent?.trim()||''})).filter(item=>item.label&&!/备注|笔记|理由|原因|说明|标注|操作|选择/.test(item.label)).slice(0,16)
+    const loaded=Array.from(table.tBodies).flatMap(body=>Array.from(body.rows)).filter(row=>row.getClientRects().length&&!row.classList.contains('ant-table-measure-row')&&row.cells.length>1)
+    const rows=loaded.slice(0,20).map(row=>columns.map(item=>(row.cells[item.column]?.textContent||'').replace(/\s+/g,' ').trim().slice(0,180)))
+    return {title:`当前可见结果表 ${index+1}`,columns:columns.map(item=>item.label),rows,shownRows:rows.length,totalRows:null,loadedRows:loaded.length,scope:'仅当前已显示分页；未读取其他分页'}
+   }).filter(table=>table.columns.length&&table.rows.length):[]
+   const packet=evidence?{...evidence,desktopVisible:{tables}}:null,serialized=JSON.stringify(packet)
+   if(serialized!==previous){previous=serialized;notifyDesktop('evidence',packet)}
+  }
+  const observer=new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(publish,150)})
+  observer.observe(document.querySelector('.atrade-research-content')||document.body,{childList:true,subtree:true,characterData:true})
+  publish();return()=>{clearTimeout(timer);observer.disconnect()}
+ },[evidence,location.pathname,location.search])
  useEffect(()=>{if(aiOpen){notifyDesktop('ai-open',{});useAIAssistantStore.getState().setOpen(false)}},[aiOpen])
  useEffect(()=>{document.documentElement.classList.toggle('atrade-reduced',context.reduced===true)},[context.reduced])
  useEffect(()=>{
   const receive=(event:MessageEvent)=>{if(event.origin!=='atrade://app'||event.source!==window.parent||event.data?.channel!=='atrade.research.v1'||event.data.action!=='navigate')return;const route=event.data.data?.route;if(typeof route==='string'&&/^\/(screener|strategy|signals|backtest|reports|tasks|trade)(?:[/?]|$)/.test(route))navigate(route)}
   window.addEventListener('message',receive);return()=>window.removeEventListener('message',receive)
  },[navigate])
- useEffect(()=>{
-  if(location.pathname!=='/backtest'||!location.search.includes('section=plateau'))return
-  const timer=setInterval(()=>{const title=[...document.querySelectorAll('.ant-card-head-title')].find(el=>el.textContent?.includes('收益平原参数与进度'));const button=title?.closest('.ant-card-head')?.querySelector<HTMLButtonElement>('.ant-card-extra button');if(button?.textContent?.trim()==='▶')button.click();if(title){title.scrollIntoView({block:'start',behavior:'instant'});clearInterval(timer)}},100)
-  return()=>clearInterval(timer)
- },[location.pathname,location.search])
  return null
 }
 function DataStatus(){

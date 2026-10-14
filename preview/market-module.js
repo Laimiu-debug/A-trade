@@ -404,7 +404,8 @@
     }).join('');
     const labels = [...new Set([0, Math.floor((count - 1) / 2), count - 1])].map(index => `<text x="${left + step * (index + .5)}" y="421" text-anchor="${index === 0 ? 'start' : index === count - 1 ? 'end' : 'middle'}" class="market-axis-label">${date(visible[index].date)}</text>`).join('');
     const overlays = AT.marketAnalysis.price({rows, studies, start, count, left, step, top, bottom, priceY});
-    return `<svg class="market-candles" viewBox="0 0 ${width} 442" role="img" tabindex="0" aria-label="未复权日线 K 线与成交量，滚轮缩放，左右方向键查看相邻交易日" data-market-chart data-market-zoom="daily" data-chart-start="${start}" data-chart-count="${count}" data-chart-total="${rows.length}" data-chart-left="${left}" data-chart-step="${step}"><title>未复权日线 · 滚轮缩放</title>${grid}<text x="${left}" y="304" class="market-axis-label">成交量（${E(barsData?.volumeUnit || '原始单位')}）</text><text x="${width - right + 12}" y="${volTop + 5}" class="market-axis-label">${shortAmount(volumeMax)}</text>${candles}${overlays}<path data-market-crosshair d="M${left + step * (clamp(selectedIndex - start, 0, count - 1) + .5)} ${top}V${volBottom}" class="market-crosshair"/>${labels}</svg>`;
+    const strategyMarks = AT.stockResearch?.overlay({symbol:barsData?.symbol,rows,start,count,left,step,priceY}) || '';
+    return `<svg class="market-candles" viewBox="0 0 ${width} 442" role="img" tabindex="0" aria-label="未复权日线 K 线与成交量，滚轮缩放，左右方向键查看相邻交易日" data-market-chart data-market-zoom="daily" data-chart-start="${start}" data-chart-count="${count}" data-chart-total="${rows.length}" data-chart-left="${left}" data-chart-step="${step}"><title>未复权日线 · 滚轮缩放</title>${grid}<text x="${left}" y="304" class="market-axis-label">成交量（${E(barsData?.volumeUnit || '原始单位')}）</text><text x="${width - right + 12}" y="${volTop + 5}" class="market-axis-label">${shortAmount(volumeMax)}</text>${candles}${overlays}<path data-market-crosshair d="M${left + step * (clamp(selectedIndex - start, 0, count - 1) + .5)} ${top}V${volBottom}" class="market-crosshair"/>${strategyMarks}${labels}</svg>`;
   }
   function intradayReadout(row) {
     if (!row) return '';
@@ -490,13 +491,14 @@
     if (error) return header + `<section class="panel market-daily-panel">${tabs}${chartMode === 'daily' ? `<div class="market-empty"><h2>暂时无法显示这只证券的日线</h2><p role="alert">${E(error)}</p><div class="market-source-actions">${action('重新读取', 'retry-bars', 'refresh')}${B('搜索本地证券', 'search', 'data-nav="M04"', 'primary')}</div></div>` : intradayView()}</section>`;
     ensureStudies();
     const rows = data.rows || [], row = rows[selectedIndex] || rows.at(-1), latest = rows.at(-1), previous = rows.at(-2);
+    const strategyPanel = data.kind === 'stock' ? AT.stockResearch?.render({symbol:data.symbol,version:data.dataVersion || version,source:source?.path}) || '' : '';
     const change = latest && previous?.close ? (latest.close / previous.close - 1) * 100 : null;
     const quote = quoteData?.items?.find(item => item.symbol === data.symbol);
     const quoteStrip = online?.enabled ? `<div class="market-quote-strip"><span>行情报价</span><strong class="${direction(quote?.changePercent)}">${number(quote?.price, 2)}</strong><b class="${direction(quote?.changePercent)}">${percent(quote?.changePercent)}</b><small class="${quote?.cached ? 'market-cache-label' : ''}">${quote ? quoteStamp(quote) : E(quoteError || '等待行情服务返回报价')}</small>${action('刷新', 'refresh-quotes', 'refresh', 'small', quoteBusy ? 'disabled' : '')}</div>` : '';
     return header + `<section class="panel market-daily-panel">${quoteStrip}<header class="market-daily-heading"><div class="market-last-price"><span>日线收盘</span><strong>${latest ? number(latest.close, 2) : '—'} <small>${data.kind === 'index' ? '点' : '元'}</small></strong><p class="${change === null ? '' : change >= 0 ? 'up' : 'down'}">${change === null ? '暂无前一交易日可比较' : `${change > 0 ? '+' : ''}${number(change, 2)}% · 较前一交易日`}</p></div><div class="market-daily-facts"><span class="tag">未复权</span><p>日线截至 ${date(data.dataAsOf)}</p><p>${rows.length} 根日线 · ${data.cached ? '本机缓存' : data.provider === 'tdx_mcp' ? '通达信 MCP' : '本地文件'}</p></div></header>${tabs}${chartMode !== 'daily' ? intradayView() + '</section>' : `
       ${barsFocusNote ? warn([barsFocusNote]) : ''}<div class="market-chart-toolbar"><h2>日线与成交量</h2><div class="segmented" aria-label="显示日线数量">${[60, 120, 240].map(limit => {const active = !dailyWindow && barsLimit === limit; return `<button type="button" data-market-limit="${limit}" aria-pressed="${active}" class="${active ? 'active' : ''}">近 ${limit} 日</button>`;}).join('')}</div></div>${rows.length ? AT.marketAnalysis.controls() + zoomControls() : ''}
-      ${rows.length ? `<div class="market-ohlc" data-market-readout aria-live="off">${rowReadout(row)}</div><div data-market-study-readout>${AT.marketAnalysis.selected(studiesByDate.get(row.date))}</div>${candleChart(rows)}<div data-market-study-panels>${forceStudyPanel()}</div><div class="market-day-selector"><span>双击日 K 查看当天分时 · 方向键选日，Enter 打开</span><div>${action('前一日', 'previous-day', '', 'small', selectedIndex <= 0 ? 'disabled' : '')}<input type="date" data-market-date aria-label="选择交易日期" min="${E(rows[0].date)}" max="${E(latest.date)}" value="${E(row.date)}">${action('后一日', 'next-day', '', 'small', selectedIndex >= rows.length - 1 ? 'disabled' : '')}${action('查看分时', 'day-intraday', 'chart', 'small')}</div><p data-market-date-error role="status"></p></div>` : '<div class="market-empty"><p>这只证券当前没有可显示的有效日线。</p></div>'}
-      <details class="market-chart-details"><summary>数据来源与说明 · ${data.provider === 'tdx_mcp' ? providerName(data.provider) : '本地日线'}${data.warnings?.length ? ` · ${data.warnings.length} 项提示` : ''}</summary><footer class="market-chart-source"><p>来源：${data.provider === 'tdx_mcp' ? providerName(data.provider) : E(source.path)} · 价格未复权；成交量（${E(data.volumeUnit || '原始单位')}） / 成交额（${E(data.amountUnit || '元')}）</p><p>读取于 ${time(data.lastReadAt)} · 数据版本 ${E(data.dataVersion || '—')}</p></footer></details>${warn(data.warnings)}</section>`}`;
+      ${rows.length ? `<div class="market-ohlc" data-market-readout aria-live="off">${rowReadout(row)}</div><div data-market-study-readout>${AT.marketAnalysis.selected(studiesByDate.get(row.date))}</div>${AT.stockResearch?.legend({symbol:data.symbol,date:row.date}) || ''}${candleChart(rows)}<div data-market-study-panels>${forceStudyPanel()}</div><div class="market-day-selector"><span>双击日 K 查看当天分时 · 方向键选日，Enter 打开</span><div>${action('前一日', 'previous-day', '', 'small', selectedIndex <= 0 ? 'disabled' : '')}<input type="date" data-market-date aria-label="选择交易日期" min="${E(rows[0].date)}" max="${E(latest.date)}" value="${E(row.date)}">${action('后一日', 'next-day', '', 'small', selectedIndex >= rows.length - 1 ? 'disabled' : '')}${action('查看分时', 'day-intraday', 'chart', 'small')}</div><p data-market-date-error role="status"></p></div>` : '<div class="market-empty"><p>这只证券当前没有可显示的有效日线。</p></div>'}
+      <details class="market-chart-details"><summary>数据来源与说明 · ${data.provider === 'tdx_mcp' ? providerName(data.provider) : '本地日线'}${data.warnings?.length ? ` · ${data.warnings.length} 项提示` : ''}</summary><footer class="market-chart-source"><p>来源：${data.provider === 'tdx_mcp' ? providerName(data.provider) : E(source.path)} · 价格未复权；成交量（${E(data.volumeUnit || '原始单位')}） / 成交额（${E(data.amountUnit || '元')}）</p><p>读取于 ${time(data.lastReadAt)} · 数据版本 ${E(data.dataVersion || '—')}</p></footer></details>${warn(data.warnings)}</section>`}` + strategyPanel;
   }
   async function loadList(force = false) {
     if (!source?.configured || sourceError) return;
@@ -526,7 +528,16 @@
         resolvedSymbol = exact[0].symbol;
       }
       if (serial !== barsSerial) return;
-      const data = await call('market.bars', {symbol: resolvedSymbol, limit: 2400});
+      let data;
+      try {data = await call('market.bars', {symbol: resolvedSymbol, limit: 2400});}
+      catch (error) {
+        // Funnel computation can read TDX files before the market catalogue has
+        // been indexed, especially immediately after switching directories.
+        if (!String(error.message).includes('没有可用日线索引') || !source?.configured) throw error;
+        await call('market.scan');
+        if (serial !== barsSerial) return;
+        data = await call('market.bars', {symbol: resolvedSymbol, limit: 2400});
+      }
       if (serial !== barsSerial) return;
       barsData = data;
       selectedIndex = data.rows.length - 1;
@@ -596,6 +607,7 @@
     if (previous) previous.disabled = index <= 0;
     if (next) next.disabled = index >= rows.length - 1;
     const error = $('[data-market-date-error]'); if (error) error.textContent = '';
+    AT.stockResearch?.selected(AT.state.stock,row.date);
   }
   function redrawChart() {
     if (AT.state.page !== 'G01') return;
@@ -769,6 +781,13 @@
   }
   AT.marketUI = {get status() {return source ? structuredClone(source) : null;}, updateShell, refreshVisible,
     getAIContext() {
+      if(AT.state.page==='G01'&&barsKey===`${version}|${AT.state.stock}`&&barsData?.symbol===AT.state.stock) {
+        const row=barsData.rows?.[selectedIndex]||barsData.rows?.at(-1);
+        return {pageId:'G01',dataDates:row?[row.date]:[],filters:{symbol:barsData.symbol,selectedDay:row?.date||''},
+          summary:`当前个股 ${barsData.name||barsData.symbol}，选中交易日 ${row?.date||'尚未加载'}。`,
+          evidence:{selectedStock:{symbol:barsData.symbol,code:barsData.code,name:barsData.name},source:{asOf:row?.date||'',latestLoadedDate:barsData.rows?.at(-1)?.date,priceBasis:barsData.adjustment||'unknown'}},
+          limitations:['个股顶部报价、最新日线摘要和回测交易可能晚于选中的K线日期；历史提问时会排除这些页面结果，仅补充截至所问日期的日线。']};
+      }
       if (AT.state.page !== 'M01') return null;
       const {day} = AT.marketAnalysis.selectedObservation(researchData);
       return AT.pageAIContext?.marketStyle({data: researchData, day, busy: researchBusy, error: researchError, historyDays: researchHistoryDays}) || null;

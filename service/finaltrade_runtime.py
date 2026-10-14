@@ -1,4 +1,4 @@
-"""Host the unchanged reference API in an isolated A-trade workspace."""
+"""Host the pinned strategy API in an isolated A-trade workspace."""
 from __future__ import annotations
 
 import hashlib
@@ -141,7 +141,7 @@ def create_application(workspace, token, source=None):
         if request.url.path == '/api/config' and request.method != 'GET':
             return JSONResponse({'code': 'PROJECT_SETTINGS_ONLY', 'message': '请在 A-trade 的设置中修改数据源与参数。'}, status_code=403)
         configured = source if source is not None else configured_source(workspace)
-        readonly = request.url.path.startswith('/api/atrade/') or request.url.path.startswith('/api/backtest/reports') or request.method == 'GET' and (re.fullmatch(r'/api/backtest/(?:plateau/)?tasks(?:/[^/]+)?', request.url.path) or request.url.path in {'/api/config', '/api/strategies'})
+        readonly = request.url.path.startswith('/api/atrade/') and not request.url.path.startswith('/api/atrade/stocks/') or request.url.path.startswith('/api/backtest/reports') or request.method == 'GET' and (re.fullmatch(r'/api/backtest/(?:plateau/)?tasks(?:/[^/]+)?', request.url.path) or request.url.path in {'/api/config', '/api/strategies'})
         control = request.method == 'POST' and re.fullmatch(r'/api/backtest/(?:plateau/)?tasks/[^/]+/(pause|resume|cancel)', request.url.path)
         if request.url.path.startswith('/api/') and configured != integration.source:
             if integration.active():
@@ -175,6 +175,32 @@ def create_application(workspace, token, source=None):
     @app.get('/api/atrade/tasks')
     def project_tasks():
         return integration.tasks()
+
+    @app.get('/api/atrade/stocks/{symbol}')
+    def project_stock_research(symbol: str):
+        from service.stock_strategy import stock_research
+        try:
+            return stock_research(integration, symbol)
+        except ValueError as error:
+            return JSONResponse({'code': 'STOCK_RESEARCH_UNAVAILABLE', 'message': str(error)}, status_code=400)
+
+    @app.put('/api/atrade/stocks/{symbol}/annotation')
+    def project_stock_annotation(symbol: str, body: dict = Body(...)):
+        from service.stock_strategy import stock_symbol
+        from app.models import StockAnnotation
+        try:
+            symbol = stock_symbol(symbol)
+            if body.get('symbol') != symbol:
+                raise ValueError('标注与当前证券不一致。')
+            if len(str(body.get('notes', ''))) > 6000:
+                raise ValueError('研究笔记最多 6000 字。')
+            annotation = StockAnnotation.model_validate(body)
+            import datetime as dt
+            dt.date.fromisoformat(annotation.start_date)
+            saved = store.save_annotation(annotation)
+            return {'annotation': saved.model_dump(mode='json')}
+        except ValueError as error:
+            return JSONResponse({'code': 'STOCK_ANNOTATION_INVALID', 'message': str(error)}, status_code=400)
 
     @app.patch('/api/atrade/tasks/{task_id}')
     def rename_project_task(task_id: str, body: dict = Body(...)):

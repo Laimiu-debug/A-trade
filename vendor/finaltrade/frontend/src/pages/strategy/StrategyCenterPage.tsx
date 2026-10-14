@@ -641,16 +641,16 @@ export function StrategyCenterPage() {
   }
 
   return (
-    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+    <Space data-research="page" data-page="strategy" orientation="vertical" size={16} style={{ width: '100%' }}>
       <PageHeader
         title="策略中心"
         subtitle="集中维护策略参数与预设；选股漏斗/待买信号/策略回测页仅负责策略选择。"
         badge="集中配置"
       />
 
-      <Card className="glass-card" variant="borderless">
+      <Card data-research="strategy-selector" className="glass-card" variant="borderless">
         <Space orientation="vertical" size={12} style={{ width: '100%' }}>
-          <Row gutter={[12, 12]}>
+          <Row data-research="fields" gutter={[12, 12]}>
             <Col xs={24} md={8}>
               <Typography.Text type="secondary">策略</Typography.Text>
               <Select
@@ -673,38 +673,158 @@ export function StrategyCenterPage() {
               />
             </Col>
             <Col xs={24} md={16}>
-              <DismissibleAlert
-                dismissKey="strategy-center.strategy-info"
-                type="info"
-                showIcon
-                title={selectedStrategy ? `当前策略：${selectedStrategy.name}` : '策略信息'}
-                description={
-                  selectedStrategy
-                    ? `id=${selectedStrategy.strategy_id}, version=${selectedStrategy.version}, cap=matrix:${strategySupportsMatrix ? 1 : 0}|age:${strategySupportsSignalAgeFilter ? 1 : 0}|delay:${strategySupportsEntryDelay ? 1 : 0}`
-                    : '未加载到策略目录，先按默认策略继续。'
-                }
-              />
+              <span className="research-inline-note">参数修改后自动同步到选股、策略运行和回测。</span>
             </Col>
           </Row>
-          <DismissibleAlert
-            dismissKey="strategy-center.sync-tip"
-            type="success"
+
+          <details className="research-fold"><summary>策略信息与同步说明</summary><div className="research-fold-body"><DismissibleAlert
+            dismissKey="strategy-center.strategy-info"
+            type="info"
             showIcon
-            title="配置会自动同步到业务页"
+            title={selectedStrategy ? `当前策略：${selectedStrategy.name}` : '策略信息'}
             description={
-              <Space wrap size={8}>
-                <Typography.Text type="secondary">在下列页面只需切换策略，不再编辑参数。</Typography.Text>
-                <Link to="/screener">选股漏斗</Link>
-                <Link to="/signals">待买信号</Link>
-                <Link to="/backtest">策略回测</Link>
-                <Link to="/strategy/events">事件判别中心</Link>
-              </Space>
+              selectedStrategy
+                ? `版本 ${selectedStrategy.version}，参数与选股、策略运行、回测共用。`
+                : '未加载到策略目录，先按默认策略继续。'
             }
           />
+            <DismissibleAlert
+              dismissKey="strategy-center.sync-tip"
+              type="success"
+              showIcon
+              title="配置会自动同步到业务页"
+              description={
+                <Space wrap size={8}>
+                  <Typography.Text type="secondary">在下列页面只需切换策略，不再编辑参数。</Typography.Text>
+                  <Link to="/screener">选股漏斗</Link>
+                  <Link to="/signals">待买信号</Link>
+                  <Link to="/backtest">策略回测</Link>
+                  <Link to="/strategy/events">事件判别中心</Link>
+                </Space>
+              }
+            /></div></details></Space>
+      </Card>
+
+      <Card data-research="strategy-parameters" className="glass-card" variant="borderless" title="参数模板区">
+        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+          <Typography.Text type="secondary">
+            当前编辑策略参数会自动同步到业务页；保存为预设模板后可快速复用到同一策略。
+          </Typography.Text>
+          {strategyParamEntries.length > 0 ? (
+            <Row data-research="fields" gutter={[12, 12]}>
+              {strategyParamEntries.map((spec) => {
+                const value = strategyParamsPayload[spec.key]
+                if (spec.type === 'boolean') {
+                  return (
+                    <Col xs={24} md={8} lg={6} key={spec.key}>
+                      <Typography.Text type="secondary">{spec.title}</Typography.Text>
+                      <div className="strategy-param-switch">
+                        <Switch checked={Boolean(value)} onChange={(checked) => updateStrategyParam(spec.key, checked)} />
+                      </div>
+                    </Col>
+                  )
+                }
+                if (spec.type === 'enum') {
+                  return (
+                    <Col xs={24} md={8} lg={6} key={spec.key}>
+                      <Typography.Text type="secondary">{spec.title}</Typography.Text>
+                      <Select
+                        value={typeof value === 'string' ? value : undefined}
+                        options={spec.options.map((item) => ({
+                          value: item,
+                          label: resolveStrategyEnumOptionLabel(spec.key, item),
+                        }))}
+                        onChange={(next) => updateStrategyParam(spec.key, String(next))}
+                        allowClear
+                      />
+                    </Col>
+                  )
+                }
+                return (
+                  <Col xs={24} md={8} lg={6} key={spec.key}>
+                    <Typography.Text type="secondary">{spec.title}</Typography.Text>
+                    <InputNumber
+                      value={typeof value === 'number' ? value : undefined}
+                      min={typeof spec.minimum === 'number' ? spec.minimum : undefined}
+                      max={typeof spec.maximum === 'number' ? spec.maximum : undefined}
+                      step={spec.type === 'integer' ? 1 : 0.1}
+                      style={{ width: '100%' }}
+                      onChange={(next) => {
+                        if (next === null || next === undefined || Number.isNaN(Number(next))) {
+                          updateStrategyParam(spec.key, undefined)
+                          return
+                        }
+                        updateStrategyParam(spec.key, Number(next))
+                      }}
+                    />
+                  </Col>
+                )
+              })}
+            </Row>
+          ) : (
+            <Alert type="info" showIcon title="当前策略没有可编辑参数。" />
+          )}
+
+          <Divider style={{ margin: '4px 0' }} />
+
+          <Typography.Text strong>预设模板</Typography.Text>
+          <Row data-research="fields" gutter={[12, 12]}>
+            <Col xs={24} md={8}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
+                <Typography.Text type="secondary">选择预设</Typography.Text>
+                <Select
+                  value={strategyPresetId ?? undefined}
+                  placeholder="选择预设"
+                  options={strategyPresets.map((item, index) => ({
+                    value: item.id,
+                    label: `预设#${index + 1} | ${item.name}`,
+                  }))}
+                  onChange={(value) => {
+                    const nextId = String(value || '').trim()
+                    if (!nextId) {
+                      setStrategyPresetId(null)
+                      return
+                    }
+                    setStrategyPresetId(nextId)
+                    const matched = strategyPresets.find((item) => item.id === nextId)
+                    if (matched) {
+                      setStrategyPresetName(matched.name)
+                    }
+                  }}
+                  allowClear
+                />
+              </Space>
+            </Col>
+            <Col xs={24} md={8}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
+                <Typography.Text type="secondary">预设名称</Typography.Text>
+                <Input
+                  value={strategyPresetName}
+                  onChange={(event) => setStrategyPresetName(event.target.value)}
+                  placeholder="输入预设名后保存"
+                />
+              </Space>
+            </Col>
+            <Col xs={24} md={8}>
+              <Space style={{ marginTop: 22 }} wrap>
+                <Button size="small" onClick={handleSaveStrategyPreset}>保存预设</Button>
+                <Button size="small" onClick={handleApplyStrategyPreset}>应用预设</Button>
+                <Button size="small" danger onClick={handleDeleteStrategyPreset}>删除预设</Button>
+              </Space>
+            </Col>
+          </Row>
+          {selectedStrategyPreset ? (
+            <Alert
+              type="info"
+              showIcon
+              title={`当前预设：${selectedStrategyPreset.name}`}
+              description={`保存时间：${selectedStrategyPreset.saved_at}`}
+            />
+          ) : null}
         </Space>
       </Card>
 
-      <Card
+      <details className="research-fold" ><summary>策略对比与视图预设</summary><div className="research-fold-body"><Card
         className="glass-card"
         variant="borderless"
         title="策略对比区"
@@ -913,126 +1033,7 @@ export function StrategyCenterPage() {
             })}
           </Row>
         </Space>
-      </Card>
-
-      <Card className="glass-card" variant="borderless" title="参数模板区">
-        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-          <Typography.Text type="secondary">
-            当前编辑策略参数会自动同步到业务页；保存为预设模板后可快速复用到同一策略。
-          </Typography.Text>
-          {strategyParamEntries.length > 0 ? (
-            <Row gutter={[12, 12]}>
-              {strategyParamEntries.map((spec) => {
-                const value = strategyParamsPayload[spec.key]
-                if (spec.type === 'boolean') {
-                  return (
-                    <Col xs={24} md={8} lg={6} key={spec.key}>
-                      <Typography.Text type="secondary">{spec.title}</Typography.Text>
-                      <div className="strategy-param-switch">
-                        <Switch checked={Boolean(value)} onChange={(checked) => updateStrategyParam(spec.key, checked)} />
-                      </div>
-                    </Col>
-                  )
-                }
-                if (spec.type === 'enum') {
-                  return (
-                    <Col xs={24} md={8} lg={6} key={spec.key}>
-                      <Typography.Text type="secondary">{spec.title}</Typography.Text>
-                      <Select
-                        value={typeof value === 'string' ? value : undefined}
-                        options={spec.options.map((item) => ({
-                          value: item,
-                          label: resolveStrategyEnumOptionLabel(spec.key, item),
-                        }))}
-                        onChange={(next) => updateStrategyParam(spec.key, String(next))}
-                        allowClear
-                      />
-                    </Col>
-                  )
-                }
-                return (
-                  <Col xs={24} md={8} lg={6} key={spec.key}>
-                    <Typography.Text type="secondary">{spec.title}</Typography.Text>
-                    <InputNumber
-                      value={typeof value === 'number' ? value : undefined}
-                      min={typeof spec.minimum === 'number' ? spec.minimum : undefined}
-                      max={typeof spec.maximum === 'number' ? spec.maximum : undefined}
-                      step={spec.type === 'integer' ? 1 : 0.1}
-                      style={{ width: '100%' }}
-                      onChange={(next) => {
-                        if (next === null || next === undefined || Number.isNaN(Number(next))) {
-                          updateStrategyParam(spec.key, undefined)
-                          return
-                        }
-                        updateStrategyParam(spec.key, Number(next))
-                      }}
-                    />
-                  </Col>
-                )
-              })}
-            </Row>
-          ) : (
-            <Alert type="info" showIcon title="当前策略没有可编辑参数。" />
-          )}
-
-          <Divider style={{ margin: '4px 0' }} />
-
-          <Typography.Text strong>预设模板</Typography.Text>
-          <Row gutter={[12, 12]}>
-            <Col xs={24} md={8}>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <Typography.Text type="secondary">选择预设</Typography.Text>
-                <Select
-                  value={strategyPresetId ?? undefined}
-                  placeholder="选择预设"
-                  options={strategyPresets.map((item, index) => ({
-                    value: item.id,
-                    label: `预设#${index + 1} | ${item.name}`,
-                  }))}
-                  onChange={(value) => {
-                    const nextId = String(value || '').trim()
-                    if (!nextId) {
-                      setStrategyPresetId(null)
-                      return
-                    }
-                    setStrategyPresetId(nextId)
-                    const matched = strategyPresets.find((item) => item.id === nextId)
-                    if (matched) {
-                      setStrategyPresetName(matched.name)
-                    }
-                  }}
-                  allowClear
-                />
-              </Space>
-            </Col>
-            <Col xs={24} md={8}>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <Typography.Text type="secondary">预设名称</Typography.Text>
-                <Input
-                  value={strategyPresetName}
-                  onChange={(event) => setStrategyPresetName(event.target.value)}
-                  placeholder="输入预设名后保存"
-                />
-              </Space>
-            </Col>
-            <Col xs={24} md={8}>
-              <Space style={{ marginTop: 22 }} wrap>
-                <Button size="small" onClick={handleSaveStrategyPreset}>保存预设</Button>
-                <Button size="small" onClick={handleApplyStrategyPreset}>应用预设</Button>
-                <Button size="small" danger onClick={handleDeleteStrategyPreset}>删除预设</Button>
-              </Space>
-            </Col>
-          </Row>
-          {selectedStrategyPreset ? (
-            <Alert
-              type="info"
-              showIcon
-              title={`当前预设：${selectedStrategyPreset.name}`}
-              description={`保存时间：${selectedStrategyPreset.saved_at}`}
-            />
-          ) : null}
-        </Space>
-      </Card>
+      </Card></div></details>
     </Space>
   )
 }

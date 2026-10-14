@@ -2,6 +2,16 @@ import type { StrategyDescriptor, StrategyId } from '@/types/contracts'
 
 type StrategyParamType = 'number' | 'integer' | 'boolean' | 'enum'
 
+const PARAMETER_TITLES: Record<string, string> = {
+  min_score: '最低信号评分',
+  min_event_count: '最少事件数量',
+  require_sequence: '要求事件顺序完整',
+  health_score_min: '最低健康评分',
+  event_score_min: '最低事件评分',
+  event_grade_min: '最低事件等级',
+  require_key_event_confirmation: '要求关键事件确认',
+}
+
 export type StrategyParamSpec = {
   key: string
   title: string
@@ -14,8 +24,8 @@ export type StrategyParamSpec = {
 
 const STRATEGY_ENUM_OPTION_LABELS: Record<string, Record<string, string>> = {
   matrix_event_semantic_version: {
-    matrix_v1: '矩阵基础语义（matrix_v1）',
-    aligned_wyckoff_v2: '对齐威科夫V2语义（aligned_wyckoff_v2）',
+    matrix_v1: '矩阵基础规则',
+    aligned_wyckoff_v2: '对齐威科夫V2规则',
   },
   event_grade_min: {
     A: 'A级',
@@ -92,7 +102,7 @@ export function isHiddenStrategy(raw: Pick<StrategyDescriptor, 'strategy_id' | '
 
 export function filterVisibleStrategies(items: StrategyDescriptor[] | null | undefined): StrategyDescriptor[] {
   if (!Array.isArray(items)) return []
-  return items.filter((item) => !isHiddenStrategy(item))
+  return items.filter((item) => !isHiddenStrategy(item)).map(item => item.strategy_id === 'score_only_rank_v1' ? { ...item, name: '纯评分排名V1' } : item)
 }
 
 export function isEventIndependentBacktestStrategy(strategyId: unknown): boolean {
@@ -126,7 +136,7 @@ export function parseStrategyParamSchema(raw: unknown): Record<string, StrategyP
         ? (typeRaw as StrategyParamType)
         : null
     if (!type) continue
-    const title = String(rawSpec.title || key).trim() || key
+    const title = PARAMETER_TITLES[key] || String(rawSpec.title || key).trim() || key
     const minimum = Number(rawSpec.minimum)
     const maximum = Number(rawSpec.maximum)
     const options = Array.isArray(rawSpec.options)

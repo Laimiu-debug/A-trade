@@ -10,7 +10,7 @@ export function AppProviders({ children }: PropsWithChildren) {
   return <ConfigProvider locale={zhCN} button={{autoInsertSpace:false}} componentSize={context.compact ? 'small' : 'middle'} theme={{ algorithm: theme.defaultAlgorithm, token: {
     colorPrimary: '#2457e5', colorInfo: '#2457e5', colorSuccess: '#15803d', colorWarning: '#a16207', colorError: '#c7383f',
     colorText: '#172333', colorTextSecondary: '#758195', colorBgContainer: '#ffffff', colorBorder: '#dfe5ef', colorBorderSecondary: '#e5eaf2',
-    borderRadius: 6, borderRadiusLG: 10, fontSize: context.largeText ? 16 : 14,
+    borderRadius: 6, borderRadiusLG: 10, fontSize: context.largeText ? 16 : 14, motion: !(context.reduced || window.matchMedia('(prefers-reduced-motion: reduce)').matches),
     fontFamily: '"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif', controlHeight: context.compact ? 30 : 34,
   }, components: { Card: { headerFontSize: 14, paddingLG: 20 }, Table: { headerBg: '#f7f9fc', cellPaddingBlock: context.compact ? 8 : 12 }, Button: { primaryShadow: '0 2px 3px #2457e516' } } }}>
     <AntApp><QueryClientProvider client={queryClient}><BrowserRouter>{children}</BrowserRouter></QueryClientProvider></AntApp>

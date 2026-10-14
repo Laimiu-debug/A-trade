@@ -111,10 +111,14 @@ class MarketService:
 
     def dispatch(self, method, payload=None):
         payload = payload or {}
+        if method.startswith("market.emotion.themes."):
+            from service.emotion_cycle import themes_dispatch
+            return themes_dispatch(self, method, payload)
         if method.startswith(("market.analysis.", "market.watchlist.")):
             return self.analysis.dispatch(method, payload)
         routes = {"market.status": lambda: self.status(), "market.configure": lambda: self.configure(payload),
                   "market.scan": lambda: self.scan(), "market.search": lambda: self.search(payload),
+                  "market.resolve": lambda: self.security_search.resolve(payload.get("question")),
                   "market.bars": lambda: self.bars(payload),
                   "market.research": lambda: self.research.snapshot(payload),
                   "market.snapshot": lambda: self.research.current_snapshot(payload),

@@ -72,6 +72,36 @@ class MarketTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "先.*选择"):
             self.bars()
 
+    def test_question_resolves_exact_names_and_market_codes_without_reading_bars(self):
+        write_names(self.root, "sh", {"600900": "长江电力", "600001": "龙头甲"})
+        self.day()
+        self.scan()
+        with patch.object(self.service, "bars", side_effect=AssertionError("resolve must not read bars")):
+            result = self.service.dispatch("market.resolve", {"question": "比较长江电力与sh600001，截至2026-10-08"})
+            self.assertEqual({row["symbol"] for row in result["items"]}, {"sh600900", "sh600001"})
+            self.assertEqual(result["unknown"], [])
+            self.assertEqual(result["ambiguous"], [])
+            self.assertNotIn(str(self.root), json.dumps(result))
+            self.assertEqual(self.service.dispatch("market.resolve", {"question": "解释当前情绪"})["items"], [])
+            self.assertEqual(self.service.dispatch("market.resolve", {"question": "分析999999"})["unknown"], ["999999"])
+
+    def test_question_does_not_guess_ambiguous_names_or_six_digit_codes(self):
+        write_names(self.root, "sh", {"600001": "同名股票", "600002": "新同名股票"})
+        write_names(self.root, "sz", {"000001": "同名股票"})
+        self.service.configure({"path": str(self.root)})
+        for question in ("同名股票怎么样",):
+            result = self.service.dispatch("market.resolve", {"question": question})
+            self.assertEqual(len(result["ambiguous"]), 1)
+            self.assertEqual(len(result["ambiguous"][0]["items"]), 2)
+        result = self.service.dispatch("market.resolve", {"question": "分析新同名股票"})
+        self.assertEqual([row["symbol"] for row in result["items"]], ["sh600002"])
+        self.assertEqual(result["ambiguous"], [])
+        result = self.service.dispatch("market.resolve", {"question": "同名股票sh600001怎么看"})
+        self.assertEqual([row["symbol"] for row in result["items"]], ["sh600001"])
+        self.assertEqual(result["ambiguous"], [])
+        with self.assertRaisesRegex(ValueError, "4000"):
+            self.service.dispatch("market.resolve", {"question": "长" * 4001})
+
     def test_select_root_and_vipdoc_normalize_and_survive_restart(self):
         self.day()
         self.scan()

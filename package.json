@@ -16,6 +16,8 @@
     "test:market": "node scripts/smoke-market.cjs",
     "test:market-live": "node scripts/smoke-market-live.cjs",
     "test:analysis": "node scripts/smoke-analysis.cjs",
+    "test:emotion-grid": "node scripts/smoke-emotion-grid.cjs",
+    "test:emotion-ai": "node scripts/smoke-emotion-ai.cjs",
     "test:information": "node scripts/smoke-information.cjs",
     "test:research": "node scripts/smoke-portfolio.cjs",
     "test:portfolio": "node scripts/smoke-portfolio.cjs",

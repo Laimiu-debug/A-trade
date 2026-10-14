@@ -26,5 +26,8 @@
 .page-ai-compose-actions{display:flex;gap:9px;align-items:center;margin-top:9px}.page-ai-compose-actions>span{flex:1;font-size:9px;color:var(--secondary)}.page-ai-compose-actions>button{font-size:11px;padding:7px 9px;border-radius:7px}.page-ai-compose-actions .page-ai-send{background:var(--primary);color:#fff;font-weight:600}.page-ai-compose-actions .page-ai-stop{color:var(--primary);background:var(--selected)}
 .page-ai-status{font-size:11px;line-height:1.6;color:var(--secondary);max-height:70px;overflow:auto;margin-top:7px}.page-ai-status:empty{display:none}.page-ai-status[data-tone=error]{color:#b42332}
 @media(min-width:1400px){body.page-ai-open #main,body.page-ai-open #workspace-root{margin-right:452px}}
+@media(min-width:1400px){body.page-ai-open #strategy-workspace-root{width:calc(100% - 452px);margin-right:452px}}
 @media(max-width:650px){.page-ai-panel{width:calc(100vw - 24px);right:12px}.page-ai-trigger{padding:6px}.page-ai-trigger>span{display:none}}
 @media(max-height:700px){.page-ai-head{padding-top:10px;padding-bottom:7px}.page-ai-source{padding-bottom:8px}.page-ai-compose{padding-top:8px;padding-bottom:8px}.page-ai-suggestions{margin-bottom:6px}#page-ai-question{min-height:60px;max-height:110px}.page-ai-evidence{max-height:130px}}
+.page-ai-topic-row{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:9px;min-width:0;font-size:11px;color:var(--secondary)}
+.page-ai-topic{overflow-wrap:anywhere}.page-ai-topic-row button{color:var(--primary);font-size:11px;flex-shrink:0}

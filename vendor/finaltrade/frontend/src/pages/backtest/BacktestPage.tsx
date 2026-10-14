@@ -28,9 +28,10 @@ import type { ColumnsType } from 'antd/es/table'
 import type { SortOrder, SorterResult } from 'antd/es/table/interface'
 import type { MenuProps } from 'antd'
 import ReactECharts from 'echarts-for-react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { ApiError } from '@/shared/api/client'
+import { denseRiskGrid, gridSummary, numericAxis } from '@/shared/utils/plateauGrid'
 import { isLegacyRhythmResult, plateauRecommendation, resolvePlateauAxes } from '@/shared/utils/plateauSafety'
 import { isApiNotFoundError } from '@/shared/api/errors'
 import {
@@ -61,6 +62,7 @@ import {
   startBacktestTask,
 } from '@/shared/api/endpoints'
 import { DismissibleAlert } from '@/shared/components/DismissibleAlert'
+import { EditableDetailTable } from '@/shared/components/EditableDetailTable'
 import { PageHeader } from '@/shared/components/PageHeader'
 import { useRegisterPageAIContext } from '@/shared/ai/PageAIContext'
 import { buildPageTitle } from '@/state/aiAssistantStore'
@@ -363,36 +365,7 @@ function parseNumericList(
     maxLength?: number
   },
 ): number[] {
-  const {
-    integer = false,
-    min,
-    max,
-    precision = 6,
-    maxLength = 16,
-  } = options
-  const tokens = String(raw || '')
-    .split(/[,\s，、;；]+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-  if (tokens.length === 0) return []
-  const result: number[] = []
-  const seen = new Set<string>()
-  for (const token of tokens) {
-    if (result.length >= maxLength) break
-    const parsed = Number(token)
-    if (!Number.isFinite(parsed)) continue
-    let value = Math.max(min, Math.min(max, parsed))
-    if (integer) {
-      value = Math.round(value)
-    } else {
-      value = Number(value.toFixed(precision))
-    }
-    const key = integer ? String(Math.round(value)) : value.toFixed(precision)
-    if (seen.has(key)) continue
-    seen.add(key)
-    result.push(value)
-  }
-  return result
+  return numericAxis(raw, options)
 }
 
 function bufferToBase64(buffer: ArrayBuffer): string {
@@ -2118,13 +2091,13 @@ function persistBacktestDraft(draft: BacktestFormDraft) {
 
 function buildDefaultPlateauDraft(): BacktestPlateauFormDraft {
   return {
-    sampling_mode: 'lhs',
-    sample_points: 120,
+    sampling_mode: 'grid',
+    sample_points: 121,
     random_seed: 20260221,
     window_days_list_raw: '',
     min_score_list_raw: '',
-    stop_loss_pct_list_raw: '',
-    take_profit_pct_list_raw: '',
+    stop_loss_pct_list_raw: denseRiskGrid(11).stopLoss,
+    take_profit_pct_list_raw: denseRiskGrid(11).takeProfit,
     trailing_stop_pct_list_raw: '',
     intraday_trailing_reduce_ratio_list_raw: '',
     max_positions_list_raw: '',
@@ -2600,12 +2573,13 @@ function buildWalkForwardAdvice(walkForward: BacktestWalkForwardReport | null): 
   }
 }
 
-function buildChartPath(symbol: string, name?: string) {
+function buildChartPath(symbol: string, name?: string, focusDate?: string) {
   const symbolText = String(symbol || '').trim()
   if (!symbolText) return ''
   const params = new URLSearchParams()
   const nameText = String(name || '').trim()
   if (nameText) params.set('signal_stock_name', nameText)
+  if (focusDate) params.set('focus_date', focusDate)
   const query = params.toString()
   return `/stocks/${symbolText}/chart${query ? `?${query}` : ''}`
 }
@@ -2654,7 +2628,7 @@ const openSignalColumns: ColumnsType<BacktestTrade> = [
     render: (value: string, row) => {
       const symbol = String(value || '').trim()
       if (!symbol) return '--'
-      const target = buildChartPath(symbol, row.name)
+      const target = buildChartPath(symbol, row.name, row.signal_date)
       return <Link to={target}>{symbol}</Link>
     },
   },
@@ -2666,7 +2640,7 @@ const openSignalColumns: ColumnsType<BacktestTrade> = [
       const symbol = String(row.symbol || '').trim()
       const name = String(value || '').trim()
       if (!symbol) return name || '--'
-      const target = buildChartPath(symbol, name || row.name)
+      const target = buildChartPath(symbol, name || row.name, row.signal_date)
       return <Link to={target}>{name || '--'}</Link>
     },
   },
@@ -2723,7 +2697,7 @@ const tradeColumns: ColumnsType<BacktestTrade> = [
     render: (value: string, row) => {
       const symbol = String(value || '').trim()
       if (!symbol) return '--'
-      const target = buildChartPath(symbol, row.name)
+      const target = buildChartPath(symbol, row.name, row.signal_date)
       return <Link to={target}>{symbol}</Link>
     },
   },
@@ -2735,7 +2709,7 @@ const tradeColumns: ColumnsType<BacktestTrade> = [
       const symbol = String(row.symbol || '').trim()
       const name = String(value || '').trim()
       if (!symbol) return name || '--'
-      const target = buildChartPath(symbol, name || row.name)
+      const target = buildChartPath(symbol, name || row.name, row.signal_date)
       return <Link to={target}>{name || '--'}</Link>
     },
   },
@@ -2818,7 +2792,7 @@ function buildPlanBuyColumns(trades: BacktestTrade[]): ColumnsType<BacktestTrade
       render: (value: string, row) => {
         const symbol = String(value || '').trim()
         if (!symbol) return '--'
-        return <Link to={buildChartPath(symbol, row.name)}>{symbol}</Link>
+        return <Link to={buildChartPath(symbol, row.name, row.signal_date)}>{symbol}</Link>
       },
     },
     {
@@ -2829,7 +2803,7 @@ function buildPlanBuyColumns(trades: BacktestTrade[]): ColumnsType<BacktestTrade
         const symbol = String(row.symbol || '').trim()
         const name = String(value || '').trim()
         if (!symbol) return name || '--'
-        return <Link to={buildChartPath(symbol, name || row.name)}>{name || '--'}</Link>
+        return <Link to={buildChartPath(symbol, name || row.name, row.signal_date)}>{name || '--'}</Link>
       },
     },
     { title: '信号日', dataIndex: 'signal_date', width: 100 },
@@ -2883,7 +2857,7 @@ function buildEquityDateDetailColumns(totalEquity: number): ColumnsType<Backtest
       render: (value: string, row) => {
         const symbol = String(value || '').trim()
         if (!symbol) return '--'
-        return <Link to={buildChartPath(symbol, row.name)}>{symbol}</Link>
+        return <Link to={buildChartPath(symbol, row.name, row.signal_date)}>{symbol}</Link>
       },
     },
     {
@@ -2894,7 +2868,7 @@ function buildEquityDateDetailColumns(totalEquity: number): ColumnsType<Backtest
         const symbol = String(row.symbol || '').trim()
         const name = String(value || '').trim()
         if (!symbol) return name || '--'
-        return <Link to={buildChartPath(symbol, name || row.name)}>{name || '--'}</Link>
+        return <Link to={buildChartPath(symbol, name || row.name, row.signal_date)}>{name || '--'}</Link>
       },
     },
     { title: '信号日', dataIndex: 'signal_date', width: 100 },
@@ -3174,6 +3148,8 @@ const plateauColumns: ColumnsType<BacktestPlateauTableRow> = [
 ]
 
 export function BacktestPage() {
+  const plateauView = new URLSearchParams(useLocation().search).get('section') === 'plateau'
+  const [showSharedConfig, setShowSharedConfig] = useState(false)
   const { message } = AntdApp.useApp()
   const initialDraft = useMemo(() => loadBacktestDraft(), [])
   const initialPlateauDraft = useMemo(() => loadBacktestPlateauDraft(), [])
@@ -3285,6 +3261,9 @@ export function BacktestPage() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
   const [plateauHistoryLoading, setPlateauHistoryLoading] = useState(false)
   const [collapsedModules, setCollapsedModules] = useState<Record<BacktestModuleKey, boolean>>(() => loadCollapsedModules())
+  useEffect(() => {
+    if (plateauView) setCollapsedModules(previous => previous.plateau_params ? { ...previous, plateau_params: false } : previous)
+  }, [plateauView])
   const importReportFileRef = useRef<HTMLInputElement | null>(null)
   const backtestResultSectionRef = useRef<HTMLDivElement | null>(null)
   const plateauPointDetailCacheRef = useRef<Map<string, BacktestPlateauPointDetailResponse>>(new Map())
@@ -3600,6 +3579,7 @@ export function BacktestPage() {
     minEventCount,
     entryEvents,
     exitEvents,
+    activeEventJudgmentProfileId,
     executionPathPreference,
     initialCapital,
     positionPctPercent,
@@ -4362,7 +4342,41 @@ export function BacktestPage() {
     bindLatestRunMutation.mutate()
   }
 
+  function useDensePlateau(size: number) {
+    const dense = denseRiskGrid(size)
+    setPlateauSamplingMode('grid')
+    setPlateauSamplePoints(dense.points)
+    setPlateauStopLossPctListRaw(dense.stopLoss)
+    setPlateauTakeProfitPctListRaw(dense.takeProfit)
+    setPlateauWindowListRaw(''); setPlateauMinScoreListRaw('')
+    setPlateauTrailingStopPctListRaw(''); setPlateauIntradayReducePctListRaw('')
+    setPlateauMaxPositionsListRaw(''); setPlateauPositionPctListRaw('')
+    setPlateauMaxSymbolsListRaw(''); setPlateauTopKListRaw('')
+    setPlateauHeatmapXAxis('stop_loss'); setPlateauHeatmapYAxis('take_profit')
+    message.success(`已生成 ${size}×${size} 完整网格，共${dense.points}点；其余参数使用当前回测设置`)
+  }
+  const plateauGridPreview = (() => {
+    try {
+      return { ...gridSummary({
+        window: numericAxis(plateauWindowListRaw,{integer:true,min:20,max:240}),
+        score: numericAxis(plateauMinScoreListRaw,{min:0,max:100,precision:4}),
+        stop: numericAxis(plateauStopLossPctListRaw,{min:0,max:50,precision:4}),
+        take: numericAxis(plateauTakeProfitPctListRaw,{min:0,max:150,precision:4}),
+        trailing: numericAxis(plateauTrailingStopPctListRaw,{min:0,max:50,precision:4}),
+        reduce: numericAxis(plateauIntradayReducePctListRaw,{min:10,max:100,precision:4}),
+        positions: numericAxis(plateauMaxPositionsListRaw,{integer:true,min:1,max:100}),
+        position: numericAxis(plateauPositionPctListRaw,{min:1,max:100,precision:4}),
+        symbols: numericAxis(plateauMaxSymbolsListRaw,{integer:true,min:20,max:2000}),
+        topk: numericAxis(plateauTopKListRaw,{integer:true,min:0,max:500}),
+      }), error:'' }
+    } catch(error) { return {total:0,dimensions:'',isSurface:false,exceedsLimit:false,error:error instanceof Error ? error.message : '参数无效'} }
+  })()
+
   function handleRunPlateau() {
+    try { runPlateauChecked() } catch (error) { message.error(error instanceof Error ? error.message : '请检查平原参数') }
+  }
+
+  function runPlateauChecked() {
     if (startPlateauTaskMutation.isPending) return
     if (!strategyUsesBuiltInEntrySignal && entryEvents.length === 0) {
       message.warning('请至少选择一个入场事件')
@@ -4451,6 +4465,16 @@ export function BacktestPage() {
       sample_points: samplePoints,
       random_seed: plateauRandomSeed ?? undefined,
       max_points: samplePoints,
+    }
+    const summary = gridSummary(Object.fromEntries(Object.entries(payload).filter(([key,value]) => key.endsWith('_list') && Array.isArray(value))) as Record<string,number[]>)
+    if (!summary.isSurface) {
+      message.warning('至少设置两个变化的参数轴，才能扫描一整片平原；可点击上方“一键生成完整平原”')
+      return
+    }
+    if (plateauSamplingMode === 'grid') {
+      if (summary.exceedsLimit) { message.warning(`完整网格共 ${summary.total} 点，超过单次2000点，请缩小范围或改用区间采样`); return }
+      payload.sample_points = summary.total
+      payload.max_points = summary.total
     }
     setPlateauError(null)
     startPlateauTaskMutation.mutate(payload)
@@ -6547,25 +6571,26 @@ export function BacktestPage() {
     }
   }, [taskProgress?.stage_timings])
   return (
-    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+    <Space data-research="page" data-view={plateauView ? "plateau" : "backtest"} orientation="vertical" size={16} style={{ width: '100%' }}>
       <PageHeader title="策略回测" subtitle="回放历史信号，评估策略收益、回撤与执行质量。" />
 
-      <Card>
-        <Row gutter={[12, 12]}>
-          <Col xs={24} md={6}>
-            <Space orientation="vertical" style={{ width: '100%' }}>
-              <span>回测范围</span>
-              <Radio.Group
-                value={mode}
-                optionType="button"
-                onChange={(event) => setMode(event.target.value)}
-                options={[
-                  { label: '趋势池', value: 'trend_pool' },
-                  { label: '全市场', value: 'full_market' },
-                ]}
-              />
-            </Space>
-          </Col>
+      {plateauView ? <Card data-research="shared-summary" size="small"><Space wrap><strong>当前回测设置</strong><Tag>{selectedStrategy?.name || strategyId}</Tag><span>{range[0].format('YYYY-MM-DD')} 至 {range[1].format('YYYY-MM-DD')}</span><span>{mode === 'trend_pool' ? '趋势池' : '全市场'} · {maxSymbols}只股票上限</span><Button size="small" onClick={() => setShowSharedConfig(value => !value)}>{showSharedConfig ? '收起设置' : '调整回测设置'}</Button></Space></Card> : null}
+
+      <Card data-research="backtest-config" hidden={plateauView && !showSharedConfig} title="回测设置">
+        <Row data-research="fields"><Col xs={24} md={6}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
+            <span>回测范围</span>
+            <Radio.Group
+              value={mode}
+              optionType="button"
+              onChange={(event) => setMode(event.target.value)}
+              options={[
+                { label: '趋势池', value: 'trend_pool' },
+                { label: '全市场', value: 'full_market' },
+              ]}
+            />
+          </Space>
+        </Col>
           <Col xs={24} md={6}>
             <Space orientation="vertical" style={{ width: '100%' }}>
               <span>趋势池阶段</span>
@@ -6599,21 +6624,6 @@ export function BacktestPage() {
           </Col>
           <Col xs={24} md={6}>
             <Space orientation="vertical" style={{ width: '100%' }}>
-              <span>筛选任务 run_id（可选）</span>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <Input
-                  value={runId}
-                  onChange={(event) => setRunId(event.target.value)}
-                  placeholder="请输入筛选任务 run_id"
-                />
-                <Button loading={bindLatestRunMutation.isPending} onClick={handleBindLatestRunId}>
-                  带入最新筛选
-                </Button>
-              </div>
-            </Space>
-          </Col>
-          <Col xs={24} md={6}>
-            <Space orientation="vertical" style={{ width: '100%' }}>
               <span>策略</span>
               <Select
                 loading={strategyCatalogQuery.isLoading}
@@ -6634,103 +6644,6 @@ export function BacktestPage() {
               />
             </Space>
           </Col>
-          <Col xs={24} md={18}>
-            <DismissibleAlert
-              dismissKey="backtest.strategy-info"
-              type="info"
-              showIcon
-              title={selectedStrategy ? `策略：${selectedStrategy.name}` : '策略信息'}
-              description={
-                selectedStrategy
-                  ? `id=${selectedStrategy.strategy_id}, version=${selectedStrategy.version}, cap=matrix:${strategySupportsMatrix ? 1 : 0}|age:${strategySupportsSignalAgeFilter ? 1 : 0}|delay:${strategySupportsEntryDelay ? 1 : 0}`
-                  : '未加载到策略目录，先按默认策略继续。'
-              }
-            />
-          </Col>
-
-          {!strategySupportsEntryDelay ? (
-            <Col xs={24}>
-              <DismissibleAlert
-                dismissKey="backtest.unsupported-entry-delay-tip"
-                type="warning"
-                showIcon
-                title="当前策略不支持延迟入场"
-                description="已自动固定为 entry_delay_days=1，并禁用延迟窗口失效保护。"
-              />
-            </Col>
-          ) : null}
-
-          {strategyUsesBuiltInEntrySignal ? (
-            <Col xs={24}>
-              <DismissibleAlert
-                dismissKey={`backtest.eventless-strategy-tip.${strategyId}`}
-                type="info"
-                showIcon
-                title="当前策略直接用策略信号入场"
-                description="已自动关闭入场事件、最少事件数和事件顺序要求。离场事件可留空；留空时仅使用止损、止盈、回撤和持有天数等规则退出。"
-              />
-            </Col>
-          ) : null}
-
-          <Col xs={24}>
-            <DismissibleAlert
-              dismissKey="backtest.strategy-center-tip"
-              type="info"
-              showIcon
-              title="策略参数与预设已迁移到策略中心"
-              description={
-                <Space wrap size={8}>
-                  <span>当前页面仅保留策略选择，参数统一在策略中心维护。</span>
-                  <Link to="/strategy">前往策略中心</Link>
-                </Space>
-              }
-            />
-          </Col>
-
-          {mode === 'full_market' ? (
-            <Col xs={24}>
-              <DismissibleAlert
-                dismissKey={`backtest.full-market-roll-mode.${poolRollMode}`}
-                type="warning"
-                showIcon
-                title={
-                  poolRollMode === 'daily'
-                    ? '全市场-每日滚动：每个交易日全量重算候选池，结果最严格，耗时最高。'
-                    : poolRollMode === 'weekly'
-                      ? '全市场-每周滚动：每周首个交易日重算候选池，其余交易日沿用。'
-                      : '全市场-持仓触发：首日建池；出现卖出信号当日重算候选池，卖出后下一交易日再刷新一轮。'
-                }
-                description={
-                  poolRollMode === 'position'
-                    ? '该模式更贴近“卖出后再补仓”的实盘节奏；仍建议控制回测区间与最大股票数。'
-                    : '该模式计算量较大，建议缩短区间或降低“最大股票数”，并通过任务进度面板观察执行状态。'
-                }
-              />
-            </Col>
-          ) : null}
-
-          {mode === 'trend_pool' ? (
-            <Col xs={24}>
-              <DismissibleAlert
-                dismissKey={`backtest.trend-pool-roll-mode.${poolRollMode}`}
-                type={poolRollMode === 'position' ? 'info' : 'warning'}
-                showIcon
-                title={
-                  poolRollMode === 'daily'
-                    ? '每日滚动：每个交易日重算一次股票池，最严格，耗时最长。'
-                    : poolRollMode === 'weekly'
-                      ? '每周滚动：每周首个交易日重算股票池，速度更快。'
-                      : '持仓触发：首日建池；出现卖出信号当日重算候选池，卖出后下一交易日再刷新一轮。'
-                }
-                description={
-                  poolRollMode === 'daily' || poolRollMode === 'weekly'
-                    ? '该模式使用后台任务执行，页面会按日期显示进度，耗时可能较久。'
-                    : '该模式通过持仓空位触发滚动筛选，适合模拟“卖出后再补仓”的交易节奏。'
-                }
-              />
-            </Col>
-          ) : null}
-
           <Col xs={24} md={12}>
             <Space orientation="vertical" style={{ width: '100%' }}>
               <span>回测区间</span>
@@ -6767,33 +6680,6 @@ export function BacktestPage() {
               />
             </Space>
           </Col>
-
-          {!strategyUsesBuiltInEntrySignal ? (
-            <Col xs={24} md={12}>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <span>入场事件</span>
-                <Select
-                  mode="multiple"
-                  value={entryEvents}
-                  onChange={setEntryEvents}
-                  options={WY_EVENTS.map((event) => ({ label: event, value: event }))}
-                />
-              </Space>
-            </Col>
-          ) : null}
-          <Col xs={24} md={12}>
-            <Space orientation="vertical" style={{ width: '100%' }}>
-              <span>{strategyAllowsOptionalExitEvents ? '离场事件（可选）' : '离场事件'}</span>
-              <Select
-                mode="multiple"
-                value={exitEvents}
-                onChange={setExitEvents}
-                placeholder={strategyAllowsOptionalExitEvents ? '可留空，改用风控规则退出' : undefined}
-                options={WY_EVENTS.map((event) => ({ label: event, value: event }))}
-              />
-            </Space>
-          </Col>
-
           <Col xs={24} md={6}>
             <Space orientation="vertical" style={{ width: '100%' }}>
               <span>初始资金</span>
@@ -6846,7 +6732,6 @@ export function BacktestPage() {
               />
             </Space>
           </Col>
-
           <Col xs={24} md={6}>
             <Space orientation="vertical" style={{ width: '100%' }}>
               <span>止损比例(%)</span>
@@ -6877,80 +6762,6 @@ export function BacktestPage() {
           </Col>
           <Col xs={24} md={6}>
             <Space orientation="vertical" style={{ width: '100%' }}>
-              <span>高位回撤(%)</span>
-              <InputNumber
-                min={0}
-                max={50}
-                step={0.5}
-                suffix="%"
-                value={trailingStopPercent}
-                onChange={(value) => setTrailingStopPercent(Number(value ?? 0))}
-                style={{ width: '100%' }}
-              />
-            </Space>
-          </Col>
-          <Col xs={24} md={6}>
-            <Space orientation="vertical" style={{ width: '100%' }}>
-              <span>日内回撤减仓</span>
-              <Switch
-                checked={intradayTrailingEnabled}
-                disabled={trailingStopPercent <= 0}
-                onChange={setIntradayTrailingEnabled}
-              />
-            </Space>
-          </Col>
-          <Col xs={24} md={6}>
-            <Space orientation="vertical" style={{ width: '100%' }}>
-              <span>多条日K回撤清仓</span>
-              <Switch
-                checked={dailyTrailingClearEnabled}
-                disabled={trailingStopPercent <= 0}
-                onChange={setDailyTrailingClearEnabled}
-              />
-            </Space>
-          </Col>
-          <Col xs={24} md={6}>
-            <Space orientation="vertical" style={{ width: '100%' }}>
-              <span>日内减仓比例(%)</span>
-              <InputNumber
-                min={10}
-                max={100}
-                step={5}
-                suffix="%"
-                disabled={!intradayTrailingEnabled || trailingStopPercent <= 0}
-                value={intradayTrailingReducePercent}
-                onChange={(value) => setIntradayTrailingReducePercent(Number(value ?? 50))}
-                style={{ width: '100%' }}
-              />
-            </Space>
-          </Col>
-          <Col xs={24} md={6}>
-            <Space orientation="vertical" style={{ width: '100%' }}>
-              <span>日K确认天数</span>
-              <InputNumber
-                min={1}
-                max={5}
-                disabled={!dailyTrailingClearEnabled || trailingStopPercent <= 0}
-                value={dailyTrailingConfirmDays}
-                onChange={(value) => setDailyTrailingConfirmDays(Number(value ?? TRADE_BACKTEST_DEFAULTS.dailyTrailingConfirmDays))}
-                style={{ width: '100%' }}
-              />
-            </Space>
-          </Col>
-          <Col xs={24} md={6}>
-            <Space orientation="vertical" style={{ width: '100%' }}>
-              <span>最大持仓天数</span>
-              <InputNumber
-                min={1}
-                max={365}
-                value={maxHoldDays}
-                onChange={(value) => setMaxHoldDays(Number(value || TRADE_BACKTEST_DEFAULTS.maxHoldDays))}
-                style={{ width: '100%' }}
-              />
-            </Space>
-          </Col>
-          <Col xs={24} md={6}>
-            <Space orientation="vertical" style={{ width: '100%' }}>
               <span>单边费率(bps)</span>
               <InputNumber
                 min={0}
@@ -6960,35 +6771,6 @@ export function BacktestPage() {
                 onChange={(value) => setFeeBps(Number(value || TRADE_BACKTEST_DEFAULTS.feeBps))}
                 style={{ width: '100%' }}
               />
-            </Space>
-          </Col>
-
-          {!strategyUsesBuiltInEntrySignal ? (
-            <Col xs={24} md={6}>
-              <Space orientation="vertical">
-                <span>要求事件顺序</span>
-                <Switch checked={requireSequence} onChange={setRequireSequence} />
-              </Space>
-            </Col>
-          ) : null}
-          {!strategyUsesBuiltInEntrySignal ? (
-            <Col xs={24} md={6}>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <span>最少事件数</span>
-                <InputNumber
-                  min={0}
-                  max={12}
-                  value={minEventCount}
-                  onChange={(value) => setMinEventCount(Number(value || TRADE_BACKTEST_DEFAULTS.minEventCount))}
-                  style={{ width: '100%' }}
-                />
-              </Space>
-            </Col>
-          ) : null}
-          <Col xs={24} md={6}>
-            <Space orientation="vertical">
-              <span>启用同日优先级</span>
-              <Switch checked={prioritizeSignals} onChange={setPrioritizeSignals} />
             </Space>
           </Col>
           <Col xs={24} md={6}>
@@ -7009,111 +6791,340 @@ export function BacktestPage() {
                 style={{ width: '100%' }}
               />
             </Space>
-          </Col>
-          <Col xs={24} md={6}>
-            <Space orientation="vertical">
-              <span>延迟窗口失效保护</span>
-              <Switch
-                checked={delayInvalidationEnabled}
-                disabled={!strategySupportsEntryDelay}
-                onChange={setDelayInvalidationEnabled}
-              />
-            </Space>
-          </Col>
-          <Col xs={24} md={6}>
+          </Col></Row><details className="research-fold" ><summary>高级执行与退出设置</summary><div className="research-fold-body"><Row data-research="fields"><Col xs={24} md={6}>
             <Space orientation="vertical" style={{ width: '100%' }}>
-              <span>{strategyForcesLegacyPath ? '执行路径（当前策略固定旧路径）' : `执行路径（默认 ${defaultExecutionPathPreference}）`}</span>
-              <Select
-                value={strategyForcesLegacyPath ? 'legacy' : executionPathPreference}
-                disabled={strategyForcesLegacyPath}
-                onChange={(value) => {
-                  executionPathPreferenceInitializedRef.current = true
-                  setExecutionPathPreference(value as BacktestExecutionPathPreference)
-                }}
-                options={[
-                  { label: '自动', value: 'auto' },
-                  { label: '矩阵路径', value: 'matrix' },
-                  { label: '旧路径', value: 'legacy' },
-                ]}
-              />
-              {strategyForcesLegacyPath ? (
-                <span style={{ color: '#64748b', fontSize: 12 }}>
-                  当前策略不支持矩阵路径，回测与收益平原都会自动按旧路径执行。
-                </span>
-              ) : null}
+              <span>筛选任务 run_id（可选）</span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Input
+                  value={runId}
+                  onChange={(event) => setRunId(event.target.value)}
+                  placeholder="请输入筛选任务 run_id"
+                />
+                <Button loading={bindLatestRunMutation.isPending} onClick={handleBindLatestRunId}>
+                  带入最新筛选
+                </Button>
+              </div>
             </Space>
           </Col>
-          <Col xs={24} md={6}>
-            <Space orientation="vertical">
-              <span>高级分析</span>
-              <Switch checked={enableAdvancedAnalysis} onChange={setEnableAdvancedAnalysis} />
-            </Space>
-          </Col>
-          <Col xs={24} md={12}>
-            <DismissibleAlert
-              dismissKey={`backtest.advanced-analysis-tip.${enableAdvancedAnalysis ? 'on' : 'off'}`}
-              type={enableAdvancedAnalysis ? 'info' : 'warning'}
-              showIcon
-              title={enableAdvancedAnalysis ? '已启用高级分析' : '已关闭高级分析'}
-              description={
-                enableAdvancedAnalysis
-                  ? '将额外计算稳定性评分、市场状态拆分、蒙特卡洛压力测试和 Walk-forward 验证，耗时会增加。'
-                  : '仅执行主回测，速度更快但不生成稳定性/压力测试/样本外验证。'
-              }
-            />
-          </Col>
-
-          {prioritizeSignals ? (
+            {!strategyUsesBuiltInEntrySignal ? (
+              <Col xs={24} md={12}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
+                  <span>入场事件</span>
+                  <Select
+                    mode="multiple"
+                    value={entryEvents}
+                    onChange={setEntryEvents}
+                    options={WY_EVENTS.map((event) => ({ label: event, value: event }))}
+                  />
+                </Space>
+              </Col>
+            ) : null}
             <Col xs={24} md={12}>
               <Space orientation="vertical" style={{ width: '100%' }}>
-                <span>优先级模式</span>
-                <Radio.Group
-                  value={priorityMode}
-                  optionType="button"
-                  onChange={(event) => setPriorityMode(event.target.value)}
-                  options={[
-                    { label: '阶段优先', value: 'phase_first' },
-                    { label: '均衡', value: 'balanced' },
-                    { label: '动量优先', value: 'momentum' },
-                  ]}
+                <span>{strategyAllowsOptionalExitEvents ? '离场事件（可选）' : '离场事件'}</span>
+                <Select
+                  mode="multiple"
+                  value={exitEvents}
+                  onChange={setExitEvents}
+                  placeholder={strategyAllowsOptionalExitEvents ? '可留空，改用风控规则退出' : undefined}
+                  options={WY_EVENTS.map((event) => ({ label: event, value: event }))}
                 />
               </Space>
             </Col>
-          ) : null}
-          {prioritizeSignals ? (
-            <Col xs={24} md={12}>
+            <Col xs={24} md={6}>
               <Space orientation="vertical" style={{ width: '100%' }}>
-                <span>同日 TopK（0 = 不限制）</span>
+                <span>高位回撤(%)</span>
                 <InputNumber
                   min={0}
-                  max={500}
-                  value={priorityTopK}
-                  onChange={(value) => setPriorityTopK(Number(value || TRADE_BACKTEST_DEFAULTS.priorityTopK))}
+                  max={50}
+                  step={0.5}
+                  suffix="%"
+                  value={trailingStopPercent}
+                  onChange={(value) => setTrailingStopPercent(Number(value ?? 0))}
                   style={{ width: '100%' }}
                 />
               </Space>
             </Col>
-          ) : null}
-          {prioritizeSignals ? (
-            <Col xs={24}>
+            <Col xs={24} md={6}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
+                <span>日内回撤减仓</span>
+                <Switch
+                  checked={intradayTrailingEnabled}
+                  disabled={trailingStopPercent <= 0}
+                  onChange={setIntradayTrailingEnabled}
+                />
+              </Space>
+            </Col>
+            <Col xs={24} md={6}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
+                <span>多条日K回撤清仓</span>
+                <Switch
+                  checked={dailyTrailingClearEnabled}
+                  disabled={trailingStopPercent <= 0}
+                  onChange={setDailyTrailingClearEnabled}
+                />
+              </Space>
+            </Col>
+            <Col xs={24} md={6}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
+                <span>日内减仓比例(%)</span>
+                <InputNumber
+                  min={10}
+                  max={100}
+                  step={5}
+                  suffix="%"
+                  disabled={!intradayTrailingEnabled || trailingStopPercent <= 0}
+                  value={intradayTrailingReducePercent}
+                  onChange={(value) => setIntradayTrailingReducePercent(Number(value ?? 50))}
+                  style={{ width: '100%' }}
+                />
+              </Space>
+            </Col>
+            <Col xs={24} md={6}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
+                <span>日K确认天数</span>
+                <InputNumber
+                  min={1}
+                  max={5}
+                  disabled={!dailyTrailingClearEnabled || trailingStopPercent <= 0}
+                  value={dailyTrailingConfirmDays}
+                  onChange={(value) => setDailyTrailingConfirmDays(Number(value ?? TRADE_BACKTEST_DEFAULTS.dailyTrailingConfirmDays))}
+                  style={{ width: '100%' }}
+                />
+              </Space>
+            </Col>
+            <Col xs={24} md={6}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
+                <span>最大持仓天数</span>
+                <InputNumber
+                  min={1}
+                  max={365}
+                  value={maxHoldDays}
+                  onChange={(value) => setMaxHoldDays(Number(value || TRADE_BACKTEST_DEFAULTS.maxHoldDays))}
+                  style={{ width: '100%' }}
+                />
+              </Space>
+            </Col>
+            {!strategyUsesBuiltInEntrySignal ? (
+              <Col xs={24} md={6}>
+                <Space orientation="vertical">
+                  <span>要求事件顺序</span>
+                  <Switch checked={requireSequence} onChange={setRequireSequence} />
+                </Space>
+              </Col>
+            ) : null}
+            {!strategyUsesBuiltInEntrySignal ? (
+              <Col xs={24} md={6}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
+                  <span>最少事件数</span>
+                  <InputNumber
+                    min={0}
+                    max={12}
+                    value={minEventCount}
+                    onChange={(value) => setMinEventCount(Number(value || TRADE_BACKTEST_DEFAULTS.minEventCount))}
+                    style={{ width: '100%' }}
+                  />
+                </Space>
+              </Col>
+            ) : null}
+            <Col xs={24} md={6}>
+              <Space orientation="vertical">
+                <span>启用同日优先级</span>
+                <Switch checked={prioritizeSignals} onChange={setPrioritizeSignals} />
+              </Space>
+            </Col>
+            <Col xs={24} md={6}>
+              <Space orientation="vertical">
+                <span>延迟窗口失效保护</span>
+                <Switch
+                  checked={delayInvalidationEnabled}
+                  disabled={!strategySupportsEntryDelay}
+                  onChange={setDelayInvalidationEnabled}
+                />
+              </Space>
+            </Col>
+            <Col xs={24} md={6}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
+                <span>{strategyForcesLegacyPath ? '执行路径（当前策略固定旧路径）' : `执行路径（默认 ${defaultExecutionPathPreference}）`}</span>
+                <Select
+                  value={strategyForcesLegacyPath ? 'legacy' : executionPathPreference}
+                  disabled={strategyForcesLegacyPath}
+                  onChange={(value) => {
+                    executionPathPreferenceInitializedRef.current = true
+                    setExecutionPathPreference(value as BacktestExecutionPathPreference)
+                  }}
+                  options={[
+                    { label: '自动', value: 'auto' },
+                    { label: '矩阵路径', value: 'matrix' },
+                    { label: '旧路径', value: 'legacy' },
+                  ]}
+                />
+                {strategyForcesLegacyPath ? (
+                  <span style={{ color: '#64748b', fontSize: 12 }}>
+                    当前策略不支持矩阵路径，回测与收益平原都会自动按旧路径执行。
+                  </span>
+                ) : null}
+              </Space>
+            </Col>
+            <Col xs={24} md={6}>
+              <Space orientation="vertical">
+                <span>高级分析</span>
+                <Switch checked={enableAdvancedAnalysis} onChange={setEnableAdvancedAnalysis} />
+              </Space>
+            </Col>
+            {prioritizeSignals ? (
+              <Col xs={24} md={12}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
+                  <span>优先级模式</span>
+                  <Radio.Group
+                    value={priorityMode}
+                    optionType="button"
+                    onChange={(event) => setPriorityMode(event.target.value)}
+                    options={[
+                      { label: '阶段优先', value: 'phase_first' },
+                      { label: '均衡', value: 'balanced' },
+                      { label: '动量优先', value: 'momentum' },
+                    ]}
+                  />
+                </Space>
+              </Col>
+            ) : null}
+            {prioritizeSignals ? (
+              <Col xs={24} md={12}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
+                  <span>同日 TopK（0 = 不限制）</span>
+                  <InputNumber
+                    min={0}
+                    max={500}
+                    value={priorityTopK}
+                    onChange={(value) => setPriorityTopK(Number(value || TRADE_BACKTEST_DEFAULTS.priorityTopK))}
+                    style={{ width: '100%' }}
+                  />
+                </Space>
+              </Col>
+            ) : null}</Row></div></details><details className="research-fold" ><summary>策略与数据说明</summary><div className="research-fold-body"><Row data-research="fields"><Col xs={24} md={18}>
               <DismissibleAlert
-                dismissKey="backtest.priority-mode-help"
+                dismissKey="backtest.strategy-info"
                 type="info"
                 showIcon
-                title="优先级模式说明"
+                title={selectedStrategy ? `策略：${selectedStrategy.name}` : '策略信息'}
                 description={
-                  <div>
-                    <div>阶段优先：同日先按阶段分，再看质量分。</div>
-                    <div>均衡：同日先看质量分，再看阶段分与事件权重。</div>
-                    <div>动量优先：同日先看趋势分，再看质量分。</div>
-                  </div>
+                  selectedStrategy
+                    ? `id=${selectedStrategy.strategy_id}, version=${selectedStrategy.version}, cap=matrix:${strategySupportsMatrix ? 1 : 0}|age:${strategySupportsSignalAgeFilter ? 1 : 0}|delay:${strategySupportsEntryDelay ? 1 : 0}`
+                    : '未加载到策略目录，先按默认策略继续。'
                 }
               />
             </Col>
-          ) : null}
-        </Row>
+              {!strategySupportsEntryDelay ? (
+                <Col xs={24}>
+                  <DismissibleAlert
+                    dismissKey="backtest.unsupported-entry-delay-tip"
+                    type="warning"
+                    showIcon
+                    title="当前策略不支持延迟入场"
+                    description="已自动固定为 entry_delay_days=1，并禁用延迟窗口失效保护。"
+                  />
+                </Col>
+              ) : null}
+              {strategyUsesBuiltInEntrySignal ? (
+                <Col xs={24}>
+                  <DismissibleAlert
+                    dismissKey={`backtest.eventless-strategy-tip.${strategyId}`}
+                    type="info"
+                    showIcon
+                    title="当前策略直接用策略信号入场"
+                    description="已自动关闭入场事件、最少事件数和事件顺序要求。离场事件可留空；留空时仅使用止损、止盈、回撤和持有天数等规则退出。"
+                  />
+                </Col>
+              ) : null}
+              <Col xs={24}>
+                <DismissibleAlert
+                  dismissKey="backtest.strategy-center-tip"
+                  type="info"
+                  showIcon
+                  title="策略参数与预设已迁移到策略中心"
+                  description={
+                    <Space wrap size={8}>
+                      <span>当前页面仅保留策略选择，参数统一在策略中心维护。</span>
+                      <Link to="/strategy">前往策略中心</Link>
+                    </Space>
+                  }
+                />
+              </Col>
+              {mode === 'full_market' ? (
+                <Col xs={24}>
+                  <DismissibleAlert
+                    dismissKey={`backtest.full-market-roll-mode.${poolRollMode}`}
+                    type="warning"
+                    showIcon
+                    title={
+                      poolRollMode === 'daily'
+                        ? '全市场-每日滚动：每个交易日全量重算候选池，结果最严格，耗时最高。'
+                        : poolRollMode === 'weekly'
+                          ? '全市场-每周滚动：每周首个交易日重算候选池，其余交易日沿用。'
+                          : '全市场-持仓触发：首日建池；出现卖出信号当日重算候选池，卖出后下一交易日再刷新一轮。'
+                    }
+                    description={
+                      poolRollMode === 'position'
+                        ? '该模式更贴近“卖出后再补仓”的实盘节奏；仍建议控制回测区间与最大股票数。'
+                        : '该模式计算量较大，建议缩短区间或降低“最大股票数”，并通过任务进度面板观察执行状态。'
+                    }
+                  />
+                </Col>
+              ) : null}
+              {mode === 'trend_pool' ? (
+                <Col xs={24}>
+                  <DismissibleAlert
+                    dismissKey={`backtest.trend-pool-roll-mode.${poolRollMode}`}
+                    type={poolRollMode === 'position' ? 'info' : 'warning'}
+                    showIcon
+                    title={
+                      poolRollMode === 'daily'
+                        ? '每日滚动：每个交易日重算一次股票池，最严格，耗时最长。'
+                        : poolRollMode === 'weekly'
+                          ? '每周滚动：每周首个交易日重算股票池，速度更快。'
+                          : '持仓触发：首日建池；出现卖出信号当日重算候选池，卖出后下一交易日再刷新一轮。'
+                    }
+                    description={
+                      poolRollMode === 'daily' || poolRollMode === 'weekly'
+                        ? '该模式使用后台任务执行，页面会按日期显示进度，耗时可能较久。'
+                        : '该模式通过持仓空位触发滚动筛选，适合模拟“卖出后再补仓”的交易节奏。'
+                    }
+                  />
+                </Col>
+              ) : null}
+              <Col xs={24} md={12}>
+                <DismissibleAlert
+                  dismissKey={`backtest.advanced-analysis-tip.${enableAdvancedAnalysis ? 'on' : 'off'}`}
+                  type={enableAdvancedAnalysis ? 'info' : 'warning'}
+                  showIcon
+                  title={enableAdvancedAnalysis ? '已启用高级分析' : '已关闭高级分析'}
+                  description={
+                    enableAdvancedAnalysis
+                      ? '将额外计算稳定性评分、市场状态拆分、蒙特卡洛压力测试和 Walk-forward 验证，耗时会增加。'
+                      : '仅执行主回测，速度更快但不生成稳定性/压力测试/样本外验证。'
+                  }
+                />
+              </Col>
+              {prioritizeSignals ? (
+                <Col xs={24}>
+                  <DismissibleAlert
+                    dismissKey="backtest.priority-mode-help"
+                    type="info"
+                    showIcon
+                    title="优先级模式说明"
+                    description={
+                      <div>
+                        <div>阶段优先：同日先按阶段分，再看质量分。</div>
+                        <div>均衡：同日先看质量分，再看阶段分与事件权重。</div>
+                        <div>动量优先：同日先看趋势分，再看质量分。</div>
+                      </div>
+                    }
+                  />
+                </Col>
+              ) : null}</Row></div></details>
 
-        <Space style={{ marginTop: 14 }}>
+        <Space wrap data-research="toolbar" style={{ marginTop: 14 }}>
           <Button type="primary" loading={runLoading} onClick={handleRun}>
             开始回测
           </Button>
@@ -7135,7 +7146,7 @@ export function BacktestPage() {
             </Button>
           ) : null}
           {taskStatus
-          && (taskStatus.status === 'running' || taskStatus.status === 'pending' || taskStatus.status === 'paused') ? (
+            && (taskStatus.status === 'running' || taskStatus.status === 'pending' || taskStatus.status === 'paused') ? (
             <Button
               danger
               loading={controlTaskMutation.isPending && controlTaskMutation.variables?.action === 'cancel'}
@@ -7143,7 +7154,7 @@ export function BacktestPage() {
             >
               停止
             </Button>
-            ) : null}
+          ) : null}
           {taskOptions.length > 0 ? (
             <Select
               style={{ minWidth: 320 }}
@@ -7201,38 +7212,25 @@ export function BacktestPage() {
             ) : null}
           </Card>
         ) : null}
-        <Card
-          size="small"
-          title={renderModuleTitle('backtest_history', '策略回测历史任务列表')}
-          style={{ marginTop: 12 }}
-          extra={renderModuleToggle('backtest_history')}
-        >
-          {!collapsedModules.backtest_history ? (
-            <Table
-              size="small"
-              columns={backtestHistoryColumns}
-              dataSource={backtestHistoryRows}
-              rowKey={(row) => row.task_id}
-              scroll={{ x: 1740 }}
-              pagination={{
-                defaultPageSize: 8,
-                pageSizeOptions: [8, 20, 50, 100],
-                showSizeChanger: true,
-                showTotal: (total) => `共 ${total} 条`,
-              }}
-            />
-          ) : null}
-        </Card>
+
       </Card>
 
-      <Card
+      <Card data-research="plateau-config" hidden={!plateauView}
         title={renderModuleTitle('plateau_params', '收益平原参数与进度')}
         extra={renderModuleToggle('plateau_params')}
       >
         {!collapsedModules.plateau_params ? (
           <Space orientation="vertical" size={12} style={{ width: '100%' }}>
-          <Row gutter={[12, 12]}>
-            <Col xs={24} md={8}>
+            <Space wrap>
+              <strong>一键生成完整平原</strong>
+              <Button onClick={() => useDensePlateau(7)}>7 × 7 · 49点</Button>
+              <Button onClick={() => useDensePlateau(11)}>11 × 11 · 121点</Button>
+              <Button onClick={() => useDensePlateau(21)}>21 × 21 · 441点</Button>
+            </Space>
+            <Alert showIcon type={plateauGridPreview.error || plateauGridPreview.exceedsLimit || !plateauGridPreview.isSurface ? 'warning' : 'info'}
+              title={plateauGridPreview.error || (plateauSamplingMode === 'grid' ? `完整网格 ${plateauGridPreview.dimensions || '1'}，共 ${plateauGridPreview.total} 点` : `区间采样 ${plateauSamplePoints} 点`)}
+              description={plateauGridPreview.exceedsLimit ? '超过单次2000点，请减少参数取值，或选择区间采样。不会只截取网格前几个点。' : !plateauGridPreview.isSurface ? '当前不足两个变化轴，无法形成平原。请生成完整网格或为两个参数填写多个取值。' : '一键网格扫描止损3%–13%、止盈5%–35%，其余参数沿用当前回测。每个格子都是真实计算，空缺不会插值冒充结果。'} />
+            <Row data-research="fields"><Col xs={24} md={8}>
               <Space orientation="vertical" style={{ width: '100%' }}>
                 <span>采样模式</span>
                 <Radio.Group
@@ -7240,403 +7238,277 @@ export function BacktestPage() {
                   optionType="button"
                   onChange={(event) => setPlateauSamplingMode(event.target.value)}
                   options={[
-                    { label: '拉丁超立方（推荐）', value: 'lhs' },
-                    { label: '网格枚举', value: 'grid' },
+                    { label: '区间采样（高维研究）', value: 'lhs' },
+                    { label: '完整网格（二维平原）', value: 'grid' },
                   ]}
                 />
               </Space>
             </Col>
-            <Col xs={24} md={8}>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <span>{plateauSamplingMode === 'lhs' ? '采样点数' : '最多评估点数'}</span>
-                <InputNumber
-                  min={1}
-                  max={2000}
-                  value={plateauSamplePoints}
-                  onChange={(value) => setPlateauSamplePoints(Number(value || 120))}
-                  style={{ width: '100%' }}
-                />
-              </Space>
-            </Col>
-            <Col xs={24} md={8}>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <span>随机种子（可选）</span>
-                <InputNumber
-                  min={0}
-                  max={2_147_483_647}
-                  value={plateauRandomSeed ?? undefined}
-                  onChange={(value) => {
-                    if (value === null || value === undefined) {
-                      setPlateauRandomSeed(null)
-                      return
-                    }
-                    setPlateauRandomSeed(Number(value))
-                  }}
-                  style={{ width: '100%' }}
-                />
-              </Space>
-            </Col>
-            <Col xs={24} md={6}>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <span>信号窗口天数列表（window_days）</span>
-                <Input
-                  value={plateauWindowListRaw}
-                  placeholder="如: 40,60,80"
-                  onChange={(event) => setPlateauWindowListRaw(event.target.value)}
-                />
-              </Space>
-            </Col>
-            <Col xs={24} md={6}>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <span>最低评分列表（min_score）</span>
-                <Input
-                  value={plateauMinScoreListRaw}
-                  placeholder="如: 50,55,60"
-                  onChange={(event) => setPlateauMinScoreListRaw(event.target.value)}
-                />
-              </Space>
-            </Col>
-            <Col xs={24} md={6}>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <span>止损比例列表（stop_loss，%）</span>
-                <Input
-                  value={plateauStopLossPctListRaw}
-                  placeholder="如: 3,5,8"
-                  onChange={(event) => setPlateauStopLossPctListRaw(event.target.value)}
-                />
-              </Space>
-            </Col>
-            <Col xs={24} md={6}>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <span>止盈比例列表（take_profit，%）</span>
-                <Input
-                  value={plateauTakeProfitPctListRaw}
-                  placeholder="如: 10,15,20"
-                  onChange={(event) => setPlateauTakeProfitPctListRaw(event.target.value)}
-                />
-              </Space>
-            </Col>
-            <Col xs={24} md={6}>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <span>高位回撤列表（trailing_stop_pct，%）</span>
-                <Input
-                  value={plateauTrailingStopPctListRaw}
-                  placeholder="如: 0,3,5"
-                  onChange={(event) => setPlateauTrailingStopPctListRaw(event.target.value)}
-                />
-              </Space>
-            </Col>
-            <Col xs={24} md={6}>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <span>日内减仓比例列表（intraday_trailing_reduce_ratio，%）</span>
-                <Input
-                  value={plateauIntradayReducePctListRaw}
-                  placeholder="如: 30,50,70"
-                  onChange={(event) => setPlateauIntradayReducePctListRaw(event.target.value)}
-                />
-              </Space>
-            </Col>
-            <Col xs={24} md={6}>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <span>最大并发持仓列表（max_positions）</span>
-                <Input
-                  value={plateauMaxPositionsListRaw}
-                  placeholder="如: 3,5,8"
-                  onChange={(event) => setPlateauMaxPositionsListRaw(event.target.value)}
-                />
-              </Space>
-            </Col>
-            <Col xs={24} md={6}>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <span>单笔仓位占比列表（position_pct，%）</span>
-                <Input
-                  value={plateauPositionPctListRaw}
-                  placeholder="如: 10,15,20"
-                  onChange={(event) => setPlateauPositionPctListRaw(event.target.value)}
-                />
-              </Space>
-            </Col>
-            <Col xs={24} md={6}>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <span>最大股票数列表（max_symbols）</span>
-                <Input
-                  value={plateauMaxSymbolsListRaw}
-                  placeholder="如: 80,120,200"
-                  onChange={(event) => setPlateauMaxSymbolsListRaw(event.target.value)}
-                />
-              </Space>
-            </Col>
-            <Col xs={24} md={6}>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <span>同日 TopK 列表（priority_topk）</span>
-                <Input
-                  value={plateauTopKListRaw}
-                  placeholder="如: 0,5,10"
-                  onChange={(event) => setPlateauTopKListRaw(event.target.value)}
-                />
-              </Space>
-            </Col>
-          </Row>
+              <Col xs={24} md={8}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
+                  <span>{plateauSamplingMode === 'lhs' ? '采样点数' : '完整网格点数（自动计算）'}</span>
+                  <InputNumber
+                    min={1}
+                    max={2000}
+                    value={plateauSamplingMode === 'grid' ? plateauGridPreview.total : plateauSamplePoints}
+                    disabled={plateauSamplingMode === 'grid'}
+                    onChange={(value) => setPlateauSamplePoints(Number(value || 120))}
+                    style={{ width: '100%' }}
+                  />
+                </Space>
+              </Col>
+              <Col xs={24} md={8}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
+                  <span>随机种子（可选）</span>
+                  <InputNumber
+                    min={0}
+                    max={2_147_483_647}
+                    value={plateauRandomSeed ?? undefined}
+                    onChange={(value) => {
+                      if (value === null || value === undefined) {
+                        setPlateauRandomSeed(null)
+                        return
+                      }
+                      setPlateauRandomSeed(Number(value))
+                    }}
+                    style={{ width: '100%' }}
+                  />
+                </Space>
+              </Col></Row><details className="research-fold" ><summary>自定义参数范围</summary><div className="research-fold-body"><Row data-research="fields"><Col xs={24} md={6}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
+                  <span>信号窗口天数列表（window_days）</span>
+                  <Input
+                    value={plateauWindowListRaw}
+                    placeholder="如: 40,60,80"
+                    onChange={(event) => setPlateauWindowListRaw(event.target.value)}
+                  />
+                </Space>
+              </Col>
+                <Col xs={24} md={6}>
+                  <Space orientation="vertical" style={{ width: '100%' }}>
+                    <span>最低评分列表（min_score）</span>
+                    <Input
+                      value={plateauMinScoreListRaw}
+                      placeholder="如: 50,55,60"
+                      onChange={(event) => setPlateauMinScoreListRaw(event.target.value)}
+                    />
+                  </Space>
+                </Col>
+                <Col xs={24} md={6}>
+                  <Space orientation="vertical" style={{ width: '100%' }}>
+                    <span>止损比例列表（stop_loss，%）</span>
+                    <Input
+                      value={plateauStopLossPctListRaw}
+                      placeholder="如: 3,5,8"
+                      onChange={(event) => setPlateauStopLossPctListRaw(event.target.value)}
+                    />
+                  </Space>
+                </Col>
+                <Col xs={24} md={6}>
+                  <Space orientation="vertical" style={{ width: '100%' }}>
+                    <span>止盈比例列表（take_profit，%）</span>
+                    <Input
+                      value={plateauTakeProfitPctListRaw}
+                      placeholder="如: 10,15,20"
+                      onChange={(event) => setPlateauTakeProfitPctListRaw(event.target.value)}
+                    />
+                  </Space>
+                </Col>
+                <Col xs={24} md={6}>
+                  <Space orientation="vertical" style={{ width: '100%' }}>
+                    <span>高位回撤列表（trailing_stop_pct，%）</span>
+                    <Input
+                      value={plateauTrailingStopPctListRaw}
+                      placeholder="如: 0,3,5"
+                      onChange={(event) => setPlateauTrailingStopPctListRaw(event.target.value)}
+                    />
+                  </Space>
+                </Col>
+                <Col xs={24} md={6}>
+                  <Space orientation="vertical" style={{ width: '100%' }}>
+                    <span>日内减仓比例列表（intraday_trailing_reduce_ratio，%）</span>
+                    <Input
+                      value={plateauIntradayReducePctListRaw}
+                      placeholder="如: 30,50,70"
+                      onChange={(event) => setPlateauIntradayReducePctListRaw(event.target.value)}
+                    />
+                  </Space>
+                </Col>
+                <Col xs={24} md={6}>
+                  <Space orientation="vertical" style={{ width: '100%' }}>
+                    <span>最大并发持仓列表（max_positions）</span>
+                    <Input
+                      value={plateauMaxPositionsListRaw}
+                      placeholder="如: 3,5,8"
+                      onChange={(event) => setPlateauMaxPositionsListRaw(event.target.value)}
+                    />
+                  </Space>
+                </Col>
+                <Col xs={24} md={6}>
+                  <Space orientation="vertical" style={{ width: '100%' }}>
+                    <span>单笔仓位占比列表（position_pct，%）</span>
+                    <Input
+                      value={plateauPositionPctListRaw}
+                      placeholder="如: 10,15,20"
+                      onChange={(event) => setPlateauPositionPctListRaw(event.target.value)}
+                    />
+                  </Space>
+                </Col>
+                <Col xs={24} md={6}>
+                  <Space orientation="vertical" style={{ width: '100%' }}>
+                    <span>最大股票数列表（max_symbols）</span>
+                    <Input
+                      value={plateauMaxSymbolsListRaw}
+                      placeholder="如: 80,120,200"
+                      onChange={(event) => setPlateauMaxSymbolsListRaw(event.target.value)}
+                    />
+                  </Space>
+                </Col>
+                <Col xs={24} md={6}>
+                  <Space orientation="vertical" style={{ width: '100%' }}>
+                    <span>同日 TopK 列表（priority_topk）</span>
+                    <Input
+                      value={plateauTopKListRaw}
+                      placeholder="如: 0,5,10"
+                      onChange={(event) => setPlateauTopKListRaw(event.target.value)}
+                    />
+                  </Space>
+                </Col></Row></div></details>
 
-          <Alert
-            type="info"
-            showIcon
-            title="参数说明"
-            description="列表为空时自动使用当前回测表单值；拉丁超立方会在区间内采样，网格枚举会按离散列表组合。"
-          />
-
-          <Space>
-            <Button type="primary" ghost loading={plateauLoading} onClick={handleRunPlateau}>
-              开始平原扫描
-            </Button>
-            {plateauTaskStatus && (plateauTaskStatus.status === 'running' || plateauTaskStatus.status === 'pending') ? (
-              <Button
-                loading={controlPlateauTaskMutation.isPending && controlPlateauTaskMutation.variables?.action === 'pause'}
-                onClick={() => controlPlateauTaskMutation.mutate({ action: 'pause', taskId: plateauTaskStatus.task_id })}
-              >
-                暂停平原任务
-              </Button>
-            ) : null}
-            {plateauTaskStatus && plateauTaskStatus.status === 'paused' ? (
-              <Button
-                type="primary"
-                ghost
-                loading={controlPlateauTaskMutation.isPending && controlPlateauTaskMutation.variables?.action === 'resume'}
-                onClick={() => controlPlateauTaskMutation.mutate({ action: 'resume', taskId: plateauTaskStatus.task_id })}
-              >
-                继续平原任务
-              </Button>
-            ) : null}
-            {plateauTaskStatus
-            && (plateauTaskStatus.status === 'running' || plateauTaskStatus.status === 'pending' || plateauTaskStatus.status === 'paused') ? (
-              <Button
-                danger
-                loading={controlPlateauTaskMutation.isPending && controlPlateauTaskMutation.variables?.action === 'cancel'}
-                onClick={() => controlPlateauTaskMutation.mutate({ action: 'cancel', taskId: plateauTaskStatus.task_id })}
-              >
-                停止平原任务
-              </Button>
-            ) : null}
-            {plateauTaskOptions.length > 0 ? (
-              <Select
-                style={{ minWidth: 280 }}
-                value={plateauSelectedTaskId}
-                options={plateauTaskOptions}
-                onChange={(value) => setSelectedPlateauTask(String(value))}
-              />
-            ) : null}
-            {plateauTaskStatus ? (
-              <Tag color={plateauTaskStatusColor(plateauTaskStatus.status)}>{plateauTaskStatusLabel(plateauTaskStatus.status)}</Tag>
-            ) : null}
-            {plateauTaskRunningCount > 0 ? <Tag color="processing">{`运行中 ${plateauTaskRunningCount}`}</Tag> : null}
-            {plateauResult ? (
-              <Tag color="green">
-                {`已评估 ${plateauResult.evaluated_combinations} / ${plateauResult.total_combinations}`}
-              </Tag>
-            ) : null}
-            {plateauRecommendedPoint ? (
-              <Tag color="processing">
-                {`推荐平原分 ${getPlateauPrimaryScore(plateauRecommendedPoint).toFixed(1)} | 收益 ${formatPct(plateauRecommendedPoint.stats.total_return)}`}
-              </Tag>
-            ) : null}
-            {plateauPeakPoint ? (
-              <Tag>{`峰值收益 ${formatPct(plateauPeakPoint.stats.total_return)} | 原始评分 ${Number(plateauPeakPoint.score ?? 0).toFixed(3)}`}</Tag>
-            ) : null}
-            {plateauTopRankOptions.length > 0 ? (
-              <Select
-                style={{ minWidth: 260 }}
-                value={plateauApplyRank}
-                options={plateauTopRankOptions}
-                onChange={(value) => setPlateauApplyRank(Number(value))}
-              />
-            ) : null}
-            {plateauRecommendedPoint ? (
-              <Button onClick={() => applyPlateauPointToForm(plateauRecommendedPoint, '推荐区域中心')}>
-                回填推荐参数
-              </Button>
-            ) : null}
-            {plateauRecommendedPoint ? (
-              <Button onClick={() => savePlateauPreset(plateauRecommendedPoint, '推荐区域中心')}>
-                保存推荐参数
-              </Button>
-            ) : null}
-            {selectedRankPoint ? (
-              <Button onClick={() => applyPlateauPointToForm(selectedRankPoint, `第${plateauApplyRank}名`)}>
-                回填第 {plateauApplyRank} 名
-              </Button>
-            ) : null}
-            {selectedRankPoint ? (
-              <Button onClick={() => savePlateauPreset(selectedRankPoint, `第${plateauApplyRank}名`)}>
-                保存第 {plateauApplyRank} 名
-              </Button>
-            ) : null}
-            {selectedCandidatePoint ? (
-              <Button onClick={() => savePlateauPreset(selectedCandidatePoint, `候选#${plateauCandidatePickRank}`)}>
-                保存候选参数
-              </Button>
-            ) : null}
-          </Space>
-          {plateauTaskStatus ? (
-            <Card size="small" title="收益平原进度">
-              <Space orientation="vertical" size={8} style={{ width: '100%' }}>
-                <Progress
-                  percent={Math.max(0, Math.min(100, Number(plateauTaskProgress?.percent ?? 0)))}
-                  status={plateauTaskRunning ? 'active' : (plateauTaskStatus.status === 'succeeded' ? 'success' : 'normal')}
-                />
-                <div>{plateauTaskProgress?.message || '任务执行中...'}</div>
-                <div>
-                  进度：{plateauTaskProgress?.processed_points ?? 0} / {plateauTaskProgress?.total_points ?? 0}
-                </div>
-              </Space>
-            </Card>
-          ) : null}
-          <Card size="small" title="收益平原历史回测列表">
-            <Table
-              size="small"
-              columns={plateauHistoryColumns}
-              dataSource={plateauHistoryRows}
-              rowKey={(row) => row.task_id}
-              loading={plateauHistoryLoading}
-              scroll={{ x: 1820 }}
-              pagination={{
-                defaultPageSize: 8,
-                pageSizeOptions: [8, 20, 50, 100],
-                showSizeChanger: true,
-                showTotal: (total) => `共 ${total} 条`,
-              }}
+            <Alert
+              type="info"
+              showIcon
+              title="参数说明"
+              description="空列表固定为当前回测参数。完整网格评估全部组合（最多2000点）；区间采样按各轴最小至最大值抽取指定点数。以上列表每轴最多64个值。"
             />
-          </Card>
-          </Space>
-        ) : null}
-      </Card>
 
-      <Card
-        title={renderModuleTitle('plateau_presets', '参数收藏库（本地持久化）')}
-        extra={renderModuleToggle('plateau_presets')}
-      >
-        {!collapsedModules.plateau_presets ? (
-          <Space orientation="vertical" size={10} style={{ width: '100%' }}>
-            <Space wrap>
-              <Tag color="geekblue">{`已收藏: ${plateauSavedPresets.length}`}</Tag>
-              {plateauSavedPresetOptions.length > 0 ? (
+            <Space wrap data-research="toolbar">
+              <Button type="primary" ghost loading={plateauLoading} onClick={handleRunPlateau}>
+                开始平原扫描
+              </Button>
+              {plateauTaskStatus && (plateauTaskStatus.status === 'running' || plateauTaskStatus.status === 'pending') ? (
+                <Button
+                  loading={controlPlateauTaskMutation.isPending && controlPlateauTaskMutation.variables?.action === 'pause'}
+                  onClick={() => controlPlateauTaskMutation.mutate({ action: 'pause', taskId: plateauTaskStatus.task_id })}
+                >
+                  暂停平原任务
+                </Button>
+              ) : null}
+              {plateauTaskStatus && plateauTaskStatus.status === 'paused' ? (
+                <Button
+                  type="primary"
+                  ghost
+                  loading={controlPlateauTaskMutation.isPending && controlPlateauTaskMutation.variables?.action === 'resume'}
+                  onClick={() => controlPlateauTaskMutation.mutate({ action: 'resume', taskId: plateauTaskStatus.task_id })}
+                >
+                  继续平原任务
+                </Button>
+              ) : null}
+              {plateauTaskStatus
+                && (plateauTaskStatus.status === 'running' || plateauTaskStatus.status === 'pending' || plateauTaskStatus.status === 'paused') ? (
+                <Button
+                  danger
+                  loading={controlPlateauTaskMutation.isPending && controlPlateauTaskMutation.variables?.action === 'cancel'}
+                  onClick={() => controlPlateauTaskMutation.mutate({ action: 'cancel', taskId: plateauTaskStatus.task_id })}
+                >
+                  停止平原任务
+                </Button>
+              ) : null}
+              {plateauTaskOptions.length > 0 ? (
                 <Select
-                  style={{ minWidth: 420 }}
-                  value={plateauSavedPresetId ?? undefined}
-                  options={plateauSavedPresetOptions}
-                  onChange={(value) => setPlateauSavedPresetId(String(value))}
+                  style={{ minWidth: 280 }}
+                  value={plateauSelectedTaskId}
+                  options={plateauTaskOptions}
+                  onChange={(value) => setSelectedPlateauTask(String(value))}
                 />
               ) : null}
-              <Button disabled={!selectedSavedPreset} onClick={handleApplySavedPreset}>
-                回填收藏参数
-              </Button>
-              <Button danger disabled={!selectedSavedPreset} onClick={handleDeleteSavedPreset}>
-                删除当前收藏
-              </Button>
+              {plateauTaskStatus ? (
+                <Tag color={plateauTaskStatusColor(plateauTaskStatus.status)}>{plateauTaskStatusLabel(plateauTaskStatus.status)}</Tag>
+              ) : null}
+              {plateauTaskRunningCount > 0 ? <Tag color="processing">{`运行中 ${plateauTaskRunningCount}`}</Tag> : null}
+              {plateauResult ? (
+                <Tag color="green">
+                  {`已评估 ${plateauResult.evaluated_combinations} / ${plateauResult.total_combinations}`}
+                </Tag>
+              ) : null}
+              {plateauRecommendedPoint ? (
+                <Tag color="processing">
+                  {`推荐平原分 ${getPlateauPrimaryScore(plateauRecommendedPoint).toFixed(1)} | 收益 ${formatPct(plateauRecommendedPoint.stats.total_return)}`}
+                </Tag>
+              ) : null}
+              {plateauPeakPoint ? (
+                <Tag>{`峰值收益 ${formatPct(plateauPeakPoint.stats.total_return)} | 原始评分 ${Number(plateauPeakPoint.score ?? 0).toFixed(3)}`}</Tag>
+              ) : null}
+              {plateauTopRankOptions.length > 0 ? (
+                <Select
+                  style={{ minWidth: 260 }}
+                  value={plateauApplyRank}
+                  options={plateauTopRankOptions}
+                  onChange={(value) => setPlateauApplyRank(Number(value))}
+                />
+              ) : null}
+              {plateauRecommendedPoint ? (
+                <Button onClick={() => applyPlateauPointToForm(plateauRecommendedPoint, '推荐区域中心')}>
+                  回填推荐参数
+                </Button>
+              ) : null}
+              {plateauRecommendedPoint ? (
+                <Button onClick={() => savePlateauPreset(plateauRecommendedPoint, '推荐区域中心')}>
+                  保存推荐参数
+                </Button>
+              ) : null}
+              {selectedRankPoint ? (
+                <Button onClick={() => applyPlateauPointToForm(selectedRankPoint, `第${plateauApplyRank}名`)}>
+                  回填第 {plateauApplyRank} 名
+                </Button>
+              ) : null}
+              {selectedRankPoint ? (
+                <Button onClick={() => savePlateauPreset(selectedRankPoint, `第${plateauApplyRank}名`)}>
+                  保存第 {plateauApplyRank} 名
+                </Button>
+              ) : null}
+              {selectedCandidatePoint ? (
+                <Button onClick={() => savePlateauPreset(selectedCandidatePoint, `候选#${plateauCandidatePickRank}`)}>
+                  保存候选参数
+                </Button>
+              ) : null}
             </Space>
-            <Table
-              size="small"
-              columns={plateauSavedPresetColumns}
-              dataSource={plateauSavedPresets}
-              rowKey="id"
-              scroll={{ x: 1220 }}
-              pagination={{
-                defaultPageSize: 8,
-                pageSizeOptions: [8, 20, 50, 100],
-                showSizeChanger: true,
-                showTotal: (total) => `共 ${total} 条`,
-              }}
-            />
+            {plateauTaskStatus ? (
+              <Card size="small" title="收益平原进度">
+                <Space orientation="vertical" size={8} style={{ width: '100%' }}>
+                  <Progress
+                    percent={Math.max(0, Math.min(100, Number(plateauTaskProgress?.percent ?? 0)))}
+                    status={plateauTaskRunning ? 'active' : (plateauTaskStatus.status === 'succeeded' ? 'success' : 'normal')}
+                  />
+                  <div>{plateauTaskProgress?.message || '任务执行中...'}</div>
+                  <div>
+                    进度：{plateauTaskProgress?.processed_points ?? 0} / {plateauTaskProgress?.total_points ?? 0}
+                  </div>
+                </Space>
+              </Card>
+            ) : null}
+            <details className="research-fold">
+              <summary>收益平原历史回测列表（{plateauHistoryRows.length} 条）</summary>
+              <div className="research-fold-body">
+                <Table
+                  size="small"
+                  columns={plateauHistoryColumns}
+                  dataSource={plateauHistoryRows}
+                  rowKey={(row) => row.task_id}
+                  loading={plateauHistoryLoading}
+                  scroll={{ x: 1820 }}
+                  pagination={{
+                    defaultPageSize: 8,
+                    pageSizeOptions: [8, 20, 50, 100],
+                    showSizeChanger: true,
+                    showTotal: (total) => `共 ${total} 条`,
+                  }}
+                />
+              </div>
+            </details>
           </Space>
         ) : null}
       </Card>
-
-      <Card
-        title={renderModuleTitle('report_share', '回测报告导出与共享')}
-        extra={renderModuleToggle('report_share')}
-      >
-        {!collapsedModules.report_share ? (
-          <Space orientation="vertical" size={12} style={{ width: '100%' }}>
-          <Space wrap>
-            <Button
-              type="primary"
-              ghost
-              onClick={handleExportFtbt}
-              disabled={!result}
-              loading={exportReportMutation.isPending}
-            >
-              导出 ftbt
-            </Button>
-            <Button onClick={handleExportXlsxReport} disabled={!result}>
-              导出 Excel
-            </Button>
-            <Button onClick={handleExportHtmlReport} disabled={!result}>
-              导出 HTML
-            </Button>
-            <Button
-              onClick={() => importReportFileRef.current?.click()}
-              loading={importReportMutation.isPending}
-            >
-              导入 ftbt
-            </Button>
-            <input
-              ref={importReportFileRef}
-              type="file"
-              accept=".ftbt"
-              aria-label="导入回测报告"
-              style={{ display: 'none' }}
-              onChange={(event) => {
-                const file = event.target.files?.[0]
-                handleImportFtbt(file)
-                event.target.value = ''
-              }}
-            />
-            <Tag color={plateauResult ? 'success' : 'default'}>
-              {plateauResult
-                ? `本次导出包含收益平原（${plateauResult.evaluated_combinations}/${plateauResult.total_combinations}）`
-                : '本次导出不包含收益平原'}
-            </Tag>
-            <Tag color="blue">{`已导入 ${reportLibrary.length}`}</Tag>
-          </Space>
-          <Space wrap style={{ width: '100%' }}>
-            <Select
-              style={{ minWidth: 440 }}
-              placeholder={reportLibraryLoading ? '加载报告列表中...' : '选择导入报告'}
-              value={selectedReportId ?? undefined}
-              onChange={(value) => setSelectedReportId(String(value))}
-              loading={reportLibraryLoading}
-              options={reportLibrary.map((item) => ({
-                value: item.report_id,
-                label: `${item.report_id} | ${item.date_from}~${item.date_to} | 收益 ${formatPct(item.total_return)}`,
-              }))}
-            />
-            <Button
-              type="primary"
-              onClick={handleLoadSelectedReport}
-              disabled={!selectedReportId}
-              loading={loadReportMutation.isPending}
-            >
-              加载报告
-            </Button>
-            <Button
-              danger
-              onClick={handleDeleteSelectedReport}
-              disabled={!selectedReportId}
-              loading={deleteReportMutation.isPending}
-            >
-              删除报告
-            </Button>
-          </Space>
-          <Alert
-            type="info"
-            showIcon
-            title="导入说明"
-            description="可直接导出 Excel/HTML；.ftbt 用于跨设备共享（内含报告HTML、Excel与回测数据）。重复导入同一 report_id 将覆盖旧报告并保留导入时间。"
-          />
-          </Space>
-        ) : null}
-      </Card>
-
-      {effectivePlateauError ? <Alert type="error" title={effectivePlateauError} showIcon /> : null}
 
       <Modal
         title={plateauTradeViewingRow ? `收益平原交易记录 - 第${plateauTradeViewingRow.__rank}名` : '收益平原交易记录'}
@@ -7704,7 +7576,8 @@ export function BacktestPage() {
                   <Tag>{`实际回撤 ${formatPct(plateauTradeViewResult.stats.max_drawdown)}`}</Tag>
                   <Tag>{`实际胜率 ${formatPct(plateauTradeViewResult.stats.win_rate)}`}</Tag>
                 </Space>
-                <Table
+                <EditableDetailTable
+                  settingsKey="backtest-trades"
                   size="small"
                   columns={tradeColumns}
                   dataSource={plateauTradeViewResult.trades}
@@ -7734,7 +7607,7 @@ export function BacktestPage() {
         ) : null}
       </Modal>
 
-      {plateauResult ? (
+      <section data-research="plateau-results" hidden={!plateauView}>{effectivePlateauError ? <Alert type="error" title={effectivePlateauError} showIcon /> : null}{plateauResult ? (
         <>
           {isLegacyRhythmResult(plateauResult.base_payload.strategy_id, plateauResult.strategy_version) ? (
             <Alert type="error" showIcon title="旧版节奏波结果需要重新回测" description="这份报告使用修复前的策略实现，不能作为节奏波收益或稳定区域的依据。原始记录保留供核对，请使用当前策略重新运行。" />
@@ -7974,15 +7847,11 @@ export function BacktestPage() {
             )}
           </Card>
         </>
-      ) : null}
+      ) : null}</section>
 
-      {effectiveRunError ? <Alert type="error" title={effectiveRunError} showIcon /> : null}
-
-      <div ref={backtestResultSectionRef} />
-      {result && isLegacyRhythmResult(result.strategy_id, result.strategy_version) ? (
+      <section data-research="backtest-results" hidden={plateauView}>{effectiveRunError ? <Alert type="error" title={effectiveRunError} showIcon /> : null}<div ref={backtestResultSectionRef} />{result && isLegacyRhythmResult(result.strategy_id, result.strategy_version) ? (
         <Alert type="error" showIcon title="旧版节奏波结果需要重新回测" description="这份报告使用修复前的策略实现，买点可能并非节奏波信号。请保留原记录供核对，并使用当前策略重新运行。" />
-      ) : null}
-      {result ? (
+      ) : null}{result ? (
         <>
           <Alert
             type="info"
@@ -8402,27 +8271,28 @@ export function BacktestPage() {
 
           <Card
             title="交易明细"
-            extra={(
-              <Dropdown
-                trigger={['click']}
-                menu={buildTradeDetailExportMenu()}
-                disabled={!result.trades.length}
-              >
-                <Button
-                  size="small"
-                  type="primary"
-                  ghost
-                  loading={tradeDetailExportingFormat !== null}
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  {tradeDetailExportingFormat
-                    ? `导出${TRADE_EXPORT_LABEL_MAP[tradeDetailExportingFormat]}`
-                    : '导出交易明细'}
-                </Button>
-              </Dropdown>
-            )}
           >
-            <Table
+            <EditableDetailTable
+              settingsKey="backtest-trades"
+              toolbarExtra={(
+                <Dropdown
+                  trigger={['click']}
+                  menu={buildTradeDetailExportMenu()}
+                  disabled={!result.trades.length}
+                >
+                  <Button
+                    size="small"
+                    type="primary"
+                    ghost
+                    loading={tradeDetailExportingFormat !== null}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    {tradeDetailExportingFormat
+                      ? `导出${TRADE_EXPORT_LABEL_MAP[tradeDetailExportingFormat]}`
+                      : '导出交易明细'}
+                  </Button>
+                </Dropdown>
+              )}
               size="small"
               columns={tradeColumns}
               dataSource={result.trades}
@@ -8469,7 +8339,156 @@ export function BacktestPage() {
         </>
       ) : (
         <Alert type="info" title="暂无回测结果，请先设置参数并点击“开始回测”。" showIcon />
-      )}
+      )}</section>
+
+      <Card data-research="backtest-history" hidden={plateauView}
+        size="small"
+        title={renderModuleTitle('backtest_history', '策略回测历史任务列表')}
+        style={{ marginTop: 12 }}
+        extra={renderModuleToggle('backtest_history')}
+      >
+        {!collapsedModules.backtest_history ? (
+          <Table
+            size="small"
+            columns={backtestHistoryColumns}
+            dataSource={backtestHistoryRows}
+            rowKey={(row) => row.task_id}
+            scroll={{ x: 1740 }}
+            pagination={{
+              defaultPageSize: 8,
+              pageSizeOptions: [8, 20, 50, 100],
+              showSizeChanger: true,
+              showTotal: (total) => `共 ${total} 条`,
+            }}
+          />
+        ) : null}
+      </Card>
+
+      <Card data-research="plateau-presets" hidden={!plateauView}
+        title={renderModuleTitle('plateau_presets', '参数收藏库（本地持久化）')}
+        extra={renderModuleToggle('plateau_presets')}
+      >
+        {!collapsedModules.plateau_presets ? (
+          <Space orientation="vertical" size={10} style={{ width: '100%' }}>
+            <Space wrap>
+              <Tag color="geekblue">{`已收藏: ${plateauSavedPresets.length}`}</Tag>
+              {plateauSavedPresetOptions.length > 0 ? (
+                <Select
+                  style={{ minWidth: 420 }}
+                  value={plateauSavedPresetId ?? undefined}
+                  options={plateauSavedPresetOptions}
+                  onChange={(value) => setPlateauSavedPresetId(String(value))}
+                />
+              ) : null}
+              <Button disabled={!selectedSavedPreset} onClick={handleApplySavedPreset}>
+                回填收藏参数
+              </Button>
+              <Button danger disabled={!selectedSavedPreset} onClick={handleDeleteSavedPreset}>
+                删除当前收藏
+              </Button>
+            </Space>
+            <Table
+              size="small"
+              columns={plateauSavedPresetColumns}
+              dataSource={plateauSavedPresets}
+              rowKey="id"
+              scroll={{ x: 1220 }}
+              pagination={{
+                defaultPageSize: 8,
+                pageSizeOptions: [8, 20, 50, 100],
+                showSizeChanger: true,
+                showTotal: (total) => `共 ${total} 条`,
+              }}
+            />
+          </Space>
+        ) : null}
+      </Card>
+
+      <Card
+        title={renderModuleTitle('report_share', '回测报告导出与共享')}
+        extra={renderModuleToggle('report_share')}
+      >
+        {!collapsedModules.report_share ? (
+          <Space orientation="vertical" size={12} style={{ width: '100%' }}>
+            <Space wrap>
+              <Button
+                type="primary"
+                ghost
+                onClick={handleExportFtbt}
+                disabled={!result}
+                loading={exportReportMutation.isPending}
+              >
+                导出 ftbt
+              </Button>
+              <Button onClick={handleExportXlsxReport} disabled={!result}>
+                导出 Excel
+              </Button>
+              <Button onClick={handleExportHtmlReport} disabled={!result}>
+                导出 HTML
+              </Button>
+              <Button
+                onClick={() => importReportFileRef.current?.click()}
+                loading={importReportMutation.isPending}
+              >
+                导入 ftbt
+              </Button>
+              <input
+                ref={importReportFileRef}
+                type="file"
+                accept=".ftbt"
+                aria-label="导入回测报告"
+                style={{ display: 'none' }}
+                onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  handleImportFtbt(file)
+                  event.target.value = ''
+                }}
+              />
+              <Tag color={plateauResult ? 'success' : 'default'}>
+                {plateauResult
+                  ? `本次导出包含收益平原（${plateauResult.evaluated_combinations}/${plateauResult.total_combinations}）`
+                  : '本次导出不包含收益平原'}
+              </Tag>
+              <Tag color="blue">{`已导入 ${reportLibrary.length}`}</Tag>
+            </Space>
+            <Space wrap style={{ width: '100%' }}>
+              <Select
+                style={{ minWidth: 440 }}
+                placeholder={reportLibraryLoading ? '加载报告列表中...' : '选择导入报告'}
+                value={selectedReportId ?? undefined}
+                onChange={(value) => setSelectedReportId(String(value))}
+                loading={reportLibraryLoading}
+                options={reportLibrary.map((item) => ({
+                  value: item.report_id,
+                  label: `${item.report_id} | ${item.date_from}~${item.date_to} | 收益 ${formatPct(item.total_return)}`,
+                }))}
+              />
+              <Button
+                type="primary"
+                onClick={handleLoadSelectedReport}
+                disabled={!selectedReportId}
+                loading={loadReportMutation.isPending}
+              >
+                加载报告
+              </Button>
+              <Button
+                danger
+                onClick={handleDeleteSelectedReport}
+                disabled={!selectedReportId}
+                loading={deleteReportMutation.isPending}
+              >
+                删除报告
+              </Button>
+            </Space>
+            <Alert
+              type="info"
+              showIcon
+              title="导入说明"
+              description="可直接导出 Excel/HTML；.ftbt 用于跨设备共享（内含报告HTML、Excel与回测数据）。重复导入同一 report_id 将覆盖旧报告并保留导入时间。"
+            />
+          </Space>
+        ) : null}
+      </Card>
     </Space>
   )
 }
