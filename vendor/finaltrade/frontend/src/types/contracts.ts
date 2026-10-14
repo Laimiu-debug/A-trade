@@ -1115,6 +1115,7 @@ export interface BacktestPlateauCorrelationRow {
 
 export interface BacktestPlateauResponse {
   base_payload: BacktestRunRequest
+  strategy_version?: string
   total_combinations: number
   evaluated_combinations: number
   points: BacktestPlateauPoint[]

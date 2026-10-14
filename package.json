@@ -1,7 +1,7 @@
 {
   "name": "a-trade",
   "productName": "A-trade",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "A-trade Windows desktop research workspace",
   "main": "desktop/main.cjs",
@@ -33,7 +33,8 @@
     "build:finaltrade": "node scripts/build-finaltrade.cjs",
     "test:finaltrade": "node scripts/smoke-finaltrade.cjs",
     "test:finaltrade-parity": "node scripts/verify-finaltrade.cjs",
-    "test:finaltrade-api": "node scripts/test-finaltrade-api.cjs"
+    "test:finaltrade-api": "node scripts/test-finaltrade-api.cjs",
+    "test:strategy-ui": "node vendor/finaltrade/frontend/node_modules/vitest/vitest.mjs run --config scripts/vitest-strategy.config.mjs"
   },
   "engines": {
     "node": ">=22.12.0"

@@ -969,10 +969,10 @@ class StrategyRegistry:
             "event_grade_min": "C",
             "require_key_event_confirmation": False,
         }
-        v44 = StrategyDescriptor(
+        force_rhythm = StrategyDescriptor(
             strategy_id="ths_force_rhythm_v1",
             name="主散节奏波V1",
-            version="1.0.0-alpha",
+            version="1.0.1",
             enabled=True,
             is_default=False,
             capabilities=StrategyCapabilities(
@@ -983,7 +983,7 @@ class StrategyRegistry:
             params_schema=dict(force_rhythm_schema),
             default_params=dict(force_rhythm_defaults),
         )
-        self._strategies[v44.strategy_id] = v44
+        self._strategies[force_rhythm.strategy_id] = force_rhythm
         wulong_schema: dict[str, dict[str, Any]] = {
             "min_ret40": {
                 "type": "number",
@@ -1888,7 +1888,7 @@ class StrategyRegistry:
             v4.strategy_id: ScoreOnlyRankPlugin(),
             v41.strategy_id: ThsMainRetailSignalPlugin(v41.strategy_id, trigger_key="purple_to_yellow"),
             v42.strategy_id: ThsMainRetailSignalPlugin(v42.strategy_id, trigger_key="golden_cross"),
-            v44.strategy_id: ForceRhythmPlugin(v44.strategy_id),
+            force_rhythm.strategy_id: ForceRhythmPlugin(force_rhythm.strategy_id),
             v43.strategy_id: WulongClusterPlugin(v43.strategy_id),
             v5.strategy_id: MatrixSignalPlugin(),
             b1.strategy_id: B1MultiTimeframePlugin(b1.strategy_id),
@@ -1899,6 +1899,10 @@ class StrategyRegistry:
             elu.strategy_id: EmotionLimitUpPlugin(elu.strategy_id),
             lua.strategy_id: LimitUpArbPlugin(lua.strategy_id),
         }
+        for strategy_id in self._strategies:
+            plugin = self._plugins.get(strategy_id)
+            if plugin is None or plugin.strategy_id != strategy_id:
+                raise RuntimeError(f"策略实现未正确注册：{strategy_id}")
 
     @property
     def default_strategy_id(self) -> str:
@@ -1963,7 +1967,9 @@ class StrategyRegistry:
 
     def _get_plugin(self, strategy_id: str) -> StrategyPlugin:
         text = str(strategy_id).strip()
-        return self._plugins.get(text, self._fallback_plugin)
+        if text not in self._plugins:
+            raise ValueError(f"策略实现未注册：{text}")
+        return self._plugins[text]
 
     @staticmethod
     def _clamp_number(value: Any, *, minimum: float | None, maximum: float | None) -> float | None:

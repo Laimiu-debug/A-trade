@@ -1,9 +1,19 @@
 """Project settings and compact task metadata for the strategy API."""
 import hashlib
 import json
+import re
 from pathlib import Path
 import sqlite3
 from threading import RLock
+
+
+def legacy_strategy_warning(strategy_id, version):
+    if strategy_id != 'ths_force_rhythm_v1':
+        return None
+    match = re.match(r'^(\d+)\.(\d+)\.(\d+)', version or '')
+    if not match or tuple(map(int, match.groups())) < (1, 0, 1):
+        return '旧版节奏波实现存在买点错绑，请使用当前策略重新回测。'
+    return None
 
 
 class StrategyIntegration:
@@ -88,6 +98,7 @@ class StrategyIntegration:
                                  'created_at': task.progress.started_at, 'updated_at': task.progress.updated_at,
                                  'progress': task.progress.percent, 'message': task.progress.message,
                                  'error': task.error, 'stats': stats.model_dump(mode='json') if stats else None})
+                    rows[-1]['warning'] = legacy_strategy_warning(strategy_id, getattr(result, 'strategy_version', '')) if result else None
         return {'items': sorted(rows, key=lambda item: (item['created_at'], item['id']), reverse=True)}
 
     def rename(self, task_id, name):

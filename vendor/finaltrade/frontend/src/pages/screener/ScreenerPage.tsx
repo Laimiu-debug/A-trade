@@ -1278,7 +1278,15 @@ export function ScreenerPage() {
               ? 1
               : 0)
 
-    let appliedPools: ScreenerStepPools = emptyStepPools
+    const appliedPools: ScreenerStepPools = {
+      input: filteredInputPool,
+      step1: resolvedExecutedStep >= 1 ? filteredStep1Pool : [],
+      step2: resolvedExecutedStep >= 2 ? filteredStep2Pool : [],
+      step3: resolvedExecutedStep >= 3 ? filteredStep3Pool : [],
+      step4: resolvedExecutedStep >= 4 ? filteredStep4Pool : [],
+      final: [],
+      watch: [],
+    }
     setRawInputPool(sourceInputPool)
     setInputPoolDay(getLocalDayKey())
     setPools((prev) => {
@@ -1293,7 +1301,6 @@ export function ScreenerPage() {
         final: prev.final,
         watch: prev.watch,
       }
-      appliedPools = nextPools
       return nextPools
     })
 
@@ -2036,30 +2043,26 @@ export function ScreenerPage() {
       if (step === 1) {
         const applied = await refreshBackendSnapshotForExecution(1)
         if (!applied) return
-        message.success(`第1步运行完成，股票数 ${applied.appliedPools.step1.length}，已同步新的 run_id`)
+        message.success(`第1步筛选完成，规则命中 ${applied.appliedPools.step1.length} 只股票`)
         return
       }
       const inputPool = await ensureInputPoolLoaded()
       if (!inputPool) return
-      let nextCount = 0
       setPools((prev) => {
         if (step === 2) {
           const step2 = mergeManualRows(runStep2(prev.step1, stepConfigs.step2, mode), prev.step2)
-          nextCount = step2.length
           return { ...prev, step2, step3: [], step4: [] }
         }
         if (step === 3) {
           const step3 = mergeManualRows(runStep3(prev.step2, stepConfigs.step3), prev.step3)
-          nextCount = step3.length
           return { ...prev, step3, step4: [] }
         }
         const step4 = mergeManualRows(runStep4(prev.step3, stepConfigs.step4), prev.step4)
-        nextCount = step4.length
         return { ...prev, step4 }
       })
       setExecutedStep(step)
       setActivePool(`step${step}` as ScreenerPoolKey)
-      message.success(`第${step}步运行完成，股票数 ${nextCount}`)
+      message.success(`第${step}步筛选完成，结果已更新`)
     } finally {
       setRunningStep(null)
     }
@@ -2070,7 +2073,7 @@ export function ScreenerPage() {
     try {
       const applied = await refreshBackendSnapshotForExecution(4)
       if (!applied) return
-      message.success(`四步筛选已完成，股票数 ${applied.appliedPools.step4.length}，已同步新的 run_id`)
+      message.success(`四步筛选完成，规则命中 ${applied.appliedPools.step4.length} 只股票`)
     } finally {
       setRunningStep(null)
     }

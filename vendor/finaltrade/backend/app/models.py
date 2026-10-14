@@ -1038,6 +1038,7 @@ class BacktestPlateauCorrelationRow(BaseModel):
 
 class BacktestPlateauResponse(BaseModel):
     base_payload: BacktestRunRequest
+    strategy_version: str = ""
     total_combinations: int
     evaluated_combinations: int
     points: list[BacktestPlateauPoint] = Field(default_factory=list)

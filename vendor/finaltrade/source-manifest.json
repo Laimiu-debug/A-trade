@@ -2,7 +2,7 @@
   "project": "Laimiu-debug/final-trade",
   "baseCommit": "2a00ffe7c50b5f023a5db9f1c09ace1683eb1912",
   "capturedAt": "2026-10-13T12:59:43.141Z",
-  "sourceState": "working-tree",
+  "sourceState": "working-tree-with-atrade-fixes",
   "files": [
     {
       "path": "backend/app/__init__.py",
@@ -71,8 +71,9 @@
     },
     {
       "path": "backend/app/core/backtest_engine.py",
-      "sha256": "7b6e1b8322a0bcde022d2ec78516dc0756b3bbf9693a097e84b40a490aaebf28",
-      "bytes": 201204
+      "sha256": "119fcc20631035ec034716a5cdd535f20187c859d0b171d3e71cae8bc6bf0001",
+      "bytes": 201193,
+      "upstreamSha256": "7b6e1b8322a0bcde022d2ec78516dc0756b3bbf9693a097e84b40a490aaebf28"
     },
     {
       "path": "backend/app/core/backtest_matrix_engine.py",
@@ -156,8 +157,9 @@
     },
     {
       "path": "backend/app/core/strategy_registry.py",
-      "sha256": "e0fbf337b191942d3f4a650ab3d053c2dbbb25e2808ac7b11c36d7a2538d2b97",
-      "bytes": 77911
+      "sha256": "760768bbb13f65ed4d72604be34f06ceb85a38742f318fc2f12eca4635249414",
+      "bytes": 78279,
+      "upstreamSha256": "e0fbf337b191942d3f4a650ab3d053c2dbbb25e2808ac7b11c36d7a2538d2b97"
     },
     {
       "path": "backend/app/core/ths_volume_signal.py",
@@ -191,8 +193,9 @@
     },
     {
       "path": "backend/app/models.py",
-      "sha256": "6a62fe8eb69c3aab8d3bf85a8a56a35ff82b74ad9bb950520f04766e45baff52",
-      "bytes": 64586
+      "sha256": "790d4cac0469d613c0e8e99eea396b9f3899ca5bcd5596dc330e8f5997632182",
+      "bytes": 64618,
+      "upstreamSha256": "6a62fe8eb69c3aab8d3bf85a8a56a35ff82b74ad9bb950520f04766e45baff52"
     },
     {
       "path": "backend/app/providers/__init__.py",
@@ -231,8 +234,9 @@
     },
     {
       "path": "backend/app/store.py",
-      "sha256": "6cf84239fcc8ce3fd5bc941682e7eb5a2718d68968b0706170563503924459be",
-      "bytes": 867598
+      "sha256": "869f2e8b8b88faddb547680bce91ebafcc2d78e50ee1311d25257b883e0dff20",
+      "bytes": 868878,
+      "upstreamSha256": "6cf84239fcc8ce3fd5bc941682e7eb5a2718d68968b0706170563503924459be"
     },
     {
       "path": "backend/app/tdx_loader.py",
@@ -381,8 +385,9 @@
     },
     {
       "path": "frontend/src/pages/backtest/BacktestPage.tsx",
-      "sha256": "39cb14c1a6d8a7302590559f805fc349260e6140ca9a0a38af07b96fce93c39a",
-      "bytes": 348695
+      "sha256": "84324dfc565802bb532a33cdefc6f111d21f1119781ede98f490a58a81430b91",
+      "bytes": 350546,
+      "upstreamSha256": "39cb14c1a6d8a7302590559f805fc349260e6140ca9a0a38af07b96fce93c39a"
     },
     {
       "path": "frontend/src/pages/chart/ChartPage.css",
@@ -461,8 +466,9 @@
     },
     {
       "path": "frontend/src/pages/screener/ScreenerPage.tsx",
-      "sha256": "2c260e653de9f6e2a05f08365d1b5f2b370cefbac8b50919574648a4cf69a25d",
-      "bytes": 125062
+      "sha256": "4e65c536a82eb530a75f3079612c7a415055869c2c1f636d507d5a7add863570",
+      "bytes": 125194,
+      "upstreamSha256": "2c260e653de9f6e2a05f08365d1b5f2b370cefbac8b50919574648a4cf69a25d"
     },
     {
       "path": "frontend/src/pages/sector-capital/SectorCapitalPage.tsx",
@@ -670,6 +676,12 @@
       "bytes": 563
     },
     {
+      "path": "frontend/src/shared/utils/plateauSafety.ts",
+      "sha256": "02fd5c7f5642975f7b2f31aaac53f361b1ad88fb21edf8dbd9fd7d0c332efa7c",
+      "bytes": 1376,
+      "upstreamSha256": null
+    },
+    {
       "path": "frontend/src/shared/utils/screener.ts",
       "sha256": "4f72881760575a4da99832184b4003cb2358dc09732735545161869196835f35",
       "bytes": 3594
@@ -770,6 +782,12 @@
       "bytes": 1787
     },
     {
+      "path": "frontend/src/test/plateauSafety.test.ts",
+      "sha256": "7f4939295362d2b54c58868f76061ce2eef4d584efd933b386380155acead797",
+      "bytes": 2403,
+      "upstreamSha256": null
+    },
+    {
       "path": "frontend/src/test/portfolioPage.test.tsx",
       "sha256": "500dfcfbdfbb30aef807cbc0b633092f11a3fa5338c3d2b9fdd781fc08014a73",
       "bytes": 1604
@@ -831,8 +849,11 @@
     },
     {
       "path": "frontend/src/types/contracts.ts",
-      "sha256": "1ef9f7604a06e541efd33fef098f6c61687d63fe8d282fbf3d5cc9e5413dcbb7",
-      "bytes": 49087
+      "sha256": "b0ad916627781dfc96c3531d79ac5437630c42d60d04bb473b33857189cd59e1",
+      "bytes": 49116,
+      "upstreamSha256": "1ef9f7604a06e541efd33fef098f6c61687d63fe8d282fbf3d5cc9e5413dcbb7"
     }
-  ]
+  ],
+  "upstreamSourceState": "working-tree",
+  "atradePatchRevision": "strategy-safety-v1"
 }

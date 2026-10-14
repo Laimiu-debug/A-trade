@@ -1,4 +1,4 @@
-# Fixed upstream snapshots are checked by SHA-256; preserve their exact bytes.
+# Versioned strategy sources are checked by SHA-256; preserve their exact bytes.
 vendor/finaltrade/** -text -whitespace
 
 # Bundled frontend assets include upstream license text and minified libraries.

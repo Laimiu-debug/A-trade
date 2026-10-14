@@ -31,6 +31,7 @@ import ReactECharts from 'echarts-for-react'
 import { Link } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { ApiError } from '@/shared/api/client'
+import { isLegacyRhythmResult, plateauRecommendation, resolvePlateauAxes } from '@/shared/utils/plateauSafety'
 import { isApiNotFoundError } from '@/shared/api/errors'
 import {
   buildBacktestReportPackage,
@@ -586,7 +587,7 @@ function buildBacktestReportWorkbookBuffer(
   const workbook = XLSX.utils.book_new()
   const effectiveRunRequest = resolveEffectiveRunRequest(runRequest, runResult)
   const plateauCorrelations = resolvePlateauCorrelations(plateauResult)
-  const plateauBestPoint = plateauResult?.best_point ?? null
+  const plateauBestPoint = plateauRecommendation(plateauResult)
   const riskMetrics = runResult.risk_metrics ?? null
   const stability = runResult.stability_diagnostics ?? null
   const regimeBreakdown = runResult.regime_breakdown ?? []
@@ -1439,7 +1440,7 @@ function buildPlateauHistoryWorkbookBuffer(
   plateauResult: BacktestPlateauResponse,
 ): ArrayBuffer {
   const workbook = XLSX.utils.book_new()
-  const bestPoint = plateauResult.recommended_point ?? plateauResult.best_point ?? null
+  const bestPoint = plateauRecommendation(plateauResult)
   const peakPoint = plateauResult.peak_point ?? null
   const regions = plateauResult.regions ?? []
   const correlations = resolvePlateauCorrelations(plateauResult)
@@ -1545,7 +1546,7 @@ function buildPlateauHistoryWorkbookBuffer(
 }
 
 function buildPlateauHistoryHtml(taskId: string, plateauResult: BacktestPlateauResponse): string {
-  const bestPoint = plateauResult.best_point ?? null
+  const bestPoint = plateauRecommendation(plateauResult)
   const correlations = resolvePlateauCorrelations(plateauResult)
   const pointRows = plateauResult.points
     .map((row, index) => (
@@ -1637,7 +1638,7 @@ function buildPlateauAllTradesWorkbookBuffer(
   pointRuns: PlateauPointRunRecord[],
 ): ArrayBuffer {
   const workbook = XLSX.utils.book_new()
-  const bestPoint = plateauResult.best_point ?? null
+  const bestPoint = plateauRecommendation(plateauResult)
   const overviewRows = [
     {
       task_id: taskId,
@@ -4793,10 +4794,20 @@ export function BacktestPage() {
     || (plateauTaskStatus?.status === 'failed'
       ? (plateauTaskStatus.error?.trim() || '收益平原任务失败')
       : null)
-  const plateauRecommendedPoint = plateauResult?.recommended_point ?? plateauResult?.best_point ?? null
+  const plateauRecommendedPoint = plateauRecommendation(plateauResult)
   const plateauPeakPoint = plateauResult?.peak_point ?? null
-  const plateauRegions = plateauResult?.regions ?? []
-  const plateauSummaryPoint = plateauRecommendedPoint ?? plateauRegions[0]?.center_point ?? null
+  const plateauRegions = isLegacyRhythmResult(plateauResult?.base_payload.strategy_id, plateauResult?.strategy_version) ? [] : plateauResult?.regions ?? []
+  const plateauSummaryPoint = plateauRecommendedPoint
+  const initializedPlateauAxes = useRef('')
+  useEffect(() => {
+    if (!plateauResult) return
+    const key = `${plateauSelectedTaskId}:${selectedReportId}:${plateauResult.generated_at}`
+    if (initializedPlateauAxes.current === key) return
+    initializedPlateauAxes.current = key
+    const [x, y] = resolvePlateauAxes(plateauResult.points, PLATEAU_AXIS_OPTIONS.map(axis => axis.value), plateauHeatmapXAxis, plateauHeatmapYAxis)
+    setPlateauHeatmapXAxis(x as PlateauAxisKey)
+    setPlateauHeatmapYAxis(y as PlateauAxisKey)
+  }, [plateauResult, plateauSelectedTaskId, selectedReportId, plateauHeatmapXAxis, plateauHeatmapYAxis])
   const plateauValidPoints = useMemo(
     () => (plateauResult?.points ?? []).filter((row) => !row.error),
     [plateauResult?.points],
@@ -7725,6 +7736,12 @@ export function BacktestPage() {
 
       {plateauResult ? (
         <>
+          {isLegacyRhythmResult(plateauResult.base_payload.strategy_id, plateauResult.strategy_version) ? (
+            <Alert type="error" showIcon title="旧版节奏波结果需要重新回测" description="这份报告使用修复前的策略实现，不能作为节奏波收益或稳定区域的依据。原始记录保留供核对，请使用当前策略重新运行。" />
+          ) : null}
+          {!plateauRecommendedPoint ? (
+            <Alert type="warning" showIcon title="未发现符合条件的稳定区域" description="本次不推荐任何参数。仍可查看、回填或保存单组计算结果，但它们不代表通过了稳定性判断。" />
+          ) : null}
           <Row gutter={[12, 12]}>
             <Col xs={12} md={6}>
               <Card>
@@ -7738,16 +7755,16 @@ export function BacktestPage() {
             </Col>
             <Col xs={12} md={6}>
               <Card>
-                <Statistic title="推荐平原分" value={plateauSummaryPoint ? getPlateauPrimaryScore(plateauSummaryPoint) : 0} precision={1} />
+                <Statistic title="推荐平原分" value={plateauSummaryPoint ? getPlateauPrimaryScore(plateauSummaryPoint) : '—'} precision={1} />
               </Card>
             </Col>
             <Col xs={12} md={6}>
               <Card>
                 <Statistic
                   title="推荐收益"
-                  value={(plateauSummaryPoint?.stats.total_return ?? 0) * 100}
+                  value={plateauSummaryPoint ? plateauSummaryPoint.stats.total_return * 100 : '—'}
                   precision={2}
-                  suffix="%"
+                  suffix={plateauSummaryPoint ? '%' : undefined}
                 />
               </Card>
             </Col>
@@ -7810,6 +7827,38 @@ export function BacktestPage() {
             <Alert type="info" showIcon title="参数相关性分析暂不可用" description="至少需要 2 组成功参数，才能计算相关性。" />
           )}
 
+          <Card size="small" title="热力图设置">
+            <Row gutter={[12, 12]}>
+              <Col xs={24} md={8}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
+                  <span>横轴参数</span>
+                  <Select aria-label="热力图横轴" style={{ width: '100%' }} value={plateauHeatmapXAxis}
+                    options={PLATEAU_AXIS_OPTIONS.filter(item => item.value !== plateauHeatmapYAxis)}
+                    onChange={value => setPlateauHeatmapXAxis(value as PlateauAxisKey)} />
+                </Space>
+              </Col>
+              <Col xs={24} md={8}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
+                  <span>纵轴参数</span>
+                  <Select aria-label="热力图纵轴" style={{ width: '100%' }} value={plateauHeatmapYAxis}
+                    options={PLATEAU_AXIS_OPTIONS.filter(item => item.value !== plateauHeatmapXAxis)}
+                    onChange={value => setPlateauHeatmapYAxis(value as PlateauAxisKey)} />
+                </Space>
+              </Col>
+              <Col xs={24} md={8}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
+                  <span>颜色映射指标</span>
+                  <Select aria-label="热力图颜色指标" style={{ width: '100%' }} value={plateauHeatmapMetric}
+                    options={PLATEAU_METRIC_OPTIONS} onChange={value => setPlateauHeatmapMetric(value as PlateauMetricKey)} />
+                </Space>
+              </Col>
+            </Row>
+            <Space wrap style={{ marginTop: 12 }}>
+              <span>显示方块值</span><Switch checked={plateauHeatmapShowCellLabel} onChange={setPlateauHeatmapShowCellLabel} />
+              <span>列内峰值线</span><Switch checked={plateauHeatmapShowBestPath} onChange={setPlateauHeatmapShowBestPath} />
+            </Space>
+          </Card>
+
           {plateauHeatmapOption ? (
             <Card title={plateauHeatmapTitle}>
               <Row gutter={[12, 12]}>
@@ -7828,39 +7877,7 @@ export function BacktestPage() {
                       title="交互说明"
                       description="方块展示该格参数组的中位数；点击时会回填该格收益平原分最高的代表点。橙线仅表示当前横轴下的列内峰值，不代表可执行的参数路径。"
                     />
-                    <Card size="small" title="热力图设置">
-                      <Space orientation="vertical" size={8} style={{ width: '100%' }}>
-                        <span>横轴参数</span>
-                        <Select
-                          value={plateauHeatmapXAxis}
-                          options={PLATEAU_AXIS_OPTIONS.filter((item) => item.value !== plateauHeatmapYAxis)}
-                          onChange={(value) => setPlateauHeatmapXAxis(value as PlateauAxisKey)}
-                          size="small"
-                        />
-                        <span>纵轴参数</span>
-                        <Select
-                          value={plateauHeatmapYAxis}
-                          options={PLATEAU_AXIS_OPTIONS.filter((item) => item.value !== plateauHeatmapXAxis)}
-                          onChange={(value) => setPlateauHeatmapYAxis(value as PlateauAxisKey)}
-                          size="small"
-                        />
-                        <span>颜色映射指标</span>
-                        <Select
-                          value={plateauHeatmapMetric}
-                          options={PLATEAU_METRIC_OPTIONS}
-                          onChange={(value) => setPlateauHeatmapMetric(value as PlateauMetricKey)}
-                          size="small"
-                        />
-                        <Space wrap>
-                          <Tag color="processing">显示方块值</Tag>
-                          <Switch checked={plateauHeatmapShowCellLabel} onChange={setPlateauHeatmapShowCellLabel} />
-                        </Space>
-                        <Space wrap>
-                          <Tag color="orange">列内峰值线</Tag>
-                          <Switch checked={plateauHeatmapShowBestPath} onChange={setPlateauHeatmapShowBestPath} />
-                        </Space>
-                      </Space>
-                    </Card>
+
                     <Card size="small" title="候选参数集">
                       <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                         <Space wrap>
@@ -7962,6 +7979,9 @@ export function BacktestPage() {
       {effectiveRunError ? <Alert type="error" title={effectiveRunError} showIcon /> : null}
 
       <div ref={backtestResultSectionRef} />
+      {result && isLegacyRhythmResult(result.strategy_id, result.strategy_version) ? (
+        <Alert type="error" showIcon title="旧版节奏波结果需要重新回测" description="这份报告使用修复前的策略实现，买点可能并非节奏波信号。请保留原记录供核对，并使用当前策略重新运行。" />
+      ) : null}
       {result ? (
         <>
           <Alert

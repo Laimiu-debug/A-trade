@@ -10,7 +10,7 @@ manifest=json.loads((ROOT/'vendor/finaltrade/source-manifest.json').read_text(en
 for item in manifest['files']:
  if item['path'].startswith('backend/'):
   source=oracle/item['path'].removeprefix('backend/')
-  if hashlib.sha256(source.read_bytes()).hexdigest()!=item['sha256']:raise RuntimeError('Oracle source changed: '+item['path'])
+  if hashlib.sha256(source.read_bytes()).hexdigest()!=item.get('upstreamSha256',item['sha256']):raise RuntimeError('Oracle source changed: '+item['path'])
 def run(name):
  target=directory/name;target.mkdir()
  command=[sys.executable,'-B',str(ROOT/'tests/finaltrade-parity-runner.py'),str(directory),str(target/'result.json')]

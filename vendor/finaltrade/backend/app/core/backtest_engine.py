@@ -2392,14 +2392,30 @@ class BacktestEngine:
             if control_callback is not None:
                 control_callback()
             as_of_date = candles[idx].time
+            rhythm_strategy = str(payload.strategy_id).strip() == "ths_force_rhythm_v1"
+            entry_allowed = True
             if allowed_symbols_by_date is not None:
                 allowed_today = allowed_symbols_by_date.get(as_of_date, set())
                 if symbol not in allowed_today:
-                    continue
+                    entry_allowed = False
+                    if not rhythm_strategy:
+                        continue
             row = self._build_row(symbol, as_of_date)
             if row is None:
                 continue
             snapshot = self._calc_snapshot(row, payload.window_days, as_of_date)
+            # Existing positions can reach a sell point after leaving the buy pool.
+            if rhythm_strategy:
+                from .force_rhythm_strategy import evaluate_force_rhythm_exit
+
+                indicator = snapshot.get("force_rhythm_signal")
+                if isinstance(indicator, dict):
+                    rhythm_exit = evaluate_force_rhythm_exit(indicator, payload.strategy_params)
+                    if rhythm_exit.get("exit_signal"):
+                        label = str(rhythm_exit.get("exit_reason") or "散户卖出").strip()
+                        exit_signal_events_by_index[idx] = [label]
+            if not entry_allowed:
+                continue
             if self._strategy_signal_filter is not None:
                 strategy_params = payload.strategy_params if isinstance(payload.strategy_params, dict) else {}
                 if not self._strategy_signal_filter(
@@ -2435,19 +2451,6 @@ class BacktestEngine:
                         day_risk_events.append(event_text)
             if day_exit_events:
                 exit_signal_events_by_index[idx] = day_exit_events
-            if str(payload.strategy_id).strip() == "ths_force_rhythm_v1":
-                rhythm_ind = snapshot.get("force_rhythm_signal")
-                if isinstance(rhythm_ind, dict):
-                    from .force_rhythm_strategy import evaluate_force_rhythm_exit
-
-                    strategy_params = payload.strategy_params if isinstance(payload.strategy_params, dict) else {}
-                    rhythm_exit = evaluate_force_rhythm_exit(rhythm_ind, strategy_params)
-                    if bool(rhythm_exit.get("exit_signal")):
-                        exit_label = str(rhythm_exit.get("exit_reason") or "散户卖出").strip()
-                        merged = list(exit_signal_events_by_index.get(idx, []))
-                        if exit_label and exit_label not in merged:
-                            merged.append(exit_label)
-                        exit_signal_events_by_index[idx] = merged
             if day_risk_events:
                 risk_events_by_index[idx] = day_risk_events
             if not day_entry_events:

@@ -283,7 +283,7 @@ class InMemoryStore:
     _SCREENER_RESULT_CACHE_VERSION = "screener-run-v3"
     _SIGNALS_RESULT_CACHE_VERSION = "signals-v2"
     _BACKTEST_TREND_FILTER_CACHE_VERSION = "trend-filter-v4"
-    _BACKTEST_RESULT_CACHE_VERSION = "backtest-result-v6"
+    _BACKTEST_RESULT_CACHE_VERSION = "backtest-result-v7-strategy-registration"
     _BACKTEST_SIGNAL_MATRIX_CACHE_VERSION = "signal-matrix-v2"
     _BACKTEST_PRECHECK_CACHE_VERSION = "precheck-v1"
     _BACKTEST_REPORT_SCHEMA_VERSION = "ftbt-1.0"
@@ -11510,25 +11510,40 @@ class InMemoryStore:
 
         return output_regions
 
+    @staticmethod
+    def _select_backtest_plateau_recommendation(regions):
+        """A ranked point is not a recommendation without an eligible region."""
+        for region in regions:
+            point = region.center_point
+            if point.error is None and point.passes_hard_filters and point.stats.total_return > 0:
+                return point
+        return None
+
     def _rehydrate_backtest_plateau_result(
         self,
         result: BacktestPlateauResponse,
         *,
         control_callback: Callable[[], None] | None = None,
     ) -> BacktestPlateauResponse:
+        version = re.match(r'^(\d+)\.(\d+)\.(\d+)', result.strategy_version or '')
+        legacy_rhythm = result.base_payload.strategy_id == 'ths_force_rhythm_v1' and (
+            not version or tuple(map(int, version.groups())) < (1, 0, 1))
+        if legacy_rhythm:
+            warning = '旧版节奏波实现存在买点错绑，请使用当前策略重新回测。'
+            return result.model_copy(update={"recommended_point": None, "best_point": None, "regions": [],
+                                             "notes": list(dict.fromkeys([warning, *result.notes]))}, deep=True)
         points = [item.model_copy(deep=True) for item in list(result.points or [])]
         valid_points = [item for item in points if item.error is None]
         needs_refresh = (
-            result.recommended_point is None
-            or result.peak_point is None
-            or len(result.regions) <= 0
+            result.peak_point is None
             or any(
                 (float(item.plateau_score) == 0.0 and float(item.local_score) == 0.0 and float(item.point_score) == 0.0)
                 for item in valid_points
             )
         )
         if not needs_refresh:
-            return result
+            recommended = self._select_backtest_plateau_recommendation(result.regions)
+            return result.model_copy(update={"recommended_point": recommended, "best_point": recommended}, deep=True)
 
         scored_points, neighbor_meta = self._apply_plateau_robustness_scores(
             points,
@@ -11553,7 +11568,7 @@ class InMemoryStore:
             ),
             reverse=True,
         )
-        recommended_point = regions[0].center_point if regions else next((row for row in points if row.error is None), None)
+        recommended_point = self._select_backtest_plateau_recommendation(regions)
         peak_point = None
         if scored_points:
             peak_point = max(
@@ -12626,7 +12641,7 @@ class InMemoryStore:
                     row.stats.win_rate,
                 ),
             )
-        recommended_point = regions[0].center_point if regions else next((row for row in points if row.error is None), None)
+        recommended_point = self._select_backtest_plateau_recommendation(regions)
         best_point = recommended_point
         correlations = self._build_backtest_plateau_correlations(points)
         notes: list[str] = []
@@ -12656,6 +12671,8 @@ class InMemoryStore:
         notes.append("收益平原 V1 改为优先寻找稳定区域：先过硬门槛，再计算单点质量分、局部分与收益平原分。")
         notes.append("硬门槛包含：收益>0、ProfitFactor>=1.05、回撤<=35%、fill_rate>=10%、年化交易数>=12、单笔收益能覆盖成本。")
         notes.append("自动区域识别仅纳入通过硬门槛且局部分>=55 的参数组；推荐参数默认取区域中心，而不是历史峰值。")
+        if recommended_point is None:
+            notes.append("未发现符合条件的稳定区域，不推荐任何参数；排名和历史峰值仅用于查看计算结果。")
         if regions:
             notes.append(
                 f"自动识别收益平原区域 {len(regions)} 个，Top1 区域包含 {regions[0].point_count} 组参数，"
@@ -12697,6 +12714,7 @@ class InMemoryStore:
         )
         return BacktestPlateauResponse(
             base_payload=base,
+            strategy_version=self._strategy_registry.get(base.strategy_id).version,
             total_combinations=int(total_combinations),
             evaluated_combinations=int(evaluated),
             points=points,
