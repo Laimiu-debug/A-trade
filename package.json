@@ -1,7 +1,7 @@
 {
   "name": "a-trade",
   "productName": "A-trade",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "A-trade Windows desktop research workspace",
   "main": "desktop/main.cjs",
@@ -28,8 +28,11 @@
     "test:stock-pool": "node scripts/smoke-stock-pool-workspace.cjs",
     "test:stock-kline": "node scripts/smoke-stock-table-charts.cjs",
     "test:page-ai": "node scripts/smoke-page-ai.cjs",
+    "test:onboarding": "node scripts/smoke-onboarding.cjs",
     "setup:market": "node scripts/setup-market.cjs",
     "build:portable": "node scripts/build-portable.cjs",
+    "build:exe": "node scripts/build-single-exe.cjs",
+    "test:exe": "node scripts/smoke-portable.cjs --single-exe",
     "test:portable": "node scripts/smoke-portable.cjs",
     "test:research-workflow": "node scripts/smoke-research-workflow.cjs",
     "build:finaltrade": "node scripts/build-finaltrade.cjs",
@@ -43,6 +46,7 @@
   },
   "devDependencies": {
     "@electron/packager": "20.3.0",
-    "electron": "44.7.0"
+    "electron": "44.7.0",
+    "electron-builder": "26.15.3"
   }
 }

@@ -41,11 +41,14 @@ async function fixture(directory) {
 }
 async function launch(application, directory) {
   const port = await reservePort();
+  const temporary=path.join(directory,'临时解包');await fs.mkdir(temporary,{recursive:true});
   const env = { ...process.env, ATRADE_USER_DATA: path.join(directory, '独立数据'),
+    TEMP:temporary,TMP:temporary,
     ATRADE_PYTHON: 'Z:\\missing-host-python.exe', PYTHONHOME: 'Z:\\missing-home', PYTHONPATH: 'Z:\\missing-site',
     PATH: path.join(process.env.SystemRoot, 'System32') };
   delete env.ELECTRON_RUN_AS_NODE;
-  const child = spawn(path.join(application, 'A-trade.exe'), ['--start-hidden', `--remote-debugging-port=${port}`, '--remote-debugging-address=127.0.0.1'],
+  const executable=(await fs.stat(application)).isFile()?application:path.join(application,'A-trade.exe');
+  const child = spawn(executable, ['--start-hidden', `--remote-debugging-port=${port}`, '--remote-debugging-address=127.0.0.1'],
     { cwd: directory, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   let tail = '', exitCode, socket;
   child.stdout.on('data', data => { tail = (tail + data).slice(-4000); });
@@ -110,7 +113,11 @@ async function launch(application, directory) {
     };
     await wait('typeof AT !== "undefined" && !!window.ResearchModule && !!window.PortfolioWorkbench && !!document.querySelector("main")', 'packaged UI');
     await evaluate('window.__portableErrors=[];window.addEventListener("error",event=>__portableErrors.push(event.message));window.addEventListener("unhandledrejection",event=>__portableErrors.push(String(event.reason)));');
-    return { evaluate, strategy, wait, command, child, async close() {
+    return { evaluate, strategy, wait, command, child,async duplicate(){
+      const second=spawn(executable,['--start-hidden'],{cwd:directory,env,windowsHide:true,stdio:'ignore'});
+      const result=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>{second.kill();reject(Error('Second portable launch did not hand off'))},60000);second.once('error',error=>{clearTimeout(timer);reject(error)});second.once('exit',code=>{clearTimeout(timer);resolve(code)})});
+      assert.equal(result,0,'a duplicate launch exits normally');assert.equal(await evaluate('typeof AT.navigate==="function"'),true,'duplicate extraction must not damage the running app');
+    }, async close() {
       try { await evaluate('document.querySelector("[data-window-action=close]").click();true'); } catch { /* normal target shutdown */ }
       const code = await Promise.race([exited, delay(12000).then(() => { throw new Error('Packaged app did not close safely.'); })]);
       socket.close(); assert.equal(code, 0, 'normal app exit');
@@ -118,8 +125,11 @@ async function launch(application, directory) {
   } catch (error) { socket?.close(); child.kill(); throw error; }
 }
 async function main() {
-  const application = path.resolve(process.argv[2] || JSON.parse(await fs.readFile(path.join(root, 'dist/latest-portable.json'), 'utf8')).directory);
+  const single=process.argv.includes('--single-exe'),specified=process.argv.slice(2).find(value=>value!=='--single-exe');
+  const original = path.resolve(specified || (single?JSON.parse(await fs.readFile(path.join(root,'dist/latest-single-exe.json'),'utf8')).file:JSON.parse(await fs.readFile(path.join(root, 'dist/latest-portable.json'), 'utf8')).directory));
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'atrade-portable-'));
+  const oneFile=(await fs.stat(original)).isFile();let application=original;
+  if(oneFile){const folder=path.join(directory,'中文单文件程序');await fs.mkdir(folder);application=path.join(folder,'A-trade 单文件.exe');await fs.copyFile(original,application);}
   console.log('Testing packaged exe with no host Python/Node on PATH, in an isolated workspace.');
   const sample = await fixture(directory);
   let session;
@@ -134,6 +144,7 @@ async function main() {
       path.join(directory, '独立数据', 'workspace'), 'all packaged smoke writes must stay in the temporary workspace');
     assert.equal(await evaluate('atradeDesktop.bootstrap.app.packaged'), true);
     assert.match(await evaluate('document.title'), /便携版/);
+    assert.equal(await evaluate('AT.state.page==="C08"&&!!AT.onboarding&&!!document.querySelector("[data-onboarding-page]")'),true,'packaged first-use guide');
     assert.equal(await evaluate('typeof require === "undefined" && typeof process === "undefined"'), true);
     assert.equal(await evaluate('!!AT.pageAI && typeof AT.pageAIContext?.capture === "function" && !!document.querySelector("[data-page-ai=open]")'), true, 'packaged page assistant assets');
     const unconfiguredAI = await evaluate("atradeDesktop.ai('page.ask',{requestId:'portable-page-ai',question:'解读此页',context:{page:{id:'T08',title:'连板龙头'},tables:[]}})");
@@ -144,6 +155,8 @@ async function main() {
     const configured = await evaluate(`atradeDesktop.market('market.configure',{path:${JSON.stringify(sample.source)}})`);
     assert.equal(configured.ok, true, configured.error);
     const scanned = await evaluate("atradeDesktop.market('market.scan')"); assert.equal(scanned.ok, true, scanned.error);
+    await evaluate('AT.marketUI.refresh()');await evaluate('document.querySelector("[data-onboarding-action=verify]").click();true');
+    await wait('AT.state.onboarding.sample?.count===120','packaged onboarding reads bundled daily data');
     await evaluate('AT.navigate("M06");true');
     await wait('!!document.querySelector("[data-pf-pool-form]")', 'standalone market stock pool');
     assert.equal(await evaluate('document.querySelector("[data-pf-field=\\"config.universe.minAmount20\\"]").value'), '1000', 'packaged turnover input uses wan yuan');
@@ -269,6 +282,7 @@ async function main() {
     const picture = await session.command('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
     await fs.writeFile(path.join(root, 'artifacts/portable-smoke.png'), Buffer.from(picture.data, 'base64'));
     assert.deepEqual(await evaluate('__portableErrors'), []);
+    if(oneFile)await session.duplicate();
     await session.close(); session = null;
     session = await launch(application, directory);
     const reopened = await session.evaluate(`atradeDesktop.business('research.get',{id:${JSON.stringify(id)}})`);
@@ -300,7 +314,8 @@ async function main() {
       fullPoolSize: 136, tradingDays: 39, strategies: 2, singleDevelopmentDays: 20, frozenValidationDays: 19,
       strategyCatalogueSize:16,strategyTradeCount:strategyReport.result.trades.length,plateauPoints:4,strategyReportsPersisted:true,
       frozenPlanPersisted: true, validationStatus: validationReport.data.result.validationAudit.status,
-      hostPythonDisabled: true, restarted: true, isolatedWorkspace: directory };
+      hostPythonDisabled: true, restarted: true, isolatedWorkspace: directory,singleExecutable:oneFile,duplicateLaunchVerified:oneFile };
+    if(oneFile)assert.deepEqual(await fs.readdir(path.dirname(application)),[path.basename(application)],'only the exe is needed beside the program');
     await fs.writeFile(path.join(root, 'artifacts/portable-smoke.json'), JSON.stringify(evidence, null, 2) + '\n');
     console.log('PASS packaged launch without host runtimes, 16 strategies, strategy backtest and four-point plateau, unified UI, 136-stock pool, date validation, 39-day portfolio and report/account restart persistence.');
   } finally { session?.kill(); }

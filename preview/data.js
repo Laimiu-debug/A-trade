@@ -4,7 +4,7 @@
     ['M','市场与行情','market','M01',[['M01','市场总览','market'],['M02','板块行情','boards'],['M03','板块详情','boards'],['M04','个股行情','market'],['M06','股票池','filter'],['M05','资讯中心','report']]],
     ['R','策略与回测','strategy','R11',[['R11','选股漏斗','filter'],['R01','策略中心','folder'],['R02','事件判别','strategy'],['R12','策略运行','pulse'],['R13','交易计划','calendar'],['R03','策略回测','strategy'],['R04','回测结果','chart'],['R05','收益平原','plateau'],['R15','组合与系统研究','compare'],['R10','参数收藏','shield'],['R06','操作路径','route'],['R07','研究对比','compare'],['R08','报告库','folder'],['R09','报告详情','report']]],
     ['T','分析工具','tools','T01',[['T01','工具首页','tools'],['T02','情绪估值','gauge'],['T03','跨行业估值筛选','filter'],['T04','趋势龙头','crown'],['T05','板块资金动向','boards'],['T06','异动追踪','pulse'],['T07','断板再涨停','market'],['T08','连板龙头','crown'],['T10','情绪周期','pulse'],['T09','统一跟踪池','eye']]],
-    ['C','设置','settings','C01',[['C01','数据源','database'],['C02','账户费率','cash'],['C03','交易与仓位规则','shield'],['C04','备份与恢复','backup'],['C05','显示与交互','settings'],['C07','AI 模型','tools'],['C06','应用与诊断','info']]],
+    ['C','设置','settings','C01',[['C01','数据源','database'],['C02','账户费率','cash'],['C03','交易与仓位规则','shield'],['C04','备份与恢复','backup'],['C05','显示与交互','settings'],['C07','AI 模型','tools'],['C06','应用与诊断','info'],['C08','新手入门','route']]],
     ['G','全局工作区','tasks','G02',[['G01','个股日线与分析','market'],['G02','任务中心','tasks'],['G03','任务详情','tasks'],['G04','数据状态与质量','shield'],['G05','首次使用引导','account'],['G06','全局搜索','search']]]
   ];
   AT.groups = groups.map(([id,label,icon,home,pages])=>({id,label,icon,home,pages:pages.map(([id,title,icon])=>({id,title,icon,group:id[0]}))}));
@@ -22,7 +22,7 @@
     M:[['M01'],['M02','M03'],['M04'],['M06'],['M05']],
     R:[['R11'],['R01','R02'],['R12','R13'],['R03','R04'],['R05'],['R15','R06','R07','R10'],['R08','R09']],
     T:[['T02','T03'],['T04'],['T08'],['T10'],['T05'],['T06','T07'],['T09']],
-    C:[['C01','C02','C03','C04','C05','C07','C06']]
+    C:[['C01','C02','C03','C04','C05','C07','C06','C08']]
   };
   AT.navPages=group=>groupedNavigation[group.id]?.map(pages=>({...AT.pages[pages[0]],title:group.id==='C'?'系统设置':AT.pages[pages[0]].title,pages}))||group.pages;
   AT.pageParentFor=page=>AT.navPages(AT.groups.find(g=>g.id===page[0])).find(p=>p.pages?.includes(page)||p.id===page);

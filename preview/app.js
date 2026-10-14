@@ -60,6 +60,7 @@
     AT.analysisTools?.updateShell(page.id);
     window.ResearchModule?.updateShell();
     window.StrategyWorkspace?.updateShell();
+    AT.onboarding?.updateShell();
   }
   function snapshot(){return {page:AT.state.page,stock:AT.state.stock,scroll:window.scrollY,viewport:capturePosition(),chartState:structuredClone(Object.fromEntries(chartStateKeys.map(key=>[key,AT.ui[key]]))),ledgerMode:AT.ui.ledgerMode,reviewNote:AT.ui.reviewNote,query:AT.ui.query,board:AT.ui.board,range:AT.ui.range,metric:AT.ui.metric,selected:[...AT.ui.selected],dayDetail:$('.day-drawer')?{payload:structuredClone(AT.ui.dayDetail),scroll:$('.day-drawer .modal-body').scrollTop}:null,milestone:$('#milestone-detail')?{stage:AT.ui.milestoneNumber,filter:AT.ui.milestoneFilter,scroll:$('.milestone-drawer .modal-body').scrollTop}:null,pass:$('.pass-viewport')?.scrollLeft??AT.ui.passPosition}}
   function resolveEntry(page){
@@ -193,6 +194,7 @@
     el.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();el.scrollLeft+=e.key==='ArrowRight'?156:-156;AT.ui.passPosition=el.scrollLeft}if(e.key==='Home'){e.preventDefault();el.scrollLeft=0}if(e.key==='End'){e.preventDefault();el.scrollLeft=el.scrollWidth}});
   }
   function initView(){
+    AT.onboarding?.mount();
     AT.settingsPage?.mount();
     if(window.ResearchModule?.handles(AT.state.page)){window.ResearchModule.mount(main);return;}
     AT.drawSparks();
@@ -466,5 +468,5 @@
     $('#save-status').textContent=AT.storageWarning||'更改自动保存到本机';
     $('#save-status').dataset.saveState=AT.storageWarning?'warning':'ready';
   }
-  readRoute();render();setInterval(updateTasks,2400);
+  AT.onboarding?.start();readRoute();render();setInterval(updateTasks,2400);
 })();

@@ -85,6 +85,17 @@ class MarketTests(unittest.TestCase):
             self.assertEqual(self.service.dispatch("market.resolve", {"question": "解释当前情绪"})["items"], [])
             self.assertEqual(self.service.dispatch("market.resolve", {"question": "分析999999"})["unknown"], ["999999"])
 
+    def test_indexed_stock_search_ignores_catalogue_names_without_downloaded_bars(self):
+        write_names(self.root, "sh", {**{str(600001+i): f"样本{i}" for i in range(300)}, "600900": "长江电力"})
+        self.day()
+        self.scan()
+        self.assertGreater(self.service.search({"kind": "stock"})["total"], 200)
+        result = self.service.search({"kind": "stock", "indexedOnly": True, "limit": 1})
+        self.assertEqual(result["total"], 1)
+        self.assertEqual(result["items"][0]["symbol"], "sh600900")
+        with self.assertRaisesRegex(ValueError, "布尔值"):
+            self.service.search({"indexedOnly": "true"})
+
     def test_question_does_not_guess_ambiguous_names_or_six_digit_codes(self):
         write_names(self.root, "sh", {"600001": "同名股票", "600002": "新同名股票"})
         write_names(self.root, "sz", {"000001": "同名股票"})

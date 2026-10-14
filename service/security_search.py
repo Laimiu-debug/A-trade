@@ -50,7 +50,7 @@ class SecuritySearch:
             self.owner._set("securityNameCatalogue", self.cache)
         return catalogue, warnings, False
 
-    def items(self, kind):
+    def items(self, kind, indexed_only=False):
         catalogue, warnings, cached = self.catalogue()
         items = {}
         for row in self.owner.db.execute("SELECT * FROM securities"):
@@ -63,7 +63,7 @@ class SecuritySearch:
                                     "kind": row["kind"], "latestDate": row["latest_date"]}
         # Valuation and quick selection can analyse named stocks without local
         # bars. Existing unfiltered market-list callers retain their scan scope.
-        if kind == "stock":
+        if kind == "stock" and not indexed_only:
             for symbol, metadata in catalogue.items():
                 if symbol in items or tdx.security_kind(symbol[:2], symbol[2:]) != "stock":
                     continue
@@ -113,8 +113,8 @@ class SecuritySearch:
         return {"items": list(targets.values()), "ambiguous": ambiguous, "unknown": unknown,
                 "scope": "本地证券名称与代码目录；不包含简称猜测或历史名称还原"}
 
-    def search(self, query, *, kind, offset, limit):
-        items, warnings, cached = self.items(kind)
+    def search(self, query, *, kind, offset, limit, indexed_only=False):
+        items, warnings, cached = self.items(kind, indexed_only)
 
         def fields(item):
             return [item[key].lower() for key in ("symbol", "code", "name", "initials")]

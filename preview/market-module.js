@@ -82,6 +82,7 @@
   const safeError = error => error?.message || '操作未完成，请重试。';
   const warn = warnings => Array.isArray(warnings) && warnings.length ? `<div class="market-warning" role="status">${warnings.map(w => `<p>${E(typeof w === 'string' ? w : w.message || w.code || '数据需要检查')}</p>`).join('')}</div>` : '';
   function refreshVisible() {
+    if(AT.onboarding?.handles(AT.state.page)){AT.onboarding.refresh();return;}
     if (!marketPages.has(AT.state.page)) return;
     if (AT.marketExplorer?.isComposing?.()) {
       if (!deferredRefreshTimer) deferredRefreshTimer = setTimeout(() => {deferredRefreshTimer = 0; refreshVisible();}, 180);
@@ -337,17 +338,20 @@
   function newsView() {
     return AT.head('资讯中心', '资讯与公告需要独立的内容来源', B('数据源设置', 'settings', 'data-nav="C01"')) + `<section class="panel market-empty"><span class="market-source-icon">${I('report')}</span><h2>暂无已接入的资讯来源</h2><p>本地日线与当前行情接口不提供新闻正文。资讯来源接入后会在这里展示标题、发布时间和原始出处。</p>${B('管理数据源', 'settings', 'data-nav="C01"')}</section>`;
   }
-  function settingsView() {
+  function connectionForm() {
     const busy = sourceBusy || picking || Boolean(sourcePending), feedback = sourceFeedback;
-    return AT.head('数据源', '选择自己的通达信目录，读取本机日线', B('数据状态', 'shield', 'data-nav="G04"')) + settingsNav()
-      + `<section class="panel market-source-panel"><header class="market-source-heading"><span class="market-source-icon">${I('database')}</span><div><h2>通达信本地日线</h2><p>你的目录 · 本机读取 · 本机缓存</p></div><span class="tag ${source?.available ? 'blue' : ''}">${sourceTag()}</span></header>
+    return `<section class="panel market-source-panel"><header class="market-source-heading"><span class="market-source-icon">${I('database')}</span><div><h2>通达信本地日线</h2><p>你的目录 · 本机读取 · 本机缓存</p></div><span class="tag ${source?.available ? 'blue' : ''}">${sourceTag()}</span></header>
         <form id="market-source-form" class="market-source-form" aria-busy="${busy}">
           <label class="field" for="market-source-path"><span>通达信数据目录</span><div class="market-path-entry"><input id="market-source-path" name="path" data-market-path value="${E(pathDraft ?? source?.path ?? '')}" placeholder="选择通达信安装目录或 vipdoc 文件夹" autocomplete="off" spellcheck="false" ${busy ? 'disabled' : ''}>${action(picking ? '正在选择…' : '选择文件夹', 'choose', 'folder', '', busy ? 'disabled' : '')}</div></label>
           <p class="market-field-note">可选择通达信安装目录，也可直接选择其中的 vipdoc 文件夹。原始文件仅供读取。</p>
           <div class="market-source-actions">${action(sourceBusy ? '正在读取…' : '保存并读取', 'configure', 'save', 'primary', busy ? 'disabled' : '')}${action('重新检查目录', 'scan', 'refresh', '', busy || !source?.configured ? 'disabled' : '')}${source?.configured ? B('查看个股行情', 'market', 'data-nav="M04"') : ''}</div>
           <p class="market-feedback" data-tone="${feedback?.tone || 'neutral'}" role="${feedback?.tone === 'error' ? 'alert' : 'status'}" aria-live="polite">${E(feedback?.message || (!sourceLoaded ? '正在读取已保存的目录…' : '选择目录后，保存并读取即可开始。'))}</p>
         </form>${statusError()}${sourceMetrics()}${warn(source?.warnings)}
-      </section><div class="market-source-notes"><div><h3>数据如何更新</h3><p>在通达信下载或补齐日线后，点击“重新检查目录”。查看证券时读取其日线，并保存到 A-trade 的本机缓存。</p></div><div><h3>价格与分时各有来源</h3><p>本地日线保留未复权价格；实时行情、分钟线和板块通过下方的通达信 MCP 接入。</p></div></div>` + onlineSettings();
+      </section>`;
+  }
+  function settingsView() {
+    return AT.head('数据源', '选择自己的通达信目录，读取本机日线', B('数据状态', 'shield', 'data-nav="G04"')) + settingsNav() + connectionForm()
+      + `<div class="market-source-notes"><div><h3>数据如何更新</h3><p>在通达信下载或补齐日线后，点击“重新检查目录”。查看证券时读取其日线，并保存到 A-trade 的本机缓存。</p></div><div><h3>价格与分时各有来源</h3><p>本地日线保留未复权价格；实时行情、分钟线和板块通过下方的通达信 MCP 接入。</p></div></div>` + onlineSettings();
   }
   function statusView() {
     return AT.head('数据状态与质量', '查看来源、覆盖日期与读取状态', B('数据源设置', 'settings', 'data-nav="C01"'))
@@ -780,6 +784,7 @@
     pendingDay = null;
   }
   AT.marketUI = {get status() {return source ? structuredClone(source) : null;}, updateShell, refreshVisible,
+    connectionForm,get setupBusy(){return sourceBusy||picking||Boolean(sourcePending);},
     getAIContext() {
       if(AT.state.page==='G01'&&barsKey===`${version}|${AT.state.stock}`&&barsData?.symbol===AT.state.stock) {
         const row=barsData.rows?.[selectedIndex]||barsData.rows?.at(-1);

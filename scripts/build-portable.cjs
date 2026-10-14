@@ -19,7 +19,7 @@ async function run(command, args, options = {}) {
 }
 async function copy(source, target) {
   await fs.cp(source, target, { recursive: true, errorOnExist: true, force: false,
-    filter: file => !path.relative(source,file).split(path.sep).some(part => ['__pycache__','node_modules'].includes(part)) && !file.endsWith('.pyc') });
+    filter: file => !path.relative(source,file).split(path.sep).some(part => ['__pycache__','node_modules','.git','.venv','.pytest_cache'].includes(part)||/^\.env(?:\.|$)/.test(part)) && !/\.(?:pyc|log|sqlite3?|db)$/.test(file) });
 }
 async function fingerprint(directory, relative = '') {
   const output = {};

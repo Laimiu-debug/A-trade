@@ -250,7 +250,10 @@ class MarketService:
         kind = payload.get("kind")
         if kind not in (None, "stock", "index"):
             raise ValueError("搜索类型须为 stock 或 index")
-        return self.security_search.search(query, kind=kind, offset=offset, limit=limit)
+        indexed_only = payload.get("indexedOnly", False)
+        if not isinstance(indexed_only, bool):
+            raise ValueError("已索引证券筛选须为布尔值")
+        return self.security_search.search(query, kind=kind, offset=offset, limit=limit, indexed_only=indexed_only)
 
     def bars(self, payload):
         market, code = tdx.symbol_parts(payload.get("symbol"))
