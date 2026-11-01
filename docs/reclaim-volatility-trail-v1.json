@@ -1,0 +1,77 @@
+{
+  "schema": "reclaim-volatility-trail-v1",
+  "strategyId": "strongUndercutReclaimV1",
+  "modes": ["volatilityTrail"],
+  "reportModes": ["trail10", "volatilityTrail"],
+  "labels": {"trail10": "固定百分比跟踪", "volatilityTrail": "波动比例跟踪"},
+  "question": "Does a daily causal volatility-scaled trailing floor change the complete accounts and payoff distributions of the six unchanged reclaim signal streams relative to fixed ten-percent trailing?",
+  "novelty": {
+    "classification": "One new exit mechanism; unchanged signal stream and universe; one fixed parameter specification, no sweep.",
+    "priorExperiments": [
+      "relative-repair-volatility-stop-v1 froze two times mean raw true range at entry and changed the initial stop, retaining fixed trail10 and noProgress5. This new mechanism keeps the five-percent initial stop and changes the evolving trailing floor.",
+      "reclaim-exit-transfer-v1 compared removal of day-five exit and a rolling ten-session low. The rolling low could fall; this new floor cannot fall in inherited entry-reference units."
+    ],
+    "designExposure": "All six 2022-2025 source samples and their previous account outcomes have already informed development. This is not fresh holdout evidence. The exact new candidate has not run at registration."
+  },
+  "population": {
+    "sources": "All six board-coverage-reclaim-v1 sources: 2022-2023 and 2024-2025, main/chinext/star. Reuse the same frozen data, original immediate schedules and independent source calendar; no downloads, universe update or 2026 observations.",
+    "signals": "All original five fields and their order remain unchanged: signalId, strategyId, symbol, signalDate, originalRank. Process all 8155 original opportunities; no new score, date gate, delayed admission or result-based board selection.",
+    "reference": "Reuse the six completed reclaim-exit-transfer-v1 trail10 result/checkpoint/summary files byte-for-byte. This reference retains the five-percent initial stop and does not contain day-five or structural exits.",
+    "scope": "Historical surviving-stock cohorts with incomplete historical status and corporate actions; board membership is not a technology-industry classification."
+  },
+  "policies": {
+    "trail10": {
+      "execution": "reused-frozen-account", "engine": "FixedSignalAccount", "exitRule": null,
+      "stopLossPct": 0.05, "trailingStopPct": 0.1, "takeProfitPct": 0, "maxHoldingDays": 0
+    },
+    "volatilityTrail": {
+      "execution": "new-independent-account", "engine": "VolatilityTrailAccount", "exitRule": "volatilityTrail",
+      "stopLossPct": 0.05, "trailingStopPct": 0, "takeProfitPct": 0, "maxHoldingDays": 0,
+      "lookback": 20, "multiplier": 3,
+      "estimator": "Simple arithmetic mean of twenty daily normalized true ranges. This is neither Wilder-smoothed ATR nor a mean raw ATR divided by current price.",
+      "window": "At held close T use the exact twenty-one source-calendar slots T-21 through T-1. Each slot requires a correctly dated, valid positive OHLC and volume bar; missing or invalid slots remain unknown and are never compressed. The first slot supplies the prior close for the first of twenty true ranges.",
+      "reference": "For each of the last twenty window slots use that bar date's explicitly supplied valid positive preclose if present; otherwise use the immediately preceding exact calendar slot close. An invalid supplied reference is unknown, not silently replaced.",
+      "formula": "TRratio_i=max(high_i-low_i,abs(high_i-reference_i),abs(low_i-reference_i))/reference_i; v=mean(TRratio_i); require 0<3*v<1; candidatePrice=closePeak*(1-3*v); candidateRatio=candidatePrice/currentRiskEntryPrice.",
+      "ratchet": "Store a holding-episode floorRatio in inherited riskEntryPrice units. On a valid current close with no existing/standard exit, floorRatio=max(previousFloorRatio,candidateRatio) when the volatility window is valid. A missing prior floor is initialized only by a valid candidate. Current price floor=currentRiskEntryPrice*floorRatio. Reference conversions scale the price floor consistently; the dimensionless ratio never decreases within an episode.",
+      "unknown": "An invalid or missing volatility window cannot create or loosen a floor. A previously valid floor remains enforceable if the current close and volume are valid. With no old or new floor the exit decision is unknown. Invalid current close or volume freezes the floor and prevents an extra exit; no hidden update using a stale peak.",
+      "trigger": "After inherited standard risk updates the current valid closePeak, compare valid current close <= current price floor. Equality triggers. Queue a volatilityTrail exit for the earliest subsequent executable opening. There is no minimum profit before activation, fixed take-profit or holding deadline.",
+      "parameters": "Twenty sessions and multiplier three are a single researcher-chosen specification fixed before new account execution, not optimized on current outcomes or asserted as optimal."
+    }
+  },
+  "execution": {
+    "priority": "Day-start inherited reference conversion, opening executions, inherited eligibility/delist/ST and five-percent initial stop, then the new trailing check. Any already queued or newly standard-queued exit causes a skipped extra-rule observation; it retains its original reason/date/evidence and does not update the floor.",
+    "clock": "Close-time triggers only. Original T+1, next eligible open, price limits, board lots, opening capacity, quarantine, no additions and partial forced-exit retry remain inherited. A five-percent trigger is not a realized-loss ceiling.",
+    "capital": "Independent 500000 starting cash, five positions and twenty-percent entry budget for each new account. Actual admissions may differ because exits change free capital and slots.",
+    "fees": "Retain exactly the DatedFeePolicy for 2022-2023 and LegacyFeePolicy for 2024-2025 with ten basis points of slippage each side. Do not change reserves or sizing.",
+    "corporateActions": "No corporate-action reconstruction or individual-price repair. Reject declared corporate action ledgers in the new adapter; preserve inherited preclose changes and associated unaccounted-action warnings. Missing historic rights/status and raw-price limitations remain material.",
+    "state": "Keep one floor per actual holding episode; remove it only when fully closed, preserve it on partial exits, and reset on later reentry. Include all new state and logs in transaction rollback. Snapshots are descriptive and cannot restore.",
+    "cutoff": "Keep all unclosed holdings, pending exits and censored opportunities at cutoff. Never force final liquidation or assign zero to missing outcomes."
+  },
+  "comparison": {
+    "primary": {"id": "volatilityTrailVsTrail10", "control": "trail10", "candidate": "volatilityTrail"},
+    "meaning": "Complete independent account policy comparison using identical original signal schedules. Changes in later admissions and capital use are part of the observed effect; this is not a matched-trade causal estimate."
+  },
+  "evidence": {
+    "binding": "Freeze protocol, module, tests, runner, independent verifier and readout helpers before real execution; bind previous delivery, original source/input proofs, all six schedules and exact reference accounts.",
+    "riskAudit": "Independently reconstruct every held-day floor from source bars and actual fills, including source-calendar alignment, current-day exclusion, references, ratchet, missing windows, initial-stop priority, pending exits, partial sells, reentries and reference conversion. Do not validate only sell days or import the new production formula.",
+    "observations": "Preserve separate windowStatus and decisionStatus, all twenty daily TR terms/reference sources, previous/new ratios, price floor, candidate validity and use of carried floor. An unknown window with a known enforceable floor is not an unknown exit.",
+    "readout": "Retain twelve accounts, six contrasts, twenty-four year, forty-eight half-year, ninety-six phase and twelve event-boundary rows; all closed/open PnL, fees, tails, drawdowns, exposure, holding ages, original opportunity dispositions and quality flags.",
+    "eventBoundary": "2024-09-24 is descriptive only; continuous previous equity and holdings carry through. It is absent from buy/sell rules.",
+    "trialAccounting": {"experimentBatches": 1, "newAccounts": 6, "referenceAccountsReused": 6, "newSetupMechanisms": 0, "newUniverseVariants": 0, "newEntryPolicies": 0, "newExitDefinitions": 1, "transferredExitPolicies": 0},
+    "productionChanges": "One isolated research adapter and its synthetic tests. Existing engines, strategy signals, user settings and production UI remain unchanged."
+  },
+  "conceptReferences": [
+    {"url": "https://www.fidelity.com/learning-center/trading-investing/technical-analysis/technical-indicator-guide/atr", "use": "Volatility-adaptive stop motivation only; our normalized simple-mean formula and frozen parameters are independently specified research choices, not Fidelity's Wilder ATR or an endorsed trading strategy."}
+  ],
+  "limitations": [
+    "All 2022-2025 data are inspected development history, not independent holdout; no 2026 account is included.",
+    "Historical universe/status, corporate actions, valuation and execution evidence remain incomplete. Arithmetic verification does not certify economic returns.",
+    "Lower ordinary loss averages do not rule out gap losses, repeated losses or prolonged drawdown. Retaining large winners can concentrate returns; neither a high win rate nor deleting best trades is a success requirement.",
+    "Price-volume data do not identify institutions, retail, quantitative-fund participation or manipulation.",
+    "Unknown observations, failed entries, partial exits and open holdings remain visible in the relevant denominators."
+  ],
+  "parameterSearch": false,
+  "profitHurdles": null,
+  "certified": false,
+  "targetAchieved": false
+}

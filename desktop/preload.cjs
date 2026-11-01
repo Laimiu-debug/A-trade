@@ -1,5 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// The loading document has no business bridge and must not wait on bootstrap IPC.
+if (window.location.protocol === 'atrade:' && window.location.host === 'app' &&
+    window.location.pathname === '/index.html' && !window.location.search) {
 // One bounded startup read lets the existing deferred scripts load in order.
 // File writes remain asynchronous. Never expose ipcRenderer or arbitrary paths.
 const bootstrap = ipcRenderer.sendSync('atrade:bootstrap');
@@ -37,3 +40,4 @@ contextBridge.exposeInMainWorld('atradeDesktop', {
     return () => ipcRenderer.removeListener('atrade:window-state', receive);
   },
 });
+}

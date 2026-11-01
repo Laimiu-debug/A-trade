@@ -1,0 +1,22 @@
+{
+  "schema": "joint-cohort-regime-v1",
+  "question": "Does separating absolute feedback in previously strong and weak cohorts clarify when the existing reclaim strategy has small losses and larger gains?",
+  "states": ["bothPositiveMajority", "topOnlyPositiveMajority", "bottomOnlyPositiveMajority", "neitherPositiveMajority", "unknown"],
+  "rules": {
+    "source": "Reuse all six independently verified relative-feedback daily tables and all 16310 existing formation/account records (8155 opportunities, two exit policies). No new source universe, signals, account executions or parameter search.",
+    "clock": "For formation T use the inherited asOfDate T-1 and cohorts frozen at T-6. No T-close or later input. The 2024-09-24 formation therefore uses information ending 2024-09-23; the policy-day response first appears in the next session's context.",
+    "classification": "For each previously frozen top/bottom RS20 decile separately, let N=P+Z+L+U. N=0 is unknown. If 2P>N, positive-majority is pass. If 2(P+U)<=N, it is fail. Otherwise unknown. Any unknown group makes the joint state unknown; otherwise preserve all four pass/fail combinations. Use exact integer comparisons; no rounded threshold, missing-member deletion, coverage gate or extra cutpoint.",
+    "scope": "These are two extreme rank cohorts within one frozen historical survivor-board sample. Neither-positive-majority includes flat prices; both-positive-majority does not establish broad-market prosperity. Top-only does not prove market leadership, causal influence or capital-owner identity.",
+    "outcomes": "Retain every original unentered, closed and open disposition. Aggregate the same fee/slippage-inclusive episode outcomes by formation-time state, board, period, formation year, 9.24 epoch and all 16 existing descriptive atlas phases. Never present these groups as filtered account backtests. Existing fees, valuation and source limitations remain unchanged.",
+    "accounting": "Reconcile group closed plus open realized and unrealized money to each of the 12 original accounts. Keep the original unallocated residual separate. Initial-capital contribution is not a group return. The two exit-policy views are alternatives, not independent observations or additive portfolios.",
+    "comparison": "Retain the previously calculated relative stronger/weaker label and measure which joint states it combined. Report denominators, closed average and median returns, wins/losses, cash profit factor, open PnL and concentration. Preserve all empty cells. No automatically selected winning state or acceptance threshold.",
+    "history": "Use all 2022-2025 exposed development data; exclude 2026. The historical 16-phase labels and 9.24 boundary are descriptive joins only, never trading inputs. No untouched-holdout or future-probability claim.",
+    "decision": "Decide whether an executable environment rule merits a separate frozen account experiment. A favorable historical bucket alone is insufficient: examine both periods, all boards, the other exit policy and chronological concentration first. Do not alter the classification after reading outcomes."
+  },
+  "trialAccounting": {"newStrategyTrials": 0, "newAccounts": 0, "existingAccountsRead": 12, "newJointContextDefinitions": 1},
+  "expectedRows": {"overallRows": 60, "formationYearRows": 120, "epochStateRows": 90, "phaseRows": 480, "phaseDayRows": 240, "epochDayRows": 45, "accountReconciliation": 12, "curveEpochRows": 12, "relativeJointRows": 120},
+  "profitHurdles": null,
+  "holdoutClaim": false,
+  "certified": false,
+  "targetAchieved": false
+}

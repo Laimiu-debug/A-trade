@@ -137,7 +137,7 @@ class MarketService:
                   "market.online.test": self.online.test,
                   "market.quotes": lambda: self.online.quotes(payload),
                   "market.intraday": lambda: self.intraday(payload),
-                  "market.sectors": self.online.sectors,
+                  "market.sectors": lambda: self.sector_history.snapshot(payload) if payload.get("basis") == "daily" else self.online.sectors(),
                   "market.sector.history": lambda: self.sector_history.history(payload),
                   "market.sector": lambda: self.online.sector(payload)}
         if method not in routes:

@@ -1,0 +1,1311 @@
+{
+  "schema": "atrade-oos-provenance-audit-v1",
+  "auditedAt": "2026-10-31T17:22:23.349893+08:00",
+  "scope": "Read-only research registration/plan metadata and local TDX date fields; no new signals, prices, returns or backtests inspected.",
+  "counterWarning": "Plan families, registered research batches, diagnostic nodes, parameter points and account executions are different units; do not add or relabel them.",
+  "program": {
+    "path": "artifacts/strategy-search/program.json",
+    "sha256": "ab848234d8a48c94e678b4ce6ad748196636cdba7657f962bf56c8292e54aebb",
+    "progressNodes": 92,
+    "registeredCompletedBatches": 49,
+    "samplePolicy": {
+      "initialDevelopmentStart": "2022-01-01",
+      "initialDevelopmentEnd": "2023-12-31",
+      "potentialReservedStart": "2024-01-01",
+      "potentialReservedEnd": "2026-02-12",
+      "reservedStatus": "NOT a pristine holdout. A later documentation audit found docs/strategy-backtesting.md:134-144 reporting three default-strategy runs on six selected current stocks over 2023-01-03..2026-10-09 and parameter training through 2026-01-05. The missing artifact directory is not evidence that those runs never happened. The unchanged persistent-leader parent and controls have now been evaluated over 2024-2025 in this program, but this interval is only eligible for qualified additional historical validation.",
+      "priorUseEvidence": {
+        "file": "docs/strategy-backtesting.md",
+        "lines": [
+          134,
+          144
+        ],
+        "symbols": [
+          "sh600000",
+          "sh600036",
+          "sh600519",
+          "sz000001",
+          "sz000333",
+          "sz000651"
+        ],
+        "scope": "Documented prior development; original result artifacts absent in this checkout, historical numeric results not reproduced here."
+      },
+      "independentValidationPlan": "Freeze rules before inspecting any further interval. Investigate provenance of additional untouched historical data and maintain a forward paper-signal ledger. Cross-stock or previously reported periods are supplementary evidence, not a replacement for independent time validation.",
+      "knownPreviouslyUsedDevelopmentStart": "2026-02-13",
+      "knownPreviouslyUsedDevelopmentEnd": "2026-10-14",
+      "afterFeedback": "Every interval inspected for strategy selection becomes development data; changes cannot be recertified on the same holdout.",
+      "externalPriorUse": "Cannot be excluded by workspace records alone. Missing provenance is a qualification, never proof of independence."
+    }
+  },
+  "metadataInventory": [
+    {
+      "path": "artifacts/strategy-search/all-opportunity-feedback-v1/plan.json",
+      "sha256": "39d890bceec8d4477a18d9edbbca37bca84666ae3538288ba57909fe38117b92",
+      "family": "all-opportunity-feedback-v1",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": {
+        "node": "allOpportunityFeedback",
+        "status": "completed-development-experiment"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json",
+        "readout-validation.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/board-coverage-reclaim-v1/plan.json",
+      "sha256": "a911df3c26aa6e662ce8c62d6374e856427c311200b2dc99bcf409c2725ffefa",
+      "family": "board-coverage-reclaim-v1",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": {
+        "node": "boardCoverageReclaim",
+        "status": "completed-development-coverage-replication-independently-verified-not-promoted"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json",
+        "readout-validation.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/board-environment-context-v1/plan.json",
+      "sha256": "9171d1bfc8f2936112d4a853aec3d7012dc255f9624bd939bead75054ba7ec2a",
+      "family": "board-environment-context-v1",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": null,
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/bull-reclaim-liquidity-v1/plan.json",
+      "sha256": "2448b0e4c4d8f5bc6de317106df47e0bb39b0acd6ad881cd2b93d51da2b1bb9c",
+      "family": "bull-reclaim-liquidity-v1",
+      "intervals": {
+        "config": {
+          "startDate": "2024-09-24",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": null,
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/common-support-switch-v1/plan.json",
+      "sha256": "a26ef43f8081ffb3e7a0918ef8bbec29c02a7eaa74e323db0fd02d7b99cc9cdf",
+      "family": "common-support-switch-v1",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": {
+        "node": "commonSupportSwitch",
+        "status": "completed-development-experiment"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json",
+        "readout-validation.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/full-gap-retention-v1/plan.json",
+      "sha256": "cb10b33025b5058b4e3dc88f33c9b9bd8b92fdc41c892d5e204a3401db2861e9",
+      "family": "full-gap-retention-v1",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": {
+        "node": "fullGapRetention",
+        "status": "completed-development-experiment"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json",
+        "readout-validation.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/guiyin-dual-path-system-v1/attempt-001/plan.json",
+      "sha256": "42bfa139baad3fd949d7b4fb15686509bf8baf35082c4ef1cb532143878cf5b6",
+      "family": "guiyin-dual-path-system-v1",
+      "intervals": {
+        "primary": [
+          "2024-09-24",
+          "2026-10-15"
+        ],
+        "weakMarketStress": [
+          "2024-04-08",
+          "2024-09-23"
+        ],
+        "baseConfig": {
+          "startDate": "2024-09-24",
+          "endDate": "2026-10-15"
+        }
+      },
+      "registry": null,
+      "holdoutClaim": false,
+      "historyAlreadyExposed": true,
+      "outcomeFileNamesPresent": []
+    },
+    {
+      "path": "artifacts/strategy-search/guiyin-dual-path-system-v1/attempt-002/plan.json",
+      "sha256": "3fa9ead57795fa947054f84d80cc79e3a7988aec08ce554744a5067a29e1838a",
+      "family": "guiyin-dual-path-system-v1",
+      "intervals": {
+        "primary": [
+          "2024-09-24",
+          "2026-10-15"
+        ],
+        "weakMarketStress": [
+          "2024-04-08",
+          "2024-09-23"
+        ],
+        "baseConfig": {
+          "startDate": "2024-09-24",
+          "endDate": "2026-10-15"
+        }
+      },
+      "registry": null,
+      "holdoutClaim": false,
+      "historyAlreadyExposed": true,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "closeout.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/independent-shadow-labels-v1/plan.json",
+      "sha256": "dd3e9b6fcbe3b72c8c986c2100dfa80468feb29ce5cc41b7951db73e644f91f7",
+      "family": "independent-shadow-labels-v1",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": {
+        "node": "independentShadowLabels",
+        "status": "completed-development-diagnostic"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "readout-validation.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/leader-amount-handoff-v1/plan.json",
+      "sha256": "5a12ff5ec8fd001680bc651de81f941d09960e67a8ebe8c75cea25a049063d08",
+      "family": "leader-amount-handoff-v1",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": {
+        "node": "leaderAmountHandoff",
+        "status": "completed-development-experiment"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json",
+        "readout-validation.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/leader-amount-handoff-v1-failed-before-accounts-0001/plan.json",
+      "sha256": "da2dc87a5804882860e5ef460b4c8a8bcce0e47d997f4b8b02970fd14d2ba129",
+      "family": "leader-amount-handoff-v1-failed-before-accounts-0001",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": null,
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": []
+    },
+    {
+      "path": "artifacts/strategy-search/leader-lag-followers-v1/plan.json",
+      "sha256": "91eace6b78d655fbeb3ff10abc4f4c69f9a61c273a1d9447dc3bc38788f3d161",
+      "family": "leader-lag-followers-v1",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": {
+        "node": "leaderLagFollowers",
+        "status": "completed-development-direction-policy-comparison-independently-verified-not-promoted"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json",
+        "readout-validation.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/leader-matched-anchor-v1/plan.json",
+      "sha256": "5449d02ec4502918604f3da8cba0c4608a1060eb224d3062992396b0e1bda1d8",
+      "family": "leader-matched-anchor-v1",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": {
+        "node": "leaderMatchedAnchor",
+        "status": "completed-development-experiment"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json",
+        "readout-validation.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/leader-persistence-admission-v1/plan.json",
+      "sha256": "51826b8447f68f55600058a7356f7f35a9c94708b9e99dbd40cd502c026ea349",
+      "family": "leader-persistence-admission-v1",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": {
+        "node": "leaderPersistenceAdmission",
+        "status": "completed-development-account-comparison"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json",
+        "readout-validation.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/leader-pullback-retention-v1/plan.json",
+      "sha256": "7ac4d14c91b1fca8642abf1859b642abdae6f63317a0e1b5f87272f2aec65641",
+      "family": "leader-pullback-retention-v1",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": {
+        "node": "leaderPullbackRetention",
+        "status": "completed-development-experiment"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json",
+        "readout-validation.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/market-context-screen-v1/plan.json",
+      "sha256": "2eb46085ba36d7a91939c709f69620bb132f6be3ec91050bc2529bf4f5be1eb9",
+      "family": "market-context-screen-v1",
+      "intervals": {
+        "2022-2023": {},
+        "2024-2025": {}
+      },
+      "registry": {
+        "node": "marketContextScreen",
+        "status": "completed-qualified-historical-comparison"
+      },
+      "holdoutClaim": null,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/market-sector-stock-accounts-v1/attempt-001/plan.json",
+      "sha256": "bc209e833a7fc4f43cfdaa97b3f903f0bb652a8806b565cfc7093b04eea28b7b",
+      "family": "market-sector-stock-accounts-v1",
+      "intervals": {
+        "baseConfig": {
+          "startDate": "2024-09-24",
+          "endDate": "2026-10-15"
+        }
+      },
+      "registry": null,
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/market-sector-stock-base-v2/attempt-001/plan.json",
+      "sha256": "2ab5d266e9817508756dffa7ffb9a409539548a0a9bb4e183b7818514383287b",
+      "family": "market-sector-stock-base-v2",
+      "intervals": {
+        "baseConfig": {
+          "startDate": "2024-09-24",
+          "endDate": "2026-10-15"
+        }
+      },
+      "registry": null,
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/online-feedback-entry-v1/plan.json",
+      "sha256": "c9abd252f3b017948c61332b500150ceaa30862d8291c097f16938678100d53c",
+      "family": "online-feedback-entry-v1",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": {
+        "node": "onlineFeedbackEntry",
+        "status": "completed-development-online-feedback-independently-verified-not-promoted"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json",
+        "readout-validation.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/peer-amount-persistence-v1/plan.json",
+      "sha256": "cef2279b5582bb06cc525c37c2df100f366adef4e809870818561bfd689537c7",
+      "family": "peer-amount-persistence-v1",
+      "intervals": {
+        "2022-2023": {},
+        "2024-2025": {}
+      },
+      "registry": {
+        "node": "peerAmountPersistence",
+        "status": "completed-independently-verified-not-promoted"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/peer-price-activity-alignment-v1/plan.json",
+      "sha256": "95ed93d9929b3eeaeb5dd8cf7c251f84f0a2cd5f1b7484eb41a908a1fced72ab",
+      "family": "peer-price-activity-alignment-v1",
+      "intervals": {
+        "2022-2023": {},
+        "2024-2025": {}
+      },
+      "registry": {
+        "node": "peerPriceActivityAlignment",
+        "status": "completed-independently-verified-developmental-improvement-not-promoted"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/reclaim-2026-replication-v1/plan.json",
+      "sha256": "eb8937863d50b7b98ff0a699caa8a8d54cee984fca0e171f662e447b66c30be1",
+      "family": "reclaim-2026-replication-v1",
+      "intervals": {
+        "config": {
+          "startDate": "2026-01-05",
+          "endDate": "2026-10-15"
+        }
+      },
+      "registry": null,
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/reclaim-breadth-entry-v1/plan.json",
+      "sha256": "9b16b0a9a3ab4ab4537ee802301a9b7ca790bcd6afb2f4b03ebfdfcaa7360644",
+      "family": "reclaim-breadth-entry-v1",
+      "intervals": {
+        "2022-2023": {},
+        "2024-2025": {}
+      },
+      "registry": {
+        "node": "reclaimBreadthEntry",
+        "status": "completed-development-comparison-independently-verified-not-promoted"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json",
+        "readout-validation.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/reclaim-breakout-volatility-trail-v1/plan.json",
+      "sha256": "93706b5b3280eee7bd40c8acd99948d23f91799438471629f6cb8971b1d1b7aa",
+      "family": "reclaim-breakout-volatility-trail-v1",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": {
+        "node": "reclaimBreakoutVolatilityTrail",
+        "status": "completed-development-staged-exit-independently-verified-not-promoted"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json",
+        "readout-validation.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/reclaim-entry-volatility-cap-v1/plan.json",
+      "sha256": "a488266ee5fab3e866e484d6d4e0c9f3c51d229412b78b8d8135df0e5b53afcd",
+      "family": "reclaim-entry-volatility-cap-v1",
+      "intervals": {
+        "config": {
+          "startDate": "2024-09-24",
+          "endDate": "2026-10-15"
+        }
+      },
+      "registry": null,
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/reclaim-exit-transfer-v1/plan.json",
+      "sha256": "0894322f614ee4c482cab1a6e00c235dddf94e0bdfcaf462865e34d938c546c1",
+      "family": "reclaim-exit-transfer-v1",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": {
+        "node": "reclaimExitTransfer",
+        "status": "completed-development-exit-transfer-independently-verified-not-promoted"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json",
+        "readout-validation.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/reclaim-market-alignment-v1/plan.json",
+      "sha256": "d54494d0837612f2591109b094e1d8ad4fa8286cd0140bf5072ca09146d278f4",
+      "family": "reclaim-market-alignment-v1",
+      "intervals": {
+        "config": {
+          "startDate": "2024-09-24",
+          "endDate": "2026-10-15"
+        }
+      },
+      "registry": null,
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/reclaim-relative-feedback-context-v1/plan.json",
+      "sha256": "d3f631280c83925c6c310e7b63398bee14142dc7f58b9f8f33a6ccc1ae17a5df",
+      "family": "reclaim-relative-feedback-context-v1",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": {
+        "node": "reclaimRelativeFeedbackContext",
+        "status": "completed-development-context-diagnostic-independently-verified-not-promoted"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/plan.json",
+      "sha256": "4edd15d2b074ff81992c61e7bfac652e6e77780bbd4f930fb2e7332014fbe1d5",
+      "family": "reclaim-volatility-trail-v1",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": {
+        "node": "reclaimVolatilityTrail",
+        "status": "completed-development-volatility-trail-independently-verified-not-promoted"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json",
+        "readout-validation.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/relative-repair-context-diagnostic-v1/plan.json",
+      "sha256": "feb5af1f26602f184acabb7d3849eeebecc6e811ed96787a7ca49001a5a9bd15",
+      "family": "relative-repair-context-diagnostic-v1",
+      "intervals": {
+        "2022-2023": {},
+        "2024-2025": {}
+      },
+      "registry": {
+        "node": "relativeRepairContextDiagnostic",
+        "status": "completed-qualified-continuous-context-diagnostic"
+      },
+      "holdoutClaim": null,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/relative-repair-cost-stress-v1/plan.json",
+      "sha256": "47b265b50ae7f3e1280bd66af8c7869e6343c63dbf4a84a7ffa18454448570c3",
+      "family": "relative-repair-cost-stress-v1",
+      "intervals": {
+        "2022-2023": {},
+        "2024-2025": {}
+      },
+      "registry": {
+        "node": "relativeRepairCostStress",
+        "status": "completed-qualified-historical-cost-comparison"
+      },
+      "holdoutClaim": null,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/relative-repair-forward-path-v1/plan.json",
+      "sha256": "4981db0a4240dd3bb9dd5e49efb51b1e8a668cc51e900119544cd8d92452b25c",
+      "family": "relative-repair-forward-path-v1",
+      "intervals": {
+        "2022-2023": {},
+        "2024-2025": {}
+      },
+      "registry": {
+        "node": "relativeRepairForwardPath",
+        "status": "completed-qualified-all-opportunity-path-diagnostic"
+      },
+      "holdoutClaim": null,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/relative-repair-screen-v1/plan.json",
+      "sha256": "c0b649c81716ae32b2e3503404f2142a076dd41c05d1d409fc712250d0d252bd",
+      "family": "relative-repair-screen-v1",
+      "intervals": {
+        "2022-2023": {},
+        "2024-2025": {}
+      },
+      "registry": {
+        "node": "relativeRepairScreen",
+        "status": "completed-qualified-historical-comparison"
+      },
+      "holdoutClaim": null,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/relative-repair-volatility-stop-v1/plan.json",
+      "sha256": "43d0c0a2a55b3b727a02c35c08e2e177fe0877951ca50bd8d05ad78e257d5131",
+      "family": "relative-repair-volatility-stop-v1",
+      "intervals": {
+        "2022-2023": {},
+        "2024-2025": {}
+      },
+      "registry": {
+        "node": "relativeRepairVolatilityStop",
+        "status": "completed-qualified-historical-negative-comparison"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/sector-lifecycle-system-v3/attempt-001/plan.json",
+      "sha256": "78088a091282dbf9d32b652cbb7ff5c0e82f14568da5749ecf8eb3219c71264f",
+      "family": "sector-lifecycle-system-v3",
+      "intervals": {
+        "baseConfig": {
+          "startDate": "2024-09-24",
+          "endDate": "2026-10-15"
+        }
+      },
+      "registry": null,
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/sector-lifecycle-system-v3/price-boundary-repair-v1/attempt-001/plan.json",
+      "sha256": "0b281d241515405b79e233f43fa10e7453728b2fe13cfc6bc7da1f6447e61af0",
+      "family": "sector-lifecycle-system-v3",
+      "intervals": {
+        "baseConfig": {
+          "startDate": "2024-09-24",
+          "endDate": "2026-10-15"
+        }
+      },
+      "registry": null,
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/sector-long-breakout-system-v4/attempt-001/plan.json",
+      "sha256": "4497c0060da987e53bfe5313357f903d0efd8f04e51dae9bde7fec473a13b5c4",
+      "family": "sector-long-breakout-system-v4",
+      "intervals": {
+        "baseConfig": {
+          "startDate": "2024-09-24",
+          "endDate": "2026-10-15"
+        }
+      },
+      "registry": null,
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/strength-feedback-v1/plan.json",
+      "sha256": "fe80aaf6d254cf0ca42934c7d50b7f1c915b65ebd53a8092663634136b002c23",
+      "family": "strength-feedback-v1",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": {
+        "node": "strengthFeedback",
+        "status": "completed-development-feedback-comparison-independently-verified-not-promoted"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json",
+        "readout-validation.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/strong-undercut-reclaim-timing-v1/plan.json",
+      "sha256": "756e8f90d444ba94af21f0d61a40a8cb169c0620902c1b61cdc86c207f731143",
+      "family": "strong-undercut-reclaim-timing-v1",
+      "intervals": {
+        "2022-2023": {},
+        "2024-2025": {}
+      },
+      "registry": {
+        "node": "strongUndercutReclaimTiming",
+        "status": "completed-independently-verified-developmental-trial-not-promoted"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/trend-breakout-retest-v1/plan.json",
+      "sha256": "4cbc521c607f7cd6c885d2611c9161b483667a00cd33adaa43c3d8e6aa167c1f",
+      "family": "trend-breakout-retest-v1",
+      "intervals": {
+        "config": {
+          "startDate": "2024-09-24",
+          "endDate": "2026-10-15"
+        }
+      },
+      "registry": null,
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/undercut-reclaim-context-diagnostic-v1/plan.json",
+      "sha256": "c7b19a44d4a69f4b1bebc0ce47178bdf199b0c47a45bae8213083a0bf932985f",
+      "family": "undercut-reclaim-context-diagnostic-v1",
+      "intervals": {
+        "labels": [
+          "2022-2023",
+          "2024-2025"
+        ]
+      },
+      "registry": {
+        "node": "undercutReclaimContextDiagnostic",
+        "status": "completed-descriptive-diagnostic-independently-verified-not-promoted"
+      },
+      "holdoutClaim": null,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/volume-anchor-acceptance-v1/plan.json",
+      "sha256": "587d465c580cee69fae99d667c27971f58fd8b286a67d4c92e7a3ca235a3e221",
+      "family": "volume-anchor-acceptance-v1",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": {
+        "node": "volumeAnchorAcceptance",
+        "status": "completed-development-acceptance-policy-comparison-independently-verified-not-promoted"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json",
+        "readout-validation.json"
+      ]
+    },
+    {
+      "path": "artifacts/strategy-search/volume-lead-breakout-v1/plan.json",
+      "sha256": "d54104e040f03a0351a5ab9c23b99fce9f0b49b2071f5d6914d5a3baf286d200",
+      "family": "volume-lead-breakout-v1",
+      "intervals": {
+        "2022-2023": {
+          "startDate": "2022-01-04",
+          "endDate": "2023-12-29"
+        },
+        "2024-2025": {
+          "startDate": "2024-01-02",
+          "endDate": "2025-12-31"
+        }
+      },
+      "registry": {
+        "node": "volumeLeadBreakout",
+        "status": "completed-development-account-comparison"
+      },
+      "holdoutClaim": false,
+      "historyAlreadyExposed": null,
+      "outcomeFileNamesPresent": [
+        "readout.json",
+        "comparison.json",
+        "readout-validation.json"
+      ]
+    }
+  ],
+  "workspaceUseMetadata": {
+    "backtestRequests": [
+      {
+        "file": "backtest-tasks.json",
+        "id": "bt_51b3f461d9b247c4",
+        "status": "succeeded",
+        "start": "2026-09-01",
+        "end": "2026-10-13"
+      },
+      {
+        "file": "backtest-tasks.json",
+        "id": "bt_f2dee223a1ef45d7",
+        "status": "succeeded",
+        "start": "2026-09-01",
+        "end": "2026-10-13"
+      },
+      {
+        "file": "backtest-tasks.json",
+        "id": "bt_7f5eac6a320c4a69",
+        "status": "succeeded",
+        "start": "2026-09-01",
+        "end": "2026-10-13"
+      },
+      {
+        "file": "backtest-tasks.json",
+        "id": "bt_778151bda45a4faf",
+        "status": "succeeded",
+        "start": "2026-09-01",
+        "end": "2026-10-13"
+      },
+      {
+        "file": "backtest-tasks.json",
+        "id": "bt_f905de5609aa4152",
+        "status": "succeeded",
+        "start": "2026-09-01",
+        "end": "2026-10-13"
+      },
+      {
+        "file": "backtest-tasks.json",
+        "id": "bt_2773aadc0d424274",
+        "status": "succeeded",
+        "start": "2026-09-01",
+        "end": "2026-10-13"
+      },
+      {
+        "file": "backtest-tasks.json",
+        "id": "bt_6fa0625151bc4aba",
+        "status": "succeeded",
+        "start": "2026-09-01",
+        "end": "2026-10-13"
+      },
+      {
+        "file": "backtest-tasks.json",
+        "id": "bt_f357b6f64a1540fd",
+        "status": "succeeded",
+        "start": "2026-09-01",
+        "end": "2026-10-13"
+      },
+      {
+        "file": "plateau-tasks.json",
+        "id": "bp_e1766c0ea5d540ac",
+        "status": "succeeded",
+        "start": "2026-09-01",
+        "end": "2026-10-13"
+      }
+    ],
+    "researchJobs": [
+      {
+        "id": "10bdeb45-738e-4331-a4c2-b514f32a2f73",
+        "status": "completed",
+        "createdAt": "2026-10-13T11:49:20.124+00:00",
+        "start": "2026-02-13",
+        "end": "2026-10-13"
+      },
+      {
+        "id": "dc209020-ed50-4f77-9bf6-ae3129748903",
+        "status": "completed",
+        "createdAt": "2026-10-13T11:54:17.676+00:00",
+        "start": "2026-02-13",
+        "end": "2026-10-13"
+      },
+      {
+        "id": "398ee614-141c-4501-a332-2b62210df0fd",
+        "status": "completed",
+        "createdAt": "2026-10-13T12:22:00.866+00:00",
+        "start": "2026-02-13",
+        "end": "2026-10-13"
+      },
+      {
+        "id": "d8f2aeea-359c-4c5c-850b-ded3ff986e72",
+        "status": "completed",
+        "createdAt": "2026-10-13T14:06:26.734+00:00",
+        "start": "2026-02-13",
+        "end": "2026-10-13"
+      }
+    ],
+    "developmentUsage": [
+      {
+        "jobId": "10bdeb45-738e-4331-a4c2-b514f32a2f73",
+        "start": "2026-02-13",
+        "end": "2026-10-13"
+      },
+      {
+        "jobId": "398ee614-141c-4501-a332-2b62210df0fd",
+        "start": "2026-02-13",
+        "end": "2026-10-13"
+      },
+      {
+        "jobId": "d8f2aeea-359c-4c5c-850b-ded3ff986e72",
+        "start": "2026-02-13",
+        "end": "2026-10-13"
+      }
+    ],
+    "currentScanMetadata": [
+      {
+        "id": "3a533d14b64549f1b953ead2934cd9eb",
+        "status": "completed",
+        "createdAt": "2026-10-25T23:25:41.608721+00:00",
+        "completedAt": "2026-10-25T23:26:03.359359+00:00",
+        "asOfDate": "2026-10-23"
+      },
+      {
+        "id": "5913d286465d475ea61cb34696b38cce",
+        "status": "completed",
+        "createdAt": "2026-10-16T23:28:05.225297+00:00",
+        "completedAt": "2026-10-16T23:28:25.822906+00:00",
+        "asOfDate": "2026-10-15"
+      },
+      {
+        "id": "e295e1be54f04d90af0bc8e75356ed5d",
+        "status": "completed",
+        "createdAt": "2026-10-16T23:24:02.938796+00:00",
+        "completedAt": "2026-10-16T23:24:20.805939+00:00",
+        "asOfDate": "2026-10-15"
+      }
+    ],
+    "scope": "Metadata only; no result metrics or candidate lists inspected."
+  },
+  "lowerBoundCounts": {
+    "plansWithBoth2022_2023and2024_2025": 30,
+    "completedRegisteredFamiliesWithExplicitBothPeriods": 28,
+    "completedRegisteredFamilies": [
+      "all-opportunity-feedback-v1",
+      "board-coverage-reclaim-v1",
+      "common-support-switch-v1",
+      "full-gap-retention-v1",
+      "independent-shadow-labels-v1",
+      "leader-amount-handoff-v1",
+      "leader-lag-followers-v1",
+      "leader-matched-anchor-v1",
+      "leader-persistence-admission-v1",
+      "leader-pullback-retention-v1",
+      "market-context-screen-v1",
+      "online-feedback-entry-v1",
+      "peer-amount-persistence-v1",
+      "peer-price-activity-alignment-v1",
+      "reclaim-breadth-entry-v1",
+      "reclaim-breakout-volatility-trail-v1",
+      "reclaim-exit-transfer-v1",
+      "reclaim-relative-feedback-context-v1",
+      "reclaim-volatility-trail-v1",
+      "relative-repair-context-diagnostic-v1",
+      "relative-repair-cost-stress-v1",
+      "relative-repair-forward-path-v1",
+      "relative-repair-screen-v1",
+      "relative-repair-volatility-stop-v1",
+      "strength-feedback-v1",
+      "strong-undercut-reclaim-timing-v1",
+      "volume-anchor-acceptance-v1",
+      "volume-lead-breakout-v1"
+    ],
+    "plansWithExplicitEnd2026_10_15": 11,
+    "familiesWithExplicitEnd2026_10_15": 9,
+    "recentFamilies": [
+      "guiyin-dual-path-system-v1",
+      "market-sector-stock-accounts-v1",
+      "market-sector-stock-base-v2",
+      "reclaim-2026-replication-v1",
+      "reclaim-entry-volatility-cap-v1",
+      "reclaim-market-alignment-v1",
+      "sector-lifecycle-system-v3",
+      "sector-long-breakout-system-v4",
+      "trend-breakout-retest-v1"
+    ],
+    "interpretation": "Conservative metadata counts; omitted early plans use other schemas. A plan alone is not proof that every scheduled account completed."
+  },
+  "localCoverage": {
+    "configuredSource": "E:\\TDX",
+    "configurationReadOnly": true,
+    "stockFilesWithCompleteRecords": 5617,
+    "marketCounts": {
+      "sh": 2338,
+      "sz": 2924,
+      "bj": 355
+    },
+    "latestDateCounts": {
+      "20250623": 1,
+      "20250626": 3,
+      "20250704": 1,
+      "20250709": 2,
+      "20250714": 1,
+      "20250716": 2,
+      "20250718": 1,
+      "20250812": 1,
+      "20250813": 1,
+      "20250825": 2,
+      "20251211": 2,
+      "20260115": 1,
+      "20260120": 1,
+      "20260129": 1,
+      "20260403": 1,
+      "20260410": 1,
+      "20260413": 1,
+      "20260421": 1,
+      "20260427": 1,
+      "20260429": 1,
+      "20260430": 2,
+      "20260608": 1,
+      "20260618": 8,
+      "20260903": 1,
+      "20260910": 1,
+      "20260914": 2,
+      "20261012": 1,
+      "20261016": 1,
+      "20261020": 1,
+      "20261023": 3,
+      "20261027": 5570
+    },
+    "freshDateStockCounts": {
+      "20261016": 5567,
+      "20261019": 5564,
+      "20261020": 5568,
+      "20261021": 5568,
+      "20261022": 5570,
+      "20261023": 5572,
+      "20261026": 5570,
+      "20261027": 5570
+    },
+    "anyStockWithDateAfter2026_10_15": true,
+    "benchmarkDates": {
+      "sh000001": {
+        "available": true,
+        "bytes": 40544,
+        "latestDate": 20261027
+      },
+      "sz399001": {
+        "available": true,
+        "bytes": 40544,
+        "latestDate": 20261027
+      },
+      "sh000300": {
+        "available": true,
+        "bytes": 40544,
+        "latestDate": 20261027
+      }
+    },
+    "errors": [],
+    "newIntervalExpectedSessions": [
+      "2026-10-16",
+      "2026-10-19",
+      "2026-10-20",
+      "2026-10-21",
+      "2026-10-22",
+      "2026-10-23",
+      "2026-10-26",
+      "2026-10-27",
+      "2026-10-28",
+      "2026-10-29",
+      "2026-10-30"
+    ],
+    "coverageClaim": "Dates and record counts only; completeness of prices, PIT membership, corporate actions, suspensions and execution remains unverified."
+  },
+  "historicalUse": [
+    {
+      "period": "2022-2023",
+      "classification": "development-and-repeated-research",
+      "evidence": "program.samplePolicy.initialDevelopmentStart/End and completed two-period plan families"
+    },
+    {
+      "period": "2024-01-01..2026-02-12",
+      "classification": "not-pristine-holdout",
+      "evidence": "program.samplePolicy.reservedStatus explicitly discloses prior use"
+    },
+    {
+      "period": "2026-02-13..2026-10-14",
+      "classification": "known-development",
+      "evidence": "program.samplePolicy.knownPreviouslyUsedDevelopmentStart/End"
+    },
+    {
+      "period": "2026-10-15",
+      "classification": "already-exposed-research",
+      "evidence": "reclaim 2026 replication and subsequent system plans reach 2026-10-15"
+    },
+    {
+      "period": "2026-10-16..2026-10-23",
+      "classification": "current-scan-inputs-already-observed",
+      "evidence": "Completed workspace scan created 2026-10-25T23:25Z has asOfDate 2026-10-23. This demonstrates use of the new source window, not an account-profitability evaluation."
+    },
+    {
+      "period": "2026-10-26..2026-10-27",
+      "classification": "potential-additional-chronological-validation-only",
+      "evidence": "No prior use found in inspected registry, job requests or scan metadata. Two sessions only; absence of local records is not proof of pristine independence."
+    },
+    {
+      "period": "2026-10-28..2026-10-30",
+      "classification": "not-in-current-local-daily-files",
+      "evidence": "Date-only inventory found zero records on these expected sessions."
+    }
+  ],
+  "walkForwardDesign": [
+    "Treat all inspected history through 2026-10-15 as development; retrospective walk-forward measures robustness but does not reset meta-level selection history.",
+    "Freeze code, finite candidate set, ranking/selection rule, universe and date splits before running further validation. Use expanding chronological training; choose once per fold only from prior completed trades.",
+    "Purge outcomes whose exits or target horizons cross a training boundary; rolling features may use earlier warm-up bars, never future prices or full-period ranks.",
+    "Keep one continuous account across validation folds or explicitly disclose independent resets; never omit open positions, failed orders, fees, stale valuation or adverse intervals.",
+    "If a genuinely unused local interval exists, protect it from candidate selection until one frozen final run; further changes consume it as development data.",
+    "For true prospective evidence, freeze now and timestamp paper signals before the next execution opportunity, preserving all candidates and rejected/unfilled orders. Assess at predeclared horizons and include cost/execution stress.",
+    "Eight newer sessions exist locally, six through 2026-10-23 were already part of a current scan; only two later sessions have no use found in inspected metadata. None is sufficient to establish stable profitability or cover market regimes; missing PIT membership and corporate-action data remain separate constraints."
+  ],
+  "sourcePins": [
+    {
+      "path": "docs/strategy-backtesting.md",
+      "sha256": "cd046015c3195efaee8f8c60f2a9ab574f72cc762c2682bf45e5312ae6d80dc3"
+    },
+    {
+      "path": "artifacts/strategy-search/reclaim-2026-replication-v1/plan.json",
+      "sha256": "eb8937863d50b7b98ff0a699caa8a8d54cee984fca0e171f662e447b66c30be1"
+    },
+    {
+      "path": "artifacts/strategy-search/guiyin-dual-path-system-v1/attempt-002/plan.json",
+      "sha256": "3fa9ead57795fa947054f84d80cc79e3a7988aec08ce554744a5067a29e1838a"
+    }
+  ],
+  "newBacktests": 0,
+  "newSignalsInspected": 0,
+  "newReturnsInspected": 0,
+  "storageGuard": "H:/codex/storage-guard/latest.json"
+}

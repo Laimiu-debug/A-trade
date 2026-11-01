@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "stage": "feature-extraction-only-development-diagnostic",
+  "featureVersion": "daily-leadership-raw-v1",
+  "purpose": "Build the complete causal daily feature panel required for sustained price leadership research; no trading policy, label selection, strategy return or leader truth is produced.",
+  "designReference": "docs/signal-leadership-research-v1.json",
+  "designSha256": "6fbaad2374e1c429281b9069a17ba353cfae09a0a790f239b8d84c011e24621b",
+  "objective": {"targetSinglePositionNetGainPct": 30, "annualizedReturnTarget": null, "fixedHoldingDeadline": null, "targetAchieved": false},
+  "sample": {
+    "signalStart": "2022-01-01",
+    "signalEnd": "2023-12-31",
+    "warmupStart": "2021-08-02",
+    "expectedFullSnapshotFingerprint": "226fcb48c6729c7ee1784eb871ff124ac921733f339b9e2fbe78cb3e592a9014",
+    "expectedFullSecurities": 3141,
+    "expectedFullBars": 1796835,
+    "expectedScoredSessions": 484,
+    "expectedWarmupSessions": 103,
+    "expectedCalendarSessions": 587,
+    "expectedFeatureRows": 1520244,
+    "selection": {"mode": "all", "source": "local", "markets": ["sh", "sz"], "boards": ["main"], "benchmarkSymbol": "sh000300"},
+    "meaning": "The unchanged original local-file sample is incomplete as a historical whole-market universe. All sample rows are retained regardless of eligibility or future results. The separately recovered 56 stocks are not appended.",
+    "newDatesOrSampleParametersAllowed": false
+  },
+  "calendar": {
+    "path": "artifacts/strategy-search/provider-probe/2021-2023-calendar/calendar-with-warmup.json",
+    "sha256": "fc52f4fc74ef1d460c45a4227349b687c4619da4af33b505f478aceb5750119e",
+    "provider": "baostock",
+    "api": "query_trade_dates",
+    "start": "2021-08-02",
+    "end": "2023-12-31",
+    "policy": "Validate the saved response schema, success status, complete unique calendar-day records and exact hash; select trading-day flags. Before output require exact equality with the original snapshot calendar restricted to this interval. This newly verified equality does not rewrite the provenance of older experiments. Process all 587 slots for warmup; emit only the 484 target sessions."
+  },
+  "sourceBoundary": {
+    "inputs": ["read-only isolated source-workspace market configuration and its local TDX history", "frozen saved calendar", "this protocol"],
+    "priceBasis": "raw-unadjusted",
+    "benchmark": "sh000300 raw local index observations",
+    "barSources": "Use security.bars directly, never reference-adjusted series.signal_bars. Carry explicit raw-unadjusted basis in bounded daily inputs.",
+    "allowFutureLabelInput": false,
+    "futureLabelFileCreated": false,
+    "inputChecks": "Freeze full snapshot fingerprint, sorted symbol list and canonical hash, all retained raw security bars and dated evidence hashes, calendar dates/hash, bounded raw benchmark/hash and execution-source hashes in an immutable manifest before extracting feature rows.",
+    "atDatePolicy": "Feature functions receive only aligned slots at or before T. No future data, label-derived filter, current name, retrospective theme or future delisting date enters features or their ranking population. Unknown historical evidence remains unknown."
+  },
+  "numericPolicy": {
+    "type": "finite Python binary floating point from the frozen raw observations; bool is not a numeric observation",
+    "sumsAndMeans": "Use stable finite arithmetic with explicit overflow handling; arithmetic means and sums must not emit NaN or infinity. Derived nonfinite values become unknown with their numerical failure reason.",
+    "priceObservation": "Matching date and raw basis, finite positive OHLC with low <= min(open,close) <= max(open,close) <= high, finite positive volume, and no explicit suspended status. Unknown status is recorded, not treated as verified trading. An explicit halt invalidates that slot even if the supplied volume is positive.",
+    "amountObservation": "Matching date and raw basis, no explicit suspended status, finite positive volume and an explicit finite positive amount. Valid amount is not discarded solely because a separate OHLC field is invalid. Do not infer amount from price times volume.",
+    "missing": "Do not skip, forward-fill, shorten or replace a required calendar slot. Compute independent feature groups separately; unavailable values are null with evidence and completeness counts.",
+    "halts": "Distinguish a missing row, invalid numerical/OHLC row, explicit halt, positive-volume halt contradiction and unknown trading status.",
+    "inputMutation": "The single-security feature calculation must not mutate its inputs. Cross-section ranking and persistence may append only their documented derived fields to freshly created output rows."
+  },
+  "features": {
+    "relativeStrength": {
+      "horizons": [20, 60],
+      "securityWindow": "Require h+1 valid aligned price observations, T-h..T, even though the return uses the endpoints.",
+      "benchmarkWindow": "Require h+1 valid aligned benchmark observations under the same full priceObservation rule (OHLC envelope, positive volume, date and raw basis, no known halt) for relative return. A missing benchmark does not erase an otherwise valid own return.",
+      "return": "C_T/C_(T-h)-1",
+      "relativeReturn": "(C_T/C_(T-h))/(I_T/I_(T-h))-1",
+      "rankingPopulation": "All fixed-sample rows with a finite relativeReturn_h for that date; independent denominators for h=20 and h=60. Do not filter by legacy trade eligibility, names, labels or forward coverage.",
+      "percentile": "Ascending midrank percentile=(mean one-based tied rank - 0.5)/N. Equal floating-point returns share an exact tie; no epsilon, minimum-rank or symbol tie-break changes their percentile. A singleton receives 0.5. N=0 yields null percentiles. Record each horizon's N."
+    },
+    "strengthPersistence": {
+      "window": "Twenty consecutive calendar slots T-19..T of each security's archived same-day relativeReturn20Percentile; never recompute old ranks against today's population.",
+      "history": "Record all twenty percentile values and their same-day relativeReturn20 cross-section counts in chronological order, including null placeholders before the available calendar begins. An observed date with zero evaluable stocks has N=0. Warmup ranks may supply these values but warmup is not a signal evaluation interval; preserve separate coverage for all 103 warmup days.",
+      "known": "knownStrengthRankSessions20 counts nonnull ranks. Mean and minimum are nonnull only when all twenty ranks are present.",
+      "topQuantileSessionCount20": null,
+      "quantileThreshold": "Unregistered; do not assign an arbitrary q or use a hidden leader score."
+    },
+    "pathQuality": {
+      "path": "Require all 21 full priceObservation-valid slots T-20..T, then use their closes: count 20 strictly positive changes, calculate maximum (running closing peak-close)/peak, and signed efficiency=(C_T-C_(T-20))/sum(abs(each daily close change)). The MA comparison likewise requires full priceObservation-valid slots, not close-only observations.",
+      "drawdownConvention": "Nonnegative proportion, zero on a nondecreasing path; based on closes only, not intraday lows or an executable stop.",
+      "zeroEfficiencyDenominator": "Flat path produces null efficiency and explicit undefined denominator; other available path descriptors remain valid.",
+      "aboveMA20": "Count strict C_d > mean(C_(d-19)..C_d) for d=T-19..T. Requires all 39 aligned price observations T-38..T, and must not use a single MA at T for all twenty comparisons."
+    },
+    "amountParticipation": {
+      "amountToday": "Independent valid explicit raw amount at T, units yuan as parsed from source.",
+      "prior20MeanAmount": "Arithmetic mean across exactly T-20..T-1, nonnull only if all twenty amount observations are valid.",
+      "amountRelativeToOwnPrior20": "amountToday/prior20MeanAmount, requiring both finite positive inputs and finite ratio.",
+      "knownAmountSessions20": "Valid prior amount observations only; today's amount never enters this count or the prior20 mean."
+    }
+  },
+  "eligibilityMetadata": {
+    "purpose": "Record the existing base trading qualification as separate diagnostic metadata; it does not alter any row, feature or cross-section rank.",
+    "implementation": "DailyScorer pools_only with strictHistory=false, excludeSt=true, minListingDays=120, minAmount20=50000000. Its existing observed-bar listing-age and amount-window semantics remain unchanged; this is not certified entry eligibility. Raw feature inputs must come directly from security.bars, never scorer.series. If full-history scorer loading rejects a security, recompute only that security's qualification using its observations and dated evidence bounded at T; a future invalid row cannot erase earlier qualification. With no observations through T, record notObservedYet independently of future first-observation dates. Recompute coverage from the final as-of states, not full-history load-error metadata.",
+    "unknown": "Retain reason and unknown historical fields from the source. Current security names must not fill historical ST. Record historical membership, ST, listing, trade-status and action evidence without inventing complete history."
+  },
+  "artifactsAndIntegrity": {
+    "outputDirectory": "artifacts/strategy-search/leadership-panel-v1",
+    "required": ["manifest.json", "features.jsonl.gz", "daily-coverage.jsonl.gz", "warmup-coverage.jsonl.gz", "summary.json", "completion.json"],
+    "rowIdentity": "Exactly one (asOfDate,symbol) per fixed sample per target date, date ascending then symbol ascending; every row carries the immutable sample manifest hash and feature version.",
+    "coverage": "Reconcile rows, each feature group's known/unknown counts, relative-rank denominators, eligibility reasons and historical-unknown counts per date and in total. Preserve all missing or invalid rows.",
+    "freeze": "Exclusive creation; never overwrite successful output or restart into a failed directory. Archive execution-source bytes and compare their hashes to registration. Record failures and preserve partial output, never emit completion for an incomplete run.",
+    "tradePolicyCountAdded": 0,
+    "strategyReturnsCalculated": false,
+    "forwardReturnsCalculated": false,
+    "backwardPriceReturnsCalculated": true,
+    "certified": false
+  },
+  "acceptance": [
+    "Synthetic and boundary tests for strict date alignment, missing data, halt contradictions, input immutability, independent feature availability, rank ties and singleton/empty denominators.",
+    "Appending or modifying future observations cannot alter any T feature or its prior-rank history; a current identity change cannot backdate a filter.",
+    "A feature job accepts no label path, score, target, strategy, date range or sample-size parameter; no future-label file is created by this extraction.",
+    "Full extraction produces exactly 1,520,244 unique rows and 484 daily coverage records, all registered source and output hashes reconcile.",
+    "An independent verifier checks every row's identity, eligibility/rank-count arithmetic, persistence history and group counts; it recomputes raw formula values for a deterministic outcome-blind source sample across dates and missingness. Its scope and any shared helper are explicitly recorded."
+  ],
+  "limitations": [
+    "Raw price features can be affected by unaudited corporate actions and current-file survivor coverage. This panel is not an economic-profit or future-probability certificate.",
+    "The full development interval has been used in earlier experiments. No independent holdout, causal influence or real controller is identified.",
+    "All trading thresholds, role/state mappings, peer groups, future labels and net30 evaluation remain separate, unexecuted stages at registration."
+  ]
+}

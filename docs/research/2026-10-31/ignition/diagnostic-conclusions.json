@@ -1,0 +1,88 @@
+{
+  "version": "ignition-selection-diagnostic-conclusions-v1",
+  "evidence": "development-diagnostics.json",
+  "scope": {
+    "sourceAccount": "guiyin-dual-path-system-v1/attempt-002/primary/complete",
+    "start": "2024-09-24",
+    "end": "2025-12-31",
+    "ruleDiscoveryUses2026": false,
+    "newCandidateAccountsRunByThisDiagnostic": 0,
+    "maximumPriceDateUsed": "2025-12-31"
+  },
+  "findings": [
+    {
+      "id": "a_is_worse_per_trade_not_only_more_frequent",
+      "statement": "开发期 A 有132个原机会、96笔闭合，净亏37216.48元；B有40个机会、34笔闭合，净亏3867.85元。A不仅成交更多，等权单笔净收益和投入资金归一收益也更差。",
+      "aEqualTradeNetPct": -0.8791575827620899,
+      "bEqualTradeNetPct": -0.1808081921449129,
+      "aInvestedNotionalWeightedNetPct": -1.0882640080242465,
+      "bInvestedNotionalWeightedNetPct": -0.22965008440058243,
+      "aWinRatePct": 28.125,
+      "bWinRatePct": 35.294117647058826,
+      "aProfitFactor": 0.5070197948945626,
+      "bProfitFactor": 0.8661930760366622,
+      "evidenceKeys": ["sameAccountPathComparison", "pathComparisonInterpretation"]
+    },
+    {
+      "id": "costs_do_not_explain_all_losses",
+      "statement": "A实际平均盈利单约4.285%、平均亏损单约-2.900%；按这组已实现幅度计算，盈亏平衡胜率约40.36%，实际仅28.125%。费用及内含滑点合计10607.51元；机械加回后仍亏26608.97元。",
+      "warning": "这是固定成交路径上的会计拆解；不是去费用重跑，也不是未来胜率预测。",
+      "evidenceKeys": ["overall", "costAndExpectancyAccounting"]
+    },
+    {
+      "id": "follow_through_is_the_observed_failure_path",
+      "statement": "A首个持仓日收盘相对买价不为正的58笔合亏约54394元，正的38笔合赚约17178元。entryNoFollowThrough退出49笔合亏39577.83元；secondSessionNoProgress退出27笔合亏7888.95元。信号本身已要求至少5%上涨、创20日新高、放额，之后承接不足是主要可观察失败路径。",
+      "warning": "首次持仓收盘和退出类型都在入场之后，且退出名称直接由策略规则和结果定义。这是事后路径与会计拆解，不能证明延迟、改排序或提前过滤会改善收益，也不能把这些字段用于原信号日选股。",
+      "evidenceKeys": ["postEntryDescriptionOnly", "byExitReasonPostOutcomeOnly"]
+    },
+    {
+      "id": "old_ranking_does_not_measure_current_breakout_quality",
+      "statement": "原A候选先按前一交易日20日收益的行业分位降序，再按前20日平均成交额降序，最后代码排序。它优先过去相对涨幅和通常流动性；当日突破延伸及当日额相对自身历史的放大倍数只在入围条件出现，没有用于排序。",
+      "source": "service/research_guiyin_dual_path.py:71-95"
+    },
+    {
+      "id": "five_percent_anchor_does_not_discriminate_a_entries",
+      "statement": "96笔已成交A在信号日的收盘至failurePrice距离全为5%。原结构风险锚在这些样本中没有区分选股质量；实际成交价格和floor重算仍可能改变实际价差风险。",
+      "warning": "5%是模型价差锚，不保证实际最大损失。此轮不修改止损或退出规则。",
+      "evidenceKeys": ["structuralRiskObservation"]
+    },
+    {
+      "id": "not_one_stock_repeatedly_losing",
+      "statement": "96笔覆盖89只股票，单票最多3笔；净亏损证券的绝对亏损中，最大单票占5.82%，前5只合占22.46%。问题并非少数同票反复交易即可解释。",
+      "evidenceKeys": ["symbolConcentration", "bySymbol"]
+    }
+  ],
+  "hypothesesForFrozenTestingOnly": [
+    {
+      "id": "H1_lower_normalized_breakout_extension",
+      "mechanism": "在相同日期、相同行业、同一原A名额内，用较小突破延伸的合格A替换，减少在信号日已支付的突破价格距离。",
+      "ranking": "ascending ((signalClose / prior20High - 1) / meanNtr20); retain original ranking tie-break rules",
+      "additionalFilter": null,
+      "support": "≤0.5个NTR的26笔等权净收益-0.098%，相比0.5至1的22笔-1.886%、大于1的48笔-0.841%。132个原槽中46个存在更低延伸替代。",
+      "counterevidence": "关系不单调，创业/科创组方向不支持；低延伸组去掉两个最大赢家后等权净收益降为-1.620%。不能声称已找到普遍优势或盈利区间。",
+      "thresholdUse": "分桶只为描述；候选纯排序，不把0.5或1当过滤阈值。"
+    },
+    {
+      "id": "H2_higher_current_amount_participation",
+      "mechanism": "在相同日期、相同行业、同一原A名额内，优先当日成交额相对自身前20日均额更强的突破，检验当前参与强度是否比过去涨幅排序更适合A点火。",
+      "ranking": "descending (signalDayAmount / priorAmount20); retain original ranking tie-break rules",
+      "additionalFilter": null,
+      "support": "成交额倍数≤2、2至3、>3的等权净收益分别为-1.716%、-1.038%、-0.504%。>3与≤3比较在2024、2025、主板、创业/科创拆分中方向一致。132个原槽中60个存在更高额倍数替代。",
+      "counterevidence": "仍全部负期望；>3组剔除单个最大赢家后仍为-0.954%。成交量倍数并非同一指标，量比>3组反而更差；不能把金额参与证据泛化为越放量越好。",
+      "thresholdUse": "分桶只为描述；候选纯排序，不把2或3当过滤阈值。"
+    }
+  ],
+  "rejectedPrimaryChange": {
+    "rule": "reject next-session positive opening premium",
+    "reason": "开发期正溢价34笔与非正溢价62笔按初始风险预算归一后的平均净Pnl分别为-0.165与-0.164，几乎相同。拒绝正溢价会去掉35.4%的原成交，资金归一表现还不支持该方向。",
+    "timingWarning": "D+1开盘是执行时可知量，不是D日收盘特征；不能利用所有股票的D+1开盘来倒排D日选股。"
+  },
+  "evaluationGuardrails": [
+    "保留原complete账户的B路径、原日期行业A名额、原rank、不补位规则及全部市场/行业准入、风险退出和费用。",
+    "每个新排名仅用D日收盘及更早信息，不读取D+1成交结果或价格来选替代股。",
+    "等名额不保证等成交：必须同时报告实际成交数量、投入金额、风险预算、净单笔期望，不能只凭账户亏损变小。",
+    "2026仅作为已暴露历史复验；不是未看过的样本外，不能用其结果继续调规则。",
+    "当前证据是原账户已选且可成交样本，替代候选只有事前特征，没有推算或观察其策略收益。",
+    "多特征描述、少样本、市场环境和极端赢家会影响结果；两个规则是机制检验，不是统计显著的盈利结论。"
+  ]
+}

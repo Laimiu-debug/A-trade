@@ -110,6 +110,55 @@ class OnlineMarketTests(unittest.TestCase):
     def enable(self, root=None):
         return self.market.online.configure({"enabled": True, "root": str(root or self.local_root), "refreshSeconds": 30})
 
+    def sector_fixture(self):
+        raw=(self.local_root/"vipdoc/sh/lday/sh600900.day").read_bytes()
+        for symbol in ("sh880363", "sh881115"):
+            (self.local_root/f"vipdoc/sh/lday/{symbol}.day").write_bytes(raw)
+        self.responses["tdx_sectors"]={"items":[{"symbol":"sh881115", "name":"林业"}], "warnings":[]}
+        self.responses["tdx_sector_stocks"]={"symbols":["sh600900", "sz000001"], "warnings":[]}
+        return patch("service.sector_daily.tdx.read_names", return_value=({"sh880363":"林业", "sh881115":"林业"}, []))
+
+    def test_daily_sector_catalogue_and_click_use_same_source_and_exact_symbol(self):
+        self.enable()
+        with self.sector_fixture():
+            listing=self.market.dispatch("market.sectors", {"basis":"daily"})
+            detail=self.market.dispatch("market.sector", {"id":listing["items"][0]["id"]})
+        self.assertEqual([row["id"] for row in listing["items"]], ["sh881115"])
+        self.assertTrue(listing["items"][0]["membershipAvailable"])
+        self.assertEqual(detail["name"], "林业")
+        self.assertEqual([row["symbol"] for row in detail["items"]], ["sh600900", "sz000001"])
+        self.assertEqual(self.calls[-1][2], {"sector":"林业"})
+        with self.assertRaisesRegex(ValueError, "旧指数"):
+            self.market.dispatch("market.sector", {"id":"sh880363"})
+
+    def test_daily_membership_catalogue_is_bounded_and_manual_refresh_revalidates(self):
+        self.enable()
+        with self.sector_fixture():
+            for _ in range(2):
+                self.market.dispatch("market.sectors", {"basis":"daily"})
+            self.assertEqual(sum(tool=="tdx_sectors" for _,tool,_ in self.calls), 1)
+            self.market.dispatch("market.sectors", {"basis":"daily", "refresh":True})
+            self.assertEqual(sum(tool=="tdx_sectors" for _,tool,_ in self.calls), 2)
+
+    def test_offline_or_different_source_never_enables_local_index_membership(self):
+        with self.sector_fixture():
+            for enabled_root in (None, self.other_root):
+                if enabled_root:
+                    self.enable(enabled_root)
+                data=self.market.dispatch("market.sectors", {"basis":"daily"})
+                self.assertEqual(len(data["items"]), 2)
+                self.assertTrue(all(not row["membershipAvailable"] for row in data["items"]))
+                self.assertFalse(self.calls)
+
+    def test_failed_or_empty_terminal_catalogue_keeps_local_bars_with_membership_disabled(self):
+        self.enable()
+        with self.sector_fixture():
+            for response in (ValueError("terminal offline"), {"items":[]}):
+                self.responses["tdx_sectors"]=response
+                data=self.market.dispatch("market.sectors", {"basis":"daily", "refresh":True})
+                self.assertEqual(len(data["items"]), 2)
+                self.assertTrue(all(not row["membershipAvailable"] for row in data["items"]))
+
     def write_minutes(self, *days, root=None, symbol="sh600900"):
         root = root or self.local_root
         path = root / "vipdoc" / symbol[:2] / "minline" / f"{symbol}.lc1"

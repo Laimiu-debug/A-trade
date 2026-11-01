@@ -1,7 +1,7 @@
 {
   "name": "a-trade",
   "productName": "A-trade",
-  "version": "0.4.2",
+  "version": "0.4.9",
   "private": true,
   "description": "A-trade Windows desktop research workspace",
   "main": "desktop/main.cjs",
@@ -33,6 +33,7 @@
     "build:portable": "node scripts/build-portable.cjs",
     "build:exe": "node scripts/build-single-exe.cjs",
     "test:exe": "node scripts/smoke-portable.cjs --single-exe",
+    "test:startup": "node scripts/smoke-startup.cjs",
     "test:portable": "node scripts/smoke-portable.cjs",
     "test:research-workflow": "node scripts/smoke-research-workflow.cjs",
     "build:finaltrade": "node scripts/build-finaltrade.cjs",

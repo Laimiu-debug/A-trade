@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 1,
+  "registeredAt": "2026-10-15T21:51:03.809964+00:00",
+  "status": "registered-rule-awaiting-reviewed-implementation",
+  "candidateId": "rawLeaderFollowerConfirmation",
+  "controlIds": [
+    "control_rawLeaderFollowerConfirmationMember",
+    "control_rawLeaderFollowerConfirmationAnchor"
+  ],
+  "title": "固定群体内弱成员首次确认与领涨股持续有效",
+  "objective": {
+    "singlePositionNetGainPct": 30,
+    "fixedHoldingDeadline": null,
+    "annualizedTarget": null
+  },
+  "hypothesisCount": 1,
+  "stage": "reused-development-raw-price-diagnostic",
+  "designExposure": "Fourteen prior fixed candidate studies and two supplemental replications have been inspected. The follower mechanism was proposed before the previous peer-expansion outcomes. Exact state semantics are now specified after those outcomes; this is adaptive development, not a pristine holdout. No new follower sequence population or trade outcomes have been inspected to choose these rules.",
+  "sample": {
+    "signalStart": "2022-01-01",
+    "signalEnd": "2023-12-31",
+    "warmupStart": "2021-08-02",
+    "expectedFullSnapshotFingerprint": "226fcb48c6729c7ee1784eb871ff124ac921733f339b9e2fbe78cb3e592a9014",
+    "expectedFullSecurities": 3141,
+    "expectedFullBars": 1796835,
+    "expectedScoredSessions": 484,
+    "expectedWarmupSessions": 103,
+    "expectedCalendarSessions": 587,
+    "expectedFeatureRows": 1520244,
+    "selection": {
+      "mode": "all",
+      "source": "local",
+      "markets": [
+        "sh",
+        "sz"
+      ],
+      "boards": [
+        "main"
+      ],
+      "benchmarkSymbol": "sh000300"
+    },
+    "meaning": "The unchanged original local-file sample is incomplete as a historical whole-market universe. All sample rows are retained regardless of eligibility or future results. The separately recovered 56 stocks are not appended.",
+    "newDatesOrSampleParametersAllowed": false
+  },
+  "config": {
+    "initialCapital": 1000000.0,
+    "lookbackDays": 39,
+    "topN": 5,
+    "maxPositions": 5,
+    "maxStockWeight": 0.1,
+    "rebalanceEvery": 1,
+    "switchThreshold": 0.05,
+    "stopLossPct": 0.0,
+    "takeProfitPct": 0.0,
+    "trailingStopPct": 0.0,
+    "maxHoldingDays": 0,
+    "commissionRate": 0.0003,
+    "minCommission": 5.0,
+    "transferFeeRate": 1e-05,
+    "slippageBps": 10.0,
+    "maxParticipationRate": 0.01,
+    "startDate": "2022-01-01",
+    "endDate": "2023-12-31",
+    "weighting": "equal",
+    "rebalanceMode": "risk",
+    "rightsPolicy": "skip",
+    "stampDutyRate": null,
+    "strategies": [
+      {
+        "id": "trendBreakout",
+        "kind": "trendBreakout",
+        "params": {
+          "lookback": 40,
+          "volumeRatio": 1.2,
+          "trendWindow": 80
+        },
+        "pool": "base"
+      }
+    ],
+    "combinations": [],
+    "allocation": {
+      "mode": "equal",
+      "strategyIds": [
+        "trendBreakout"
+      ]
+    },
+    "rotation": {
+      "lookbackDays": 20,
+      "cooldownDays": 5,
+      "minWeightChange": 0.1,
+      "temperature": 0.05,
+      "regimeBlend": 0.25,
+      "regimeMinObservations": 5,
+      "warmupDays": 120
+    },
+    "universe": {
+      "strictHistory": false,
+      "excludeSt": true,
+      "minListingDays": 120,
+      "minAmount20": 50000000.0,
+      "minAmplitude20": null
+    },
+    "poolSettings": {
+      "trend": {
+        "window": 60,
+        "minReturn": 0.0,
+        "rankWindow": 40,
+        "rankStart": 1,
+        "rankEnd": 500,
+        "rankEnabled": false
+      },
+      "structure": {
+        "window": 20,
+        "minDrawdown": 0.02,
+        "maxDrawdown": 0.25,
+        "minMa10Above20Days": null,
+        "minMa5Above10Days": null,
+        "maxPeakAgeDays": null,
+        "maxPriceVsMa20": null,
+        "requireAboveMa20": false,
+        "peakBasis": "close",
+        "maDaysMode": "count"
+      },
+      "volume": {
+        "window": 20,
+        "minRatio": 1.2,
+        "minVolumeChange20": null,
+        "minUpDownVolumeRatio": null,
+        "maxDownVolumeRatio": null,
+        "excludeBlowoff": false,
+        "excludeDivergence": false,
+        "excludeUpperShadow": false
+      },
+      "combined": {
+        "pools": [
+          "trend",
+          "structure",
+          "volume"
+        ],
+        "mode": "intersection"
+      }
+    }
+  },
+  "sourceBinding": {
+    "parentDirectory": "artifacts/strategy-search/signal-leader-peer-expansion-v1",
+    "parentProtocolHash": "3987eb4d95e9152e0652f0e858c69e47ce3a152d99619d58b24db479ba454e24",
+    "files": {
+      "docs/signal-leader-peer-expansion-v1.json": "80a781ced9fb746677a76f554e065be650a88edbe6f56f96bd522a45a77e873f",
+      "artifacts/strategy-search/signal-leader-peer-expansion-v1/protocol.json": "6f391642ab2852d5b01feb5dce5f0aa0512b0092b7fb31d5eeef00f05583a426",
+      "artifacts/strategy-search/signal-leader-peer-expansion-v1/attempts/attempt-0001/completion.json": "fbc20ba082b59607aaad7e2be024b09dfa898809b20fd5914ed08c3a6a4875de",
+      "artifacts/strategy-search/signal-leader-peer-expansion-v1/independent-result-verification.json": "1fe4dd06ef5c652e36f422250dcc6d9976bdee4ce233bce5e3f42b97ffe27c24",
+      "artifacts/strategy-search/signal-leader-peer-expansion-v1/execution-sources.zip": "e17e12dc38f0428fc94fe967b1937881e4d4bdbc25adf8222527ac6b6bbababc",
+      "artifacts/strategy-search/signal-leader-peer-expansion-v1/attempts/attempt-0001/attempt.json": "23bd5d7aebbd3f071cb3c30082706289f8626bd0332e18c2dc9cad9b20651e47",
+      "artifacts/strategy-search/signal-leader-peer-expansion-v1/attempts/attempt-0001/candidates.jsonl.gz": "93312f82f08c0ac073129899be93639789abf80ffbf920ff49b42bc6ae379744",
+      "artifacts/strategy-search/signal-leader-peer-expansion-v1/attempts/attempt-0001/coverage.jsonl.gz": "2612243d19e766f58634a86d925139bc848bd3f2dbca0d0601ef8ed597725ff1",
+      "artifacts/strategy-search/signal-leader-peer-expansion-v1/attempts/attempt-0001/peer-expansion.jsonl.gz": "e423ac6f968407138c0d0cd2bc3157bee41832c855acac6d3740a5d358716bc5",
+      "artifacts/strategy-search/signal-leader-peer-expansion-v1/attempts/attempt-0001/peer-groups.jsonl.gz": "4b8d1fd46a900ad71a68b84b52912e0512a74e0c601b1b4325dead9e7bcc44cf",
+      "artifacts/strategy-search/signal-leader-peer-expansion-v1/attempts/attempt-0001/predicates.jsonl.gz": "531bf3eec5160083754dd19d0de67b6a583f2d099993b8202c4481c2b758e01e",
+      "artifacts/strategy-search/signal-leader-peer-expansion-v1/attempts/attempt-0001/result.json.gz": "6fdeb0de045b25cc297d1da80f08cbcaa1821bbc2b9aa0b62543531ca23455f9",
+      "artifacts/strategy-search/signal-leader-peer-expansion-v1/attempts/attempt-0001/selection.jsonl.gz": "d9663eb5751418ec9b3bac7d807fb4cd833d4eefed84275dde545fceed12e976",
+      "artifacts/strategy-search/signal-leader-peer-expansion-v1/attempts/attempt-0001/signals.jsonl.gz": "229c1fb792370332006f55951d64715135bfb8f6120b43218ccbb04ed86b5f08",
+      "artifacts/strategy-search/signal-leader-peer-expansion-v1/attempts/attempt-0001/slot-outcomes.jsonl.gz": "1e052720c6968b62409ed1724411ebddb4d0cfecbfd8a44648e20c382b019652",
+      "artifacts/strategy-search/signal-leader-peer-expansion-v1/attempts/attempt-0001/summary.json": "0e800131898f23830b0a78c115cc0a4cb633cf6021ae173bb0eee1a9bf235967"
+    },
+    "evidenceScope": "Inherit the hash-bound independent parent-feature, raw-source, grouping and original-Top5 proof. Independently reconstruct the new temporal state machine, ownership, selection and event arithmetic. Do not claim that inherited parent calculations were re-executed in this study.",
+    "streams": [
+      "predicates",
+      "selections",
+      "peerGroups"
+    ],
+    "prohibitedInputs": "Previous expansion status, strategy fills, returns, waiting or winners must not select or rank new formations or member confirmations. Other old files are bound for integrity only.",
+    "streamClosure": "Require exactly all484 ordered days and3141 unique sorted predicate symbols per day; one selection day and exact corresponding original-Top5 group records; validate identities/ranks/dates/hash/F=A-10, and exact EOF. Missing/duplicate/out-of-order records are fatal, not an unknown market observation."
+  },
+  "eligibleParentQ": {
+    "source": "The currentParent outcome in the previous predicates stream; not market-panel qState.",
+    "fields": [
+      "meanStrengthPercentile20",
+      "minimumStrengthPercentile20",
+      "relativeReturn60Percentile",
+      "closePathMaxDrawdown20",
+      "signedPathEfficiency20"
+    ],
+    "thresholds": [
+      0.9,
+      0.8,
+      0.9,
+      0.1,
+      0.35
+    ],
+    "operators": [
+      ">=",
+      ">=",
+      ">=",
+      "<=",
+      ">="
+    ],
+    "true": "kind is signaled or notTriggered; all five passed values have exact bool type and all are true.",
+    "false": "kind is signaled or notTriggered; all five passed values have exact bool type and at least one is false.",
+    "unknown": "All other kinds or incomplete predicate evidence. Preserve original kind/reason; ineligible is deliberately not treated as an observed strength false.",
+    "breakout": "The same-day parent outcome is signaled; use its existing close strictly above the previous five raw daily highs. No independently retuned price threshold."
+  },
+  "formation": {
+    "opportunities": "Every original Top5 slot from the previous study, without its expansion filter; include all148 source opportunities regardless of prior performance.",
+    "A": "Source slot.date, when that original Top5 selection is actually known. NEVER activate at its earlier F=formationDate.",
+    "members": "Exactly the frozen group members and their existing F correlation order. No recomputation, replacement or new member selection using A or later information.",
+    "oneEpisodePerAnchor": "For each anchor, the earliest available source opportunity activates an episode and owns a fixed lock over A through A+5 inclusive. Later same-anchor opportunities in that interval are recorded as formationSuppressedByLock. Earliest possible new formation is A+6, even if every member terminates or anchor fails earlier.",
+    "initialMembers": "At A, only eligibleParentQ=false members enter observing. Q=true members are notInitiallyWeak. Q=unknown members are initialMemberUnknown. Retain all20 member identities and their initial states.",
+    "invalidGroup": "Preserve an unevaluable formation and its fixed lock; do not manufacture a group or retry the next day. A source identity/integrity contradiction is fatal.",
+    "observationSessions": 5,
+    "holdingDeadline": null,
+    "ordering": "Each day advance old episodes first, processing anchor state before member state; only then activate new formation opportunities. At A+5 assess the current day before expiring still-observing members. Trading-session calendar positions, not available bars, determine offsets."
+  },
+  "anchorState": {
+    "initial": "A has a source-confirmed strong parent. The candidate gate begins alive.",
+    "transition": "At each A+1..A+5 close, first false locks the candidate gate to cancelled; first unknown locks it to unknown. The first terminal condition wins and is never repaired. Only continuously true through a member trigger admits the candidate.",
+    "shadow": "Anchor gate termination does not stop the independent member-confirmation shadow sequence, which is required for the member-only baseline."
+  },
+  "memberState": {
+    "false": "Continue observing while remaining within offsets1..5.",
+    "unknown": "Terminate memberUnknown immediately. Do not skip a missing or ineligible day or later call a true observation the first confirmation.",
+    "firstTrue": "Terminate on the first true observation. If parent kind is signaled emit one raw confirmation; otherwise terminate confirmedWithoutBreakout. Do not wait for a later breakout.",
+    "triggerConsumed": "A raw confirmation consumes this member episode whether outside Top5, duplicate-owned, anchor-filtered, active-suppressed or next-open unfilled.",
+    "expiry": "After offset5 evaluation, any observing member becomes expired.",
+    "cutoff": "If the study ends before offset5, any still-observing member becomes censoredAtStudyCutoff, not expired. Already terminal members retain their earlier state.",
+    "futureMutation": "Later observations may never change past formations, membership, transitions, ownership or emitted signals."
+  },
+  "selection": {
+    "rawOrder": [
+      "formationDate ascending",
+      "formationParentRank ascending",
+      "anchorSymbol ascending",
+      "frozenMemberRank ascending",
+      "memberSymbol ascending"
+    ],
+    "ownership": "From ALL raw confirmations for the day, retain the first record per member symbol using rawOrder. Record every discarded/supporting episode and never pick a different owner according to anchor gate, position or execution feasibility.",
+    "topN": 5,
+    "top5": "Rank the unique-owned member opportunities globally, take first5 BEFORE anchor mask and all active-position exclusions. No per-anchor Top5 and no backfill.",
+    "candidate": "Admit each original Top5 member slot only when its owning episode anchor gate is alive.",
+    "memberBaseline": "Admit every original Top5 member slot, regardless of owning anchor gate.",
+    "anchorControl": "For candidate-admitted original slots, map to that owning anchor at the same signal time. Keep the first slot per anchor in original slot order, record later mappedAnchorCollision, and never replace or backfill.",
+    "controlInterpretation": "The member baseline isolates continuation gating within this preselected group framework; it does not prove first-confirmation superiority to all peers. The anchor control compares trading objects at candidate times. Neither comparison is randomized, causally identified, matched on actual fills, or independent.",
+    "active": "Each of the three policies has an independent active-symbol state; unchanged event evaluator handles T+1 entry/exit, one opening attempt, 100000 per-event budget, registered fees/slippage and no stop/expiry. No formation/selection process reads active positions."
+  },
+  "requiredEvidence": [
+    "All source opportunities and fixed-lock suppression; every activated episode and all member initial states",
+    "Daily anchor and member evidence, terminal transition reasons and cutoff censoring",
+    "Every raw confirmation, multi-source ownership collision, unique ranking, original Top5 and all three dispositions",
+    "Selected, attempted, filled, unfilled, active-suppressed, target, waiting and unresolved counts for each policy",
+    "All seven5/10/20/40/60/120/250-session cohorts and denominators, successful time distribution, raw adverse paths and concentration",
+    "Source and code hashes, strict immutable one-attempt lifecycle, independent arithmetic review and complete failure records"
+  ],
+  "executionPolicy": {
+    "realTrialsBeforeReview": 0,
+    "automaticRetry": false,
+    "parameterSweep": false,
+    "legacyFeeProfile": "Reuse the unchanged previous static fee config to keep this diagnostic comparable; new separate research_fee_profile is not integrated or certified by this trial."
+  },
+  "limitations": [
+    "Fixed surviving universe, raw prices and missing historical identity, corporate-action, fee and opening-auction evidence remain unresolved.",
+    "All new real observations are development evidence. Shared group members, stocks, times and policies are dependent.",
+    "No high future net30 probability, actual market-leader status, follower causality or operator control is assumed."
+  ],
+  "certified": false,
+  "targetAchieved": false
+}

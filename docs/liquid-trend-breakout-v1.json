@@ -1,0 +1,52 @@
+{
+  "schema": "liquid-trend-breakout-protocol-v1",
+  "registeredDate": "2026-10-18",
+  "strategyId": "liquidTrendBreakoutV1",
+  "userIntent": "Goal mode: emphasize payoff ratio; 2024-09-24 is the main division, assess achievement after it, treat earlier stagnant bear-market results only as stress evidence. Prioritize total market turnover and liquidity.",
+  "objective": "Seek executable net small ordinary losses and larger gains, with enough frequency for positive account expectancy. No outcome is guaranteed.",
+  "screeningTargets": {
+    "status": "assistant-proposed research screening, not human-confirmed numerical requirements",
+    "netClosedMeanWinOverAbsoluteMeanLossAtLeast": 3,
+    "closedCashProfitFactorAtLeast": 1.5,
+    "absoluteMeanLossReturnPctAtMost": 5,
+    "continuousMaxDrawdownPctAtMost": 20,
+    "closedEpisodesAtLeast": 30,
+    "positiveNetAccountReturn": true,
+    "scope": "bull924 account only; all boards disclosed individually; bear stress does not veto bull goals; pure unseen validation still necessary"
+  },
+  "periods": {
+    "bear2024": {"startDate": "2024-01-02", "endDate": "2024-09-23", "role": "stress-only-no-profit-target"},
+    "bull924": {"startDate": "2024-09-24", "endDate": "2025-12-31", "role": "primary-user-designated-bull-evaluation"}
+  },
+  "regimeMeaning": "The split is the user's retrospective research scope, not a mechanism claiming advance knowledge of policy news or universal future bull markets. No pre-split holdings are inherited into the cash-start bull account. Also describe 2024Q4 and 2025 inside the continuous bull account without resetting it.",
+  "boards": ["main", "chinext", "star"],
+  "policies": ["breakout120", "trendEarly", "trendEarlyLiquid"],
+  "signal": {
+    "common": "At completed close T, require 141 exact consecutive source-calendar slots T-140..T with valid positive OHLCV and amount, proper OHLC envelope, and no explicit suspension. C_T > max(H_T-120..T-1), while C_T-1 <= max(H_T-121..T-2); prior20 mean amount >= 50 million CNY.",
+    "selection": "Among common qualifying stocks rank prior20 arithmetic mean amount descending, then symbol ascending; freeze Top5. Gates apply after common Top5; no sixth-name backfill or same-stock replacement.",
+    "trendEarly": "Common Top5 plus C_T > MA60_T > MA120_T > MA120_T-20, and C_T-1/C_T-21 - 1 <= 0.15. These constants are one unoptimized hypothesis, not empirically justified optima.",
+    "trendEarlyLiquid": "trendEarly plus the archived broad Shanghai/Shenzhen market turnover PROXY at T >= 1 trillion CNY, and mean(total turnover T-4..T) >= mean(total turnover T-20..T-1). Require all 21 actual source-calendar observations; unknown is not filled or treated as zero. Official-total replication is required before promoting the gate.",
+    "clock": "All inputs known at T close or assumed published that evening; earliest one-attempt buy is the next independent source-calendar open. Historical EOD publication timestamps are not archived. No forward corporate-action or outcome screening."
+  },
+  "marketTurnover": {
+    "source": "Archived TDX sh000001 and sz399106 daily amount fields, individually compared to available official SSE01+03 and SZSE main A+ChiNext observations. SZSE bulk download interrupted after75 successful dates, with all successful receipts and failure logs retained.",
+    "unit": "TDX float amount in CNY; official comparison sources in 100 million CNY",
+    "scope": "Provider broad Shanghai/Shenzhen market turnover proxy, including its source-specific coverage and rounding differences. Beijing excluded. Not sum of the surviving research cohort, not net inflow and not a certified official all-A total.",
+    "availability": "Local historical observations are a retrieved snapshot, not a point-in-time archive. EOD availability before next opening is an explicit assumption. Official-total replication remains necessary."
+  },
+  "account": {
+    "source": "Unchanged 2024-2025 main/chinext/star raw-price accountData from completed batch49",
+    "configuration": "Clone batch49 2024-2025 trail10 config, changing only strategy identity and account start/end dates. 500000 CNY, max5 positions, 20 percent entry weight, 5 percent close stop, 10 percent close trailing, no take-profit and no holding deadline.",
+    "costs": "Frozen LegacyFeePolicy, 10bps slippage each side; original share-lot, price-limit, cash and capacity proxies; T+1 sale lock. Stop triggers do not guarantee realized loss size.",
+    "newAccounts": 18,
+    "referenceAccountsReused": 0
+  },
+  "validation": "Production boundary tests and independently implemented raw-window schedule replay precede accounts. Recompute payoff/PF/drawdown from saved result trades/curve; reconcile cash/PnL/fees with existing account summarizer. Report exposure, tails, top5 profit concentration, open positions and unreliable valuation days. Preserve failures and every account.",
+  "limitations": [
+    "All 2022-2025 history is repeatedly inspected development; a new split or rule is not out of sample. 2026 has already been exposed to earlier work.",
+    "Fixed surviving local stock cohorts, raw unadjusted prices, incomplete historical identity/ST/corporate actions and opening-capacity evidence remain unverified.",
+    "No threshold grid, automatic parameter selection, stock trading, workspace JSON modification, commit, push, deployment or success claim."
+  ],
+  "hypotheses": "One new long-horizon first-breakout family, two admission additions (trend/early and total-market liquidity), one fixed exit; control and both candidate results remain visible.",
+  "targetAchieved": false
+}

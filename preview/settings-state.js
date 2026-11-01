@@ -108,6 +108,7 @@ function validateState(state) {
   numberField(state, 'startCapital', 1, 1e12);
   numberField(state, 'concurrency', 1, 4, true);
   validateRules(state);
+  validateRuleDrafts(state.settingsRuleDrafts);
   numberField(state, 'ruleA', 0, 1e12);
   numberField(state, 'ruleB', 0, 1e12);
   for (const key of ['compact', 'reduced', 'largeText', 'sidebarCollapsed']) {
@@ -158,5 +159,19 @@ function validateState(state) {
     return result;
   }
 
-return {validate:validateState,validateJSON,isObject,validateRules,normalizeRules,failure,MAX_BYTES};
+  // Drafts may contain empty or out-of-range input, but never become active rules.
+  function validateRuleDrafts(drafts) {
+    if (drafts === undefined) return;
+    const sections={fees:['commissionRate','minCommission'],positionRules:['singleStockMax','totalMax']};
+    if (!isObject(drafts)) throw failure('参数草稿格式无效。');
+    for (const [section, values] of Object.entries(drafts)) {
+      const fields=Object.hasOwn(sections,section)?sections[section]:null;
+      if (!fields || !isObject(values) || Object.keys(values).length!==fields.length ||
+          fields.some(key=>typeof values[key]!=='string'||values[key].length>100)) {
+        throw failure('参数草稿字段不完整或格式无效。');
+      }
+    }
+  }
+
+return {validate:validateState,validateJSON,isObject,validateRules,validateRuleDrafts,normalizeRules,failure,MAX_BYTES};
 });

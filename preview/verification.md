@@ -1,5 +1,22 @@
 # HTML 预览验证记录
 
+## 2026-10-31 实验候选日期跳转
+
+- 实验选股结果中的股票入口携带已保存的信号日，复用个股日线的日期定位功能。旧记录缺少日期或日期格式无效时，仍可打开该股日线；不会用今天替换缺失日期。
+- 此功能定位历史 K 线，仍允许查看后续走势，不是屏蔽未来信息的逐日回放。请求日期没有日线记录时，沿用行情页的覆盖不足提示。
+- 验证：425 项 Node 测试通过；`node scripts/smoke-stock-table-charts.cjs` 的真实 Electron 合成行情验收通过，包含历史日期选中、行情重扫及迟到响应保护。完整测试日志在 `artifacts/optimization-20261031-node-tests.log`。这些验证不代表实盘或收益验证。
+- 完整应用入口另通过 8 项验收，覆盖候选原信号日传递、缺失日期与无效日期回退、未来日期原值传递、返回后保留扫描，以及只读记录不变；证据在 `artifacts/experimental-strategies-app-ui/attempt-0007/app-ui-verification.json`。该入口验收未配置真实日线，K 线日期选中由上一条合成行情测试验证。
+
+## 2026-10-15 阅读与连续操作优化
+
+- 组合研究表格正文由 12px 调整到 14px，辅助说明由 10px 调整到 12px；大号文字分别为 16px、14px。紧凑模式只减少单元格留白，不缩小文字。报告的方案名称保留合理列宽，820px 窗口下不再逐字竖排。
+- 研究表格与参数热图加入阅读位置恢复，连续两次重绘和离开后浏览器返回均保留横向 230px 的位置。820、1080、1440px，各四种阅读偏好组合均无整页横向溢出；宽表在自身容器内滚动。
+- 账户费率与仓位规则显示当前生效值、未应用草稿及字段错误。草稿独立落盘，切页或重载后可继续，只有显式保存才应用参数；写入失败保留输入。界面备份纳入规则草稿，恢复后清除旧校验与反馈。
+- 统一研究任务页修复组合研究进度口径：服务返回 0.25 时显示 25%，策略服务原有百分值与已完成报告不变。
+- 验证结果：403 项 Node 测试、3 项统一任务页组件测试、39 项设置页集成检查，以及桌面启动与重启恢复、多尺寸阅读验收均通过。保存设置期间恢复备份会保留确认页面，待保存完成后可重试。
+- 验证入口：`node --test tests/*.test.cjs`、`node scripts/smoke-settings.cjs`、`node scripts/smoke-desktop.cjs`、`node scripts/smoke-research-reading.cjs`，以及 `node vendor/finaltrade/frontend/node_modules/vitest/vitest.mjs run --config scripts/vitest-desktop.config.mjs`。前端通过 `node scripts/build-finaltrade.cjs` 重建。
+- 本轮使用隔离工作区。研究阅读验收使用明确标记的 UI fixtures，只验证布局和交互，不验证策略收益；证据在 `artifacts/research-reading-evidence.json`、`artifacts/research-reading-*.png`、`artifacts/settings-rule-draft.png` 与 `artifacts/ui-usability-node-tests.log`。未重新生成便携 EXE、提交或推送。
+
 ## 连续表面与阶段档案 · 2026-10-11
 
 - 弱化卡片、导航的边框和底色反差；资产指标取消独立卡片外框。

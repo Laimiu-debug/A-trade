@@ -1,0 +1,57 @@
+{
+  "schema": "guiyin-inspired-dual-entry-complete-system-v1",
+  "status": "fixed-before-new-account-outcomes",
+  "researcherDefinedRules": true,
+  "priceArithmetic": "Raw source quotes remain unchanged; price MA/5percent/15percent/range-position comparisons use integer cent numerators to avoid binary boundary drift",
+  "traderExactMethodReplication": false,
+  "purpose": "Test a whole daily executable system inspired by all closed source trades, including failures; never transplant the source trader payoff into a new strategy.",
+  "market": {
+    "admission": "Inherited observed SH/SZ close>MA60, MA20>MA60 on both indices; observed cohort breadth60>0.5 with>=95percent coverage; SH/SZ turnover>=1trillion yuan and mean5/priorMean20>=0.8",
+    "green": "admitted and turnover ratio>=1: gross entry budget60percent, single stock20percent, one position stop-risk0.5percent equity",
+    "yellow": "admitted and ratio<1: gross entry budget30percent, single stock10percent, one position stop-risk0.25percent equity",
+    "off": "no new entries; queue all held positions for next open exit",
+    "exposureReduction": "At each close queue whole positions with weakest close/entry return first until unqueued market value<=state gross cap; outstanding forced exits are retained, not cancelled on recovery",
+    "proxy": "TDX broad SH/SZ turnover and survivor cohort breadth, not an official all-A-share complete census"
+  },
+  "sector": {
+    "membership": "CAPCO historical industry cohorts strictly after source publication date, same published snapshot for each decision; historical themes unavailable",
+    "known": "At least5 members and95percent aligned coverage for each return5/20, MA20 breadth and amount ratio",
+    "strong": "return5>0, relative20 versus CSI300>0, breadth20>0.5 and matched mean5/priorMean20 turnover ratio divided by market ratio>=1",
+    "rotation": "Top3 strong sectors by equal midrank scores of relative5, relative20 and relative turnover participation; recompute daily. Never sell solely for dropping out of top3",
+    "holdingHealth": "relative20>0 and breadth20>0.5; two consecutive known failures trigger next-open exit; unknown interrupts count, membership publication change resets count",
+    "allocation": "Sector maximum40percent equity; at most one new candidate per sector per close; maintain cash if no qualified candidate"
+  },
+  "stock": {
+    "common": "Exactly22 continuous price-valid positive OHLCV/amount source slots, no explicit suspension; prior20 mean amount>=50million yuan; positive true-range fraction<1; actual stock trading-status/lot/limit gates inherited",
+    "A_ignition": "Previous close20-return<=15percent; current close breaks prior20 highest high and yesterday did not; current one-day return>=5percent, amount>=1.5*prior20 mean, close lies in top quarter of daily range. No claim to intraday first-board fill",
+    "B_corePullback": "Previous close positive20-return, industry20-return midrank>=0.8 and previous close>previous MA10; current return<0, current low<=previous MA5, current close>=current MA10, close in top half daily range and amount>=0.5*prior20 mean. Next-open version of confirmed pullback, not intraday dip replication",
+    "ranking": "Per sector A before B; then descending previous industry20 midrank, prior20 amount, symbol; sectors by score then sectorCode; max5 planned candidates per close",
+    "structuralFloor": "max(0.95*signalClose, min(minimum low of signal session and prior2 sessions,0.99*signalClose)); retained as entry-price ratio for inherited reference conversion"
+  },
+  "positions": {
+    "initialCapitalYuan": 500000,
+    "maxPositions": 5,
+    "sizing": "Minimum of state single-stock cap, gross cap headroom,40percent sector headroom, actual unreserved cash, state stop-risk divided by stop distance; fee-inclusive affordable round lot",
+    "opening": "Only next independent session, no retries/backfill/additions. Reject open<=signal structural floor or open>signalClose*(1+min(meanNtr20,0.03)); recompute risk and gross/sector room using observable open and fees, never enlarge reserved quantity",
+    "debt": "Unleveraged cash account; no averaging down, no pyramiding in v1",
+    "capacity": "Inherited prior-session-volume participation ceiling1percent is a proxy; opening-auction capacity not certified"
+  },
+  "exit": {
+    "priority": "Persistent prior exit; inherited eligibility/5percent close stop/10session time exit; structural floor; entry-session no-follow-through; second-session no-progress; profit trail; sector health; market exposure",
+    "failedEntry": "Entry-session close<=actual entry fill queues next-open exit; from second session close gain<2percent queues next-open exit",
+    "winner": "No fixed take-profit. Once close peak>=entry*1.06, ratchet a close-time floor at peak*(1-max(0.03,min(0.08,1.5*signalMeanNtr20))); only increases in entry-price ratio units",
+    "execution": "Every trigger is known after close, fills earliest next tradable open with T+1, price-limit/suspension/lot/cash gates and persistent blocked sell retries.5percent is a price trigger, never a promised maximum realized loss"
+  },
+  "evaluation": {
+    "primary": ["2024-09-24", "2026-10-15"],
+    "sourceOverlap": ["2024-09-24", "2024-12-31"],
+    "weakMarketStress": ["2024-04-08", "2024-09-23"],
+    "controls": ["Aonly", "Bonly", "withoutMarket", "withoutSector", "basicExits", "extra25bpsEachSide"],
+    "researchScreens": {"payoffRatioMin": 3, "profitFactorMin": 1.5, "meanLossAbsPctMax": 5, "maxDrawdownPctMax": 20, "closedMin": 30, "positiveNetAndCSI300Excess": true},
+    "numericTargetsHumanConfirmed": false,
+    "fees": "Inherited explicit commission0.03percent min5yuan, transfer0.001percent, dated sell stamp duty, adverse slippage10bps each side; cost stress35bps each side with all gates rerun",
+    "unknowns": ["Repeatedly exposed historical data, no pristine holdout", "Raw-price and surviving universe source limits", "Incomplete dated status and available-rights source", "Industry rotation proxy, not historical thematic rotation", "No minute or opening queue capacity evidence"],
+    "noParameterScan": true,
+    "goalCompletionRequiresMoreThanPassingNumericalScreens": true
+  }
+}

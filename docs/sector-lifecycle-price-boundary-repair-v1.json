@@ -1,0 +1,26 @@
+{
+  "schema": "sector-lifecycle-structural-price-boundary-repair-v1",
+  "status": "numerical-correction-before-matched-reexecution",
+  "parentProtocolPath": "docs/sector-lifecycle-system-v3.json",
+  "strategyHypothesisChanged": false,
+  "observedIssue": "Inherited first-position risk cost evaluates fillPrice*quantity/quantity. In sz002580 on2025-08-01 this makes the converted13.29 structural floor13.289999999999997; source close13.29 is therefore not considered <= the binary floor. The retained account exits later for another reason.",
+  "auditorCorrection": "Reconstruct the exact inherited weighted-cost arithmetic independently; do not assume fillPrice*quantity/quantity is bit-identical to fillPrice. Preserve all original accounts and disclose price-boundary ambiguities.",
+  "executionCorrection": {
+    "scope": "Structural fixed-failure price comparison only, in a new isolated subclass; no edits to frozen parent execution files",
+    "predicate": "validCurrentPrice and close <= convertedFixedFailurePrice +16*math.ulp(convertedFixedFailurePrice)",
+    "reason": "Cover floating arithmetic uncertainty far below the one-cent raw source price grid, without shifting an economic trading threshold",
+    "unchanged": "Signals and all original source prices, cash/fees, quantities, market/sector definitions, stop5 and volatility-ratchet arithmetic, next-open execution and immutable first-exit precedence"
+  },
+  "matchedReexecution": "Reuse all6 V3 frozen schedules and both system-context files byte-for-byte. Run the same6 accounts under the numerical correction, independently replay corrected structural comparisons and all original cash/fee/risk checks. Count no new strategy hypothesis.",
+  "requiredTests": [
+    "Reproduce the6300-share weighted-cost reference boundary independently",
+    "Uncorrected original numerical behavior remains reproducible and preserved",
+    "Corrected equal-floor close queues immediately and sells next open",
+    "A one-cent-higher close does not trigger; an earlier queued exit is not replaced",
+    "Independent risk oracle detects missing/changed corrected exit intent"
+  ],
+  "targetAchieved": false,
+  "holdoutClaim": false,
+  "certified": false,
+  "permissionBoundary": "Local isolated numerical repair and research only; no real orders, commits, pushes, packaging or publication"
+}

@@ -1,0 +1,249 @@
+{
+  "schema": "ignition-selection-profitability-review-v1",
+  "registeredAt": "2026-10-31T09:55:45.284993+00:00",
+  "maxNewHypotheses": 2,
+  "newAccountsPlanned": 9,
+  "outcomeBasedParameterChangesAllowed": false,
+  "purpose": "Improve A ignition stock choice and pre-entry signal quality while preserving all original date-sector slots; distinguish expectancy improvement from lower participation.",
+  "frozenParentPlan": {
+    "path": "artifacts/strategy-search/guiyin-dual-path-system-v1/attempt-002/plan.json",
+    "sha256": "3fa9ead57795fa947054f84d80cc79e3a7988aec08ce554744a5067a29e1838a"
+  },
+  "parentInputs": {
+    "path": "artifacts/strategy-search/guiyin-dual-path-system-v1/attempt-002/input-validation.json",
+    "sha256": "3b2245b980de1bda9cd15d63b4bd114278843e07ea839039dc3e96b719c9eab6"
+  },
+  "diagnosticSources": [
+    {
+      "path": "artifacts/strategy-search/ignition-selection-review-20261031/diagnostics/bucket-plan.json",
+      "sha256": "ae28e56b25e264497051ccd78e679123f25e66c66656cfcc95dfcfdcbf9f36c1"
+    },
+    {
+      "path": "artifacts/strategy-search/ignition-selection-review-20261031/diagnostics/analyze_ignition_features.py",
+      "sha256": "9e04f3aa0373c184111071dfb96e49677d60decfebdc9815abde4ef78f03b36c"
+    },
+    {
+      "path": "artifacts/strategy-search/ignition-selection-review-20261031/diagnostics/development-diagnostics.json",
+      "sha256": "b9143388f5e7811bd18cee08b69f439f3f11a87cc270391d3e0ddae43abe8773"
+    },
+    {
+      "path": "artifacts/strategy-search/ignition-selection-review-20261031/diagnostics/development-opportunity-features.json",
+      "sha256": "a826bde035d28be3f627e2780a03c40671dddc036bd027cc453a694cf329e620"
+    },
+    {
+      "path": "artifacts/strategy-search/ignition-selection-review-20261031/diagnostics/development-same-slot-candidates.json",
+      "sha256": "4370b1e25373ceabfaa8bf11d78225259b04a15b22226b3baf947f80ffd5dd44"
+    },
+    {
+      "path": "artifacts/strategy-search/ignition-selection-review-20261031/diagnostics/development-b-comparator.json",
+      "sha256": "d712a8ba130d2ad534821513d091952e0f8e0633d6343cab9eab757f6ee1f482"
+    },
+    {
+      "path": "artifacts/strategy-search/profitability-review-20261031/oos-audit/audit.json",
+      "sha256": "92cc68d6d4ce63408a93f0b911755981d5579bd3761bbd696e7306e3c086e93f"
+    }
+  ],
+  "developmentOnlyForNewHypotheses": true,
+  "hypotheses": [
+    {
+      "id": "selection",
+      "mechanism": "Prior industry return ranking may prioritize an already extended breakout; rerank the same admitted A pool by lower breakout extension in volatility units.",
+      "sort": [
+        "(D close / max(high[D-20:D]) - 1) / frozen meanNtr20 ascending",
+        "priorIndustryRank20 descending",
+        "priorAmount20 descending",
+        "symbol ascending"
+      ],
+      "support": "Development low-extension group near zero, but nonmonotonic and dependent on two winners; no demonstrated edge."
+    },
+    {
+      "id": "participation",
+      "mechanism": "Stronger relative amount participation may distinguish a better-supported breakout from a price-only pop; selection occurs after the entire signal day and execution remains next open.",
+      "sort": [
+        "D amount / frozen priorAmount20 descending",
+        "priorIndustryRank20 descending",
+        "priorAmount20 descending",
+        "symbol ascending"
+      ],
+      "support": "Higher relative amount group was less negative in development-year and board cuts, still negative and adaptively explored; no threshold optimization."
+    }
+  ],
+  "rejectedBeforeNewOutcomes": [
+    {
+      "id": "positiveOpeningGapCap",
+      "reason": "Development positive-gap and nonpositive-gap trades had near-equal risk-budget expectancy; removing positive gaps discards about35percent of executed A trades and lacks quality support. No accounts for this idea are run."
+    }
+  ],
+  "formationContract": {
+    "universe": "Full frozen 4999-stock formation allCandidates; never restrict to the old1120-stock execution projection.",
+    "slots": "Exactly preserve original complete signal date,sector,rank and A/B pattern for every slot; replace only A symbol within the same complete pre-ranking A pool.",
+    "bUnchanged": true,
+    "noThresholdFilter": true,
+    "noMissingCandidateFallback": true,
+    "noOpenBasedReranking": true,
+    "earliestExecution": "D+1 open",
+    "dayDFeatureCutoff": "D close",
+    "exitsSizingFeesAdmission": "Original complete system unchanged; no stop widening, no leverage increase, no intraday low-touch fills.",
+    "projection": "Freeze all case schedules before projecting full source to their selected-security union."
+  },
+  "periods": {
+    "development": {
+      "start": "2024-09-24",
+      "end": "2025-12-31",
+      "label": "Previously exposed development history"
+    },
+    "reusedTemporalCheck": {
+      "start": "2026-01-05",
+      "end": "2026-10-15",
+      "label": "Previously exposed temporal retest, not pristine OOS"
+    }
+  },
+  "accounts": {
+    "cases": [
+      {
+        "id": "baseline",
+        "parentPolicy": "complete",
+        "formationPolicy": "original",
+        "entryPolicy": "original",
+        "parameters": {}
+      },
+      {
+        "id": "selection",
+        "parentPolicy": "complete",
+        "formationPolicy": "leastBreakoutExtension",
+        "entryPolicy": "original",
+        "parameters": {}
+      },
+      {
+        "id": "participation",
+        "parentPolicy": "complete",
+        "formationPolicy": "strongestAmountParticipation",
+        "entryPolicy": "original",
+        "parameters": {}
+      }
+    ],
+    "initialCapitalYuan": 500000,
+    "resetAtPeriodStart": true,
+    "normalSlippageBpsEachSide": 10,
+    "stressSlippageBpsEachSide": 35,
+    "jobs": "Each case both periods normal; each case reusedTemporalCheck stress. Never compound cold-start periods.",
+    "legacyFeePolicyRetained": true
+  },
+  "metrics": {
+    "attribution": "A/B fixed at entry pattern; show their closed PnL, unrealized end MTM and unallocated equity bridge residual.",
+    "aClosed": [
+      "closed count",
+      "mean net return percent",
+      "mean net PnL yuan",
+      "cash profit factor",
+      "net PnL / invested amount percent",
+      "mean PnL / originally planned stop-risk budget",
+      "win rate",
+      "largest winner exclusions"
+    ],
+    "participation": [
+      "intended A slots",
+      "filled A entries",
+      "A buy amount excluding fees",
+      "A capital-days = sum of end-of-session marked A holdings in yuan"
+    ],
+    "efficiency": [
+      "A net PnL / (A buy plus sell notional) bps",
+      "A net PnL / A capital-days bps per capital-day",
+      "A net PnL / all evaluation sessions yuan per session"
+    ],
+    "matchedSlots": "All original A slots retained; no-fill contributes zero slot PnL but is never a zero-return closed trade in expectancy or PF. Compare candidate and baseline by origin slot and report changed/same symbol and changed execution.",
+    "bCrowding": "Report unchanged B signal slots and actual B trade count/PnL/capital-days differences caused by A capital use."
+  },
+  "decisionRule": {
+    "stage": "Historical candidate screen only; passing does not certify profitability or OOS success.",
+    "bothNormalPeriods": {
+      "netReturnPositive": true,
+      "beatMatchedBaselineNetReturn": true,
+      "aMeanNetReturnPositiveAndAboveBaseline": true,
+      "aProfitFactorAboveOneAndBaseline": true,
+      "aTurnoverAndCapitalDayEfficiencyPositiveAndAboveBaseline": true,
+      "minimumAClosedTrades": 30,
+      "minimumFilledAEntryRatioToBaseline": 0.8,
+      "minimumABuyAmountRatioToBaseline": 0.8,
+      "minimumACapitalDayRatioToBaseline": 0.8,
+      "maximumDrawdownPct": 20
+    },
+    "stress2026": {
+      "netReturnPositive": true,
+      "beatSameCostBaseline": true,
+      "aMeanNetReturnPositive": true,
+      "aProfitFactorAboveOne": true
+    },
+    "participationFloorMeaning": "80percent is a predeclared practical guardrail, not statistical proof and never a substitute for positive expectancy.",
+    "noGateRelaxationAfterResults": true
+  },
+  "uncertainty": {
+    "pairs": [
+      [
+        "selection",
+        "baseline"
+      ],
+      [
+        "participation",
+        "baseline"
+      ],
+      [
+        "participation",
+        "selection"
+      ]
+    ],
+    "calendar": "All aligned evaluation sessions including cash/zero-trade days",
+    "movingBlockSessions": 20,
+    "draws": 2000,
+    "seed": 20261031,
+    "percentileInterval": [
+      2.5,
+      97.5
+    ],
+    "measure": "Mean daily return difference in basis points",
+    "meaning": "Retrospective dependent-return resampling, not multiple-selection correction, cumulative-return confidence interval, or prospective proof."
+  },
+  "oos": {
+    "status": "Not yet available at a sufficient independent length",
+    "exposedThrough": "2026-10-15",
+    "laterScanExposureThrough": "2026-10-23",
+    "twoDaysWithoutLocatedUse": [
+      "2026-10-26",
+      "2026-10-27"
+    ],
+    "localMissing": [
+      "2026-10-28",
+      "2026-10-29",
+      "2026-10-30"
+    ],
+    "newSegmentConsumption": "No prices or returns after2026-10-15 read in this study.",
+    "prospectiveStartNotBefore": "2026-11-02",
+    "minimumCompletedIndependentSessions": 60,
+    "minimumClosedTrades": 30,
+    "requires": "Rules/code/input identity frozen before observing that session; append-only simulated records; no real orders; verify published trading calendar; no parameter reselection from forward outcomes.",
+    "automationCreated": false,
+    "profitabilityProven": false,
+    "priorAudit": {
+      "path": "artifacts/strategy-search/profitability-review-20261031/oos-audit/audit.json",
+      "sha256": "92cc68d6d4ce63408a93f0b911755981d5579bd3761bbd696e7306e3c086e93f"
+    }
+  },
+  "limitations": [
+    "Historical raw-price/survivor cohort, incomplete historic status/actions and single-open capacity approximations remain.",
+    "Both historical periods have been used before; development hypothesis discovery is adaptive.",
+    "Two ranking experiments cannot establish a causal market mechanism.",
+    "No genuine OOS profitability is available; no real orders or production promotion."
+  ],
+  "additionalSourceFiles": [
+    "scripts/verify-ignition-selection-inputs.py",
+    "tests/test_ignition_selection_oracle.py"
+  ],
+  "additionalTestModules": [
+    "tests.test_ignition_selection_oracle"
+  ],
+  "methodReferences": [
+    "https://www.davidhbailey.com/dhbpapers/backtest-prob.pdf",
+    "https://www.davidhbailey.com/dhbpapers/deflated-sharpe.pdf"
+  ]
+}

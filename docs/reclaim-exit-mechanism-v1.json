@@ -1,0 +1,23 @@
+{
+  "schema": "reclaim-exit-mechanism-v1",
+  "question": "Which accounting components explain the saved volatility-trail versus fixed-trail account differences, and does the shared-entry closed subset support investigating retention of long-trend winners?",
+  "population": "All8155 original reclaim formations from six frozen2022-2023/2024-2025 main/chinext/star sources, paired across12 already-completed accounts. No new signal, account, selection, source fetch or2026 data.",
+  "policies": ["trail10", "volatilityTrail"],
+  "groups": ["bothSameEntry", "bothDifferentEntry", "controlOnly", "candidateOnly", "neither"],
+  "rules": {
+    "identity": "Pair by period,board,original formationId/signalId, retaining every opportunity. Link filled buys by signalId, and closed/open episodes by symbol+entryDate plus exitDate for closed. bothSameEntry requires identical actual entryDate AND buy fill price; different quantity or investedAmount remains a capital-size difference. Never join sells by signalId or signalDate.",
+    "investment": "I is the original episode investedAmount, reconciled to actual buy amount+fee. Filled amount already includes slippage; do not subtract it twice. No use of riskEntryPrice, planned budget or remaining cost basis as I. Reject unexpected top-ups or rights cashflow rather than silently reinterpreting this denominator.",
+    "pnl": "Closed P is complete net episode PnL. Open P is realizedPnLWhileOpen+unrealizedPnL at the original cutoff, explicitly retained as marked-to-market and not treated as a closed trade. Unentered P=0 is an accounting contribution, not hypothetical trade return.",
+    "decomposition": "For both-entered pairs r=P/I in fractions: Pv-Pc=mean(I)*(rv-rc)+mean(r)*(Iv-Ic). Name these returnProfileComponent and committedCapitalComponent; they are symmetric algebraic components, not causal treatment effects. Single-sided contributions are +Pv for candidateOnly and -Pc for controlOnly; neither contributes zero.",
+    "bridge": "Sum all pair components then add candidate-minus-control original unallocated account residual. Reconcile to the original complete-account net-PnL difference. Retain every12 account bridge separately; do not add independent accounts into a portfolio return.",
+    "maturity": "Retain all9 cross-policy closed/openAtCutoff/notEntered states. Only bothSameEntry with both episodes closed enters exit-timing and baseline-outcome descriptive comparisons. Longer/same/shorter means the actual candidate exit date relative to control; it is not a future executable selector.",
+    "time": "Full episodes belong to their original formation year and formation epoch. 2024-09-24 is descriptive only; episode PnL can be earned later. Inherit continuous original9.24 curve intervals without recomputing or resetting accounts.",
+    "scope": "No profit, win-rate, payoff or holding-period acceptance hurdle. All periods and boards remain. Repeated stocks, overlapping opportunities and path-dependent admission are not independent randomized observations. No holdout or stable-profit claim."
+  },
+  "trialAccounting": {"diagnosticBatches": 1, "existingAccountsRead": 12, "newAccounts": 0, "newStrategyTrials": 0, "newEntryPolicies": 0, "newExitDefinitions": 0},
+  "expectedRows": {"accountBridges": 12, "pairRows": 8155, "accountDifferenceRows": 6, "groupRows": 30, "maturityRows": 54, "formationYearRows": 60, "formationEpochRows": 45, "closedPairTimingRows": 18, "closedPairBaselineOutcomeRows": 18},
+  "profitHurdles": null,
+  "holdoutClaim": false,
+  "certified": false,
+  "targetAchieved": false
+}

@@ -5,12 +5,14 @@
   // Retain resolved promises as well as pending ones so their independent queues
   // share a single source snapshot for each sector in this refresh generation.
   const sharedHistories = new Map();
+  let historyContext = {}, historyContextKey = '';
   let forceHistoryIds = new Set();
   AT.sectorHistoryData = {
+    setContext(context = {}) {const key = JSON.stringify(context); if (key === historyContextKey) return false; historyContext = context; historyContextKey = key; this.reset(); return true;},
     reset(force = false, ids = []) {forceHistoryIds = force ? new Set([...sharedHistories.keys(), ...ids].filter(Boolean)) : new Set(); sharedHistories.clear();},
     requireFresh(ids) {for (const id of ids) if (!sharedHistories.has(id)) forceHistoryIds.add(id);},
     read(id) {
-      if (!sharedHistories.has(id)) sharedHistories.set(id, window.atradeDesktop.market('market.sector.history', {id, limit: 250, ...(forceHistoryIds.delete(id) ? {refresh: true} : {})}));
+      if (!sharedHistories.has(id)) sharedHistories.set(id, window.atradeDesktop.market('market.sector.history', {id, limit: 250, ...historyContext, ...(forceHistoryIds.delete(id) ? {refresh: true} : {})}));
       return sharedHistories.get(id);
     }
   };
@@ -181,5 +183,10 @@
     hover = null; paint(); document.querySelector('[data-sector-history-chart]')?.focus({preventScroll: true});
   });
   function refresh() {endDrag(false); generation++; AT.sectorHistoryData.reset(true, [selected, ...visible]); histories.clear(); schedule();}
-  AT.sectorTrends = {setVisible, row, panel, invalidate, refresh, endDrag, deferRender};
+  function setContext(context) {
+    if (!AT.sectorHistoryData.setContext(context)) return;
+    endDrag(false); generation++; histories.clear(); start = null; hover = null;
+    AT.sectorComparison?.refresh(); schedule();
+  }
+  AT.sectorTrends = {setVisible, row, panel, invalidate, refresh, setContext, endDrag, deferRender};
 })();

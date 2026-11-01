@@ -3,3 +3,41 @@ vendor/finaltrade/** -text -whitespace
 
 # Bundled frontend assets include upstream license text and minified libraries.
 preview/finaltrade/** -text -whitespace
+
+# Preserve reviewed research evidence byte-for-byte, including recorded SHA256.
+docs/research/** -text -whitespace
+tests/test_ignition_selection_readout.py -text -whitespace
+
+# Frozen research dependencies: checksums must survive Windows checkout.
+docs/fixed-signal-account-contract-v1.json -text -whitespace
+docs/guiyin-dual-path-system-v1.json -text -whitespace
+scripts/run-dual-confirmation-review.py -text -whitespace
+scripts/run-guiyin-dual-path-projected.py -text -whitespace
+scripts/run-guiyin-dual-path-system.py -text -whitespace
+scripts/run-ignition-selection-review.py -text -whitespace
+scripts/summarize-dual-confirmation-review.py -text -whitespace
+scripts/summarize-ignition-selection-review.py -text -whitespace
+scripts/verify-dual-confirmation-inputs.py -text -whitespace
+scripts/verify-guiyin-dual-path-system.py -text -whitespace
+scripts/verify-ignition-selection-inputs.py -text -whitespace
+service/execution_evidence.py -text -whitespace
+service/portfolio_actions.py -text -whitespace
+service/portfolio_config.py -text -whitespace
+service/portfolio_engine.py -text -whitespace
+service/portfolio_rotation.py -text -whitespace
+service/portfolio_signals.py -text -whitespace
+service/research_account_fees.py -text -whitespace
+service/research_account_outcomes.py -text -whitespace
+service/research_dual_confirmation.py -text -whitespace
+service/research_fee_profile.py -text -whitespace
+service/research_fixed_signal_account.py -text -whitespace
+service/research_guiyin_dual_path.py -text -whitespace
+service/research_ignition_selection.py -text -whitespace
+service/research_market_sector_stock.py -text -whitespace
+tests/test_dual_confirmation_oracle.py -text -whitespace
+tests/test_dual_confirmation_runner.py -text -whitespace
+tests/test_ignition_selection_oracle.py -text -whitespace
+tests/test_ignition_selection_runner.py -text -whitespace
+tests/test_research_dual_confirmation.py -text -whitespace
+tests/test_research_guiyin_dual_path.py -text -whitespace
+tests/test_research_ignition_selection.py -text -whitespace

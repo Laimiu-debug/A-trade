@@ -44,3 +44,22 @@ test('invalid or incomplete rules are rejected before touching the saved workspa
   assert.throws(()=>store.save({...value,fees:{commissionRate:'2.5',minCommission:0}}));
   assert.equal(fs.readFileSync(store.paths.file,'utf8'),before);
 });
+
+test('unfinished rule drafts survive disk restart without changing active parameters',t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'atrade-settings-drafts-'));
+  t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
+  const value=schema.normalizeRules(state());
+  value.settingsRuleDrafts={fees:{commissionRate:'',minCommission:'0'},positionRules:{singleStockMax:'80',totalMax:'50'}};
+  new StateStore(directory).save(value);
+  const restored=new StateStore(directory).load().state;
+  assert.deepEqual(restored.settingsRuleDrafts,value.settingsRuleDrafts);
+  assert.deepEqual(restored.fees,{commissionRate:2.5,minCommission:5});
+  assert.deepEqual(restored.positionRules,{singleStockMax:30,totalMax:80});
+});
+
+test('rule draft schema allows incomplete input but rejects unrelated or unbounded data',()=>{
+  const value=schema.normalizeRules(state());
+  for(const drafts of [null,[],{unrelated:{}},{toString:{}},{fees:{commissionRate:3,minCommission:'0'}},{fees:{commissionRate:'3'}},{fees:{commissionRate:'3',minCommission:'0',extra:'x'}},{fees:{commissionRate:'1'.repeat(101),minCommission:'0'}}]){
+    assert.throws(()=>schema.validate({...value,settingsRuleDrafts:drafts}),/草稿/);
+  }
+});

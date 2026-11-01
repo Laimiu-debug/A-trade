@@ -21,10 +21,15 @@ if (!app.requestSingleInstanceLock()) {
   });
   app.whenReady().then(async () => {
     app.setAppUserModelId('local.atrade.desktop');
+    const { createAppWindow } = require('./app-window.cjs');
+    mainWindow = createAppWindow();
+    await mainWindow.loadFile(path.join(__dirname, 'startup.html'));
+    if (!process.argv.includes('--start-hidden')) mainWindow.show();
     const { createDesktop } = require('./runtime.cjs');
-    mainWindow = await createDesktop({
+    await createDesktop({
       dataDirectory: path.join(app.getPath('userData'), 'workspace'),
       show: !process.argv.includes('--start-hidden'),
+      window: mainWindow,
     });
   }).catch(error => {
     dialog.showErrorBox('A-trade 启动失败',

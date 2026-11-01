@@ -320,7 +320,7 @@ def get_signals(
     signal_age_max: int | None = Query(default=None, ge=0, le=240),
     backtest_date_from: str | None = Query(default=None, min_length=10, max_length=10, pattern=r"^\d{4}-\d{2}-\d{2}$"),
     backtest_pool_roll_mode: BacktestPoolRollMode | None = Query(default=None),
-    backtest_max_symbols: int | None = Query(default=None, ge=20, le=2000),
+    backtest_max_symbols: int | None = Query(default=None, ge=0, le=2000),
 ) -> SignalsResponse | JSONResponse:
     strategy_params: dict[str, object] | None = None
     if strategy_params_json.strip():

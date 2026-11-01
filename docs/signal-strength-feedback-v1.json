@@ -1,0 +1,54 @@
+{
+  "schema": "strength-feedback-v1",
+  "strategyId": "strengthFeedbackV1",
+  "modes": ["known", "positive"],
+  "reportModes": ["baseline", "known", "positive"],
+  "labels": {"baseline": "原始跟随", "known": "状态可判定", "positive": "强势延续过半"},
+  "question": "Does admitting the unchanged leader-peer signals only when a previously fixed strong-stock cohort has a confirmed majority of positive five-session price continuations improve the observed net payoff distribution and continuous account path?",
+  "priorWork": {
+    "baseline": "Exact six control accounts and original control schedules of leader-lag-followers-v1. Do not rerun or reselect their leader/member setup.",
+    "distinctness": "The older market-state proposal mentioned prior strong-cohort subsequent premiums but its executed panel used Q-state transitions. Market-context strongCohort counted yesterday's Q members still satisfying Q today. Reclaim breadth used a paired cross-section's 20-session positive-return breadth. This is the first executable five-session absolute-price feedback test for a cohort fixed by an earlier RS20 ranking; it is not a claim to have invented the underlying idea.",
+    "unknownPolicy": "Fixed-denominator majority bounds are already used elsewhere in the research program. Their use here is specified before outcomes, not chosen after observing missingness or profit."
+  },
+  "population": {
+    "sources": "Reuse all six frozen board-coverage-reclaim-v1 raw-price datasets through the audited leader-lag-followers-v1 bindings: 2022-2023 and 2024-2025, main/chinext/star. No source refresh, extra universe or 2026 observations.",
+    "calendar": "Use the exact supplied source trading calendar. Every target session A is retained. F is exactly five source sessions before A and may precede target-period start. No compression of missing stock bars.",
+    "ranking": "At F calculate RS20=(stockCloseF/stockCloseFminus20)/(CSI300CloseF/CSI300CloseFminus20)-1 from complete valid 21-slot windows. Rank all finite known values in the entire fixed board cohort independently of setup/eligibility. Exact tied midrank=(zeroBasedFirst+exclusiveStop)/(2*validPopulationSize). Freeze all symbols with percentile>=0.90; do not truncate ties or reselect using A observations.",
+    "validation": "Use the already frozen raw OHLCV/status semantics in research_leader_lag: positive finite envelope-valid OHLCV, raw-unadjusted basis, explicit suspensions and false/zero historical trade status invalidate the corresponding slot. Absent status remains unverified, not proof of tradability.",
+    "scope": "This is a same-board historical survivor-cohort state, not an all-market, theme, investor-identity or point-in-time-complete measure."
+  },
+  "feedback": {
+    "window": "For each F-frozen member at A, require all six exact slots F through A to be valid. Its price feedback is closeA/closeF-1. Positive >0, flat =0, negative <0, otherwise unknown with the reason retained. This is an absolute raw close-price observation, not an executable net trade or excess return.",
+    "denominator": "N is the entire cohort frozen at F. A missing member remains in N; do not re-rank or shrink the denominator. Keep positive P, flat Z, negative L and unknown U separately, with N=P+Z+L+U.",
+    "state": "N=0 => unknown. Otherwise 2*P>N => pass; 2*(P+U)<=N => fail; otherwise unknown. Equality does not pass. A known decision can include unknown members when both possible outcomes imply the same majority verdict; knownDecision is not completeCohort.",
+    "rationale": "Twenty sessions supplies the inherited relative-strength ranking; five sessions represents a trading week; top decile and strict majority specify one simple hypothesis. No parameter sweep, return hurdle, future phase label or 2024-09-24 entry gate."
+  },
+  "admission": {
+    "source": "Only batch34 original control signals are eligible. Raw member Top5, owner IDs, ordering and upstream relation-unknown exclusions retain their audited parent lineage; the new test cannot resurrect an upstream excluded opportunity.",
+    "baseline": "Reuse the original six control accounts byte-for-byte with original strategy identity and original control policy metadata, displayed as baseline.",
+    "known": "At A close admit a source signal if that day's majority state is pass or fail. Exclude unknown state as unknown. This comparator separates unavailable/ambiguous feedback from the positive-state selection.",
+    "positive": "At A close admit a source signal only if that day's majority state is pass. Known fail is excluded; unknown remains unknown.",
+    "identity": "New schedules retain original signalId, symbol, signalDate=A and originalRank; only strategyId becomes strengthFeedbackV1. Sort by signalDate,originalRank,symbol,signalId. Never replace masked Top5 slots, change entry dates, or close existing positions because state changes."
+  },
+  "account": {
+    "startingCapital": 500000,
+    "positions": 5,
+    "entryWeight": 0.2,
+    "execution": "Unchanged noProgress5 ResearchExitAccount, 5% close stop, 10% close trailing, T+1, board lots/bands, next-open execution and opening-capacity proxies. No take-profit cap or maximum holding deadline.",
+    "fees": "Exactly the parent dated historical fee policy for 2022-2023 and LegacyFeePolicy for 2024-2025 with 10bp slippage per side. Parent valuation/source flags remain material.",
+    "cutoff": "Signals on final target day remain in the schedule; lack of an in-period next open is an unexecuted disposition, not a zero-return trade."
+  },
+  "evidence": {
+    "layers": "All target-day rank population/digest and reasons; F-frozen complete member rows including unknown continuations; day-level counts and robust state; original control opportunities and both decisions/schedules; account dispositions. Bind the full original raw Top5 and baseline accounts through parent input and delivery receipts.",
+    "readout": "18 account rows: 6 reused baseline plus 12 new. Per source retain known-minus-baseline, positive-minus-known and positive-minus-baseline contrasts. Report 36 annual,72 half-year,144 retrospective atlas-phase and18 event-boundary rows, costs, exposure, closed/open PnL, tails, streaks, concentration and valuation quality. No policy or board promotion.",
+    "eventBoundary": "2024-09-24 is a descriptive cut of continuous positions and equity, not a reset, causal inference or strategy condition.",
+    "trialAccounting": {"newAccounts": 12,"newSetupMechanisms": 0,"newEntryPolicies": 2,"newUniverseVariants": 0,"referenceAccountsReused": 6}
+  },
+  "validation": {
+    "beforeOutcomes": "Freeze protocol, production implementation, independent reference, summary, source bindings and meaningful synthetic tests before real feedback calculation. Independently rebuild every day and full frozen cohort plus both schedules before new accounts execute.",
+    "accountAudit": "Independently inspect saved ledgers, fees, cash/shares, open/closed episodes and reported metrics without duplicating real account executions. Bind baseline byte-for-byte to the prior completed batch.",
+    "limitations": "These years have already informed development; neither they nor previously inspected 2026 are fresh holdouts. Frozen rules and exact numerical validation do not remove survivor, raw-price corporate-action, historical status or execution-proxy limitations. No fixed profit/win-rate/payoff/holding-time acceptance threshold."
+  },
+  "certified": false,
+  "targetAchieved": false
+}

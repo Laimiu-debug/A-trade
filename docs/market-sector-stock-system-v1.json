@@ -1,0 +1,22 @@
+{
+  "schema": "market-sector-stock-system-research-direction-v1",
+  "status": "framework fixed by human steering; executable system parameters not yet registered",
+  "humanInstructionDate": "2026-10-18",
+  "objective": "Research one complete market-sector-stock-rotation and risk-management method; judge net payoff and excess return at continuous portfolio level.",
+  "primaryEvaluationStart": "2024-09-24",
+  "earlierMarketProfitTargetRequired": false,
+  "sectorMeaning": "Industries or themes, not exchange listing boards",
+  "orderedLayers": ["market regime and total turnover", "sector strength participation breadth and persistence", "leader pullback and confirmed catch-up entry", "portfolio cash risk and sector concentration", "invalidation and trend-following exits"],
+  "rotationBranches": ["catch-up within an already strong sector with pre-existing leaders", "new strong sector independently confirms before relay"],
+  "numericSystemParametersFrozen": false,
+  "numericSuccessTargetsHumanConfirmed": false,
+  "existingCapExperiment": "Complete and archive batch55 as one component experiment; do not promote it to a complete system.",
+  "nextExecutionUnit": "One integrated causal system, plus declared layer-removal account controls",
+  "validationControls": ["complete system", "remove market admission only", "remove industry selection only", "remove rotation branch only", "broad price benchmark", "predeclared industry-selection benchmark"],
+  "requiredData": ["broad turnover and price history", "dated industry membership with effective and availability semantics", "sector price turnover and member breadth", "stock OHLCV and cash/fee constraints"],
+  "dataRules": ["current industry/theme membership cannot be backfilled to historical decisions", "future leaders cannot define earlier catch-up candidates", "sector indices and constituent assignments must share a verified classification system and version; similar labels are not a crosswalk", "overlapping themes do not create additive market turnover", "unknown stays unknown", "all plans use T-close known information and documented T+1 execution"],
+  "deferred": ["corporate action source expansion", "isolated threshold sweeping", "claiming exchange-board cohorts are sector rotation"],
+  "completeSystemMarketAccountsRun": 0,
+  "completeSystemValidated": false,
+  "targetAchieved": false
+}

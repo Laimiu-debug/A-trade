@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "status": "design-awaiting-state-panel-audit-and-registration",
+  "createdAt": "2026-10-15T15:44:12.5753697Z",
+  "candidateId": "rawPersistentPriceLeaderMarketExpansionDiagnostic",
+  "title": "持续强势再突破信号的固定市场广度扩张过滤",
+  "hypothesisCount": 1,
+  "decisionTiming": "根代理在查看新市场状态面板结果前指定本单一假设。设计仅核对已冻结字段和父规则，不读取新面板中间输出、筛选数量或新收益。",
+  "parent": {
+    "candidateId": "rawPersistentPriceLeaderBreakoutDiagnostic",
+    "registration": "docs/signal-persistent-leader-price-proxy-v1.json",
+    "registrationSha256": "29759eb2bdd157480c515e2bbcdcdde6e8f21ea675f7bc2841f025f0df6d5bbf",
+    "completedArtifactDirectory": "artifacts/strategy-search/signal-persistent-leader-v1",
+    "inheritance": "继承父规则的全部个股证据、五项强度/路径门槛、五日突破、基础资格、完整排序、Top5、同日控制选择、费用、单次T+1入场、净+30目标、路径观察和分母口径。唯一变化是下述统一市场新入场过滤。"
+  },
+  "marketInputPending": {
+    "registration": "docs/signal-market-state-panel-v1.json",
+    "registrationSha256": "40a68c2a85cf4fd2b4e9d4968d80c027726187ea36f70487fa902662b07c2e20",
+    "featureVersion": "market-state-observations-v1",
+    "actualPanelBinding": null,
+    "actualIndependentAuditBinding": null,
+    "requirement": "新市场面板完整提取、独立逐日复算通过后，正式登记必须绑定全部输入文件、protocol、completion、源码归档及独立审计的实际SHA256；当前不假定这些产物已成功。"
+  },
+  "marketGate": {
+    "clock": "T收盘读取同一固定交易日的已审计daily行，只影响由T信号发起的T+1新入场。",
+    "combine": "all",
+    "conditions": [
+      {"field": "price20.coverage", "operator": ">=", "value": 0.9},
+      {"field": "matched5.available", "operator": "is", "value": true},
+      {"field": "matched5.pairedCoverageFixed", "operator": ">=", "value": 0.9},
+      {"field": "price20.medianAbsoluteReturn20", "operator": ">", "value": 0},
+      {"field": "matched5.matchedBreadthChange5", "operator": ">", "value": 0}
+    ],
+    "coverageMeaning": "0.90为查看新面板结果前选定的数据覆盖门槛，不是胜率门槛，不根据通过日期或收益调整。两个覆盖分母均为固定3141证券。",
+    "numericMeaning": "沿用冻结Python有限二进制浮点原值，直接比较，不加epsilon、不按显示值舍入、不clip。medianAbsoluteReturn20为过去20间隔收益中位数；matchedBreadthChange5为固定T/T-5交集的20日正收益广度变化（百分点），不是5日投资回报。",
+    "unknownPriority": "必要字段缺失、非有限、类型/范围错误，或matched5.available不为true，市场判据记unknown且不新开仓；即使另一个已知条件为false也保留unknown及全部可知谓词。必要证据齐全时，全部通过为true，任一未过为false；仅true允许新信号。",
+    "firstFiveTargetSessions": "缺少已冻结T-5目标期行，统一unknown，不从2021暖启动追认比较端点。",
+    "noOtherGate": "不增加成交额、昨日强势延续率、角色、主题、持仓数量、收益标签或新市场分类门槛。"
+  },
+  "selectionAndReplay": {
+    "preActiveReuse": "复用父试验已审计的每日全原始候选、完整字典序排名、固定Top5和按原hash选择的控制列表；正式登记绑定这些日志及审计hash，逐日核对完整性。不得用父试验执行后events倒推出原始信号。",
+    "parentOrder": "meanStrengthPercentile20降序、relativeReturn60Percentile降序、symbol升序；先固定Top5再做外部active排除，不补第6名。",
+    "uniformDailyFilter": "市场判据对同一T的策略Top5和父控制名单统一适用。false或unknown日两组均不产生新入场尝试；原排名、原控制名单和被过滤理由全部存档，不重排或重抽控制。",
+    "controlHash": "保留父seed a-trade-signal-same-day-base-pool-control-v1、父candidateId rawPersistentPriceLeaderBreakoutDiagnostic及原日期/symbol构成的SHA256选择，不因新candidateId换盐。",
+    "newReplayRequired": "从无active事件的初始状态，按过滤后的信号流重新逐日执行两个独立组的active排除、单次T+1入场及目标/路径观察。不得筛选父试验已成交、已实现或已达标events来代替新重演。",
+    "existingPositions": "市场过滤不修改既有仓位。沿用原nextOpenNet30目标退出、T+1卖出锁、无止损、无固定期限、无截止强平；已批准信号的次日开盘尝试不受该日随后收盘市场值追溯影响。",
+    "activeBoundary": "主目标在T开盘退出的证券可被同日T收盘新信号选择；未成交不建立active。两组各自active排除后均不补位。",
+    "comparisonLimit": "沿用原同日控制选择便于描述性比较，但新策略路径与两组独立active抑制会改变实际成交日期/数量，成交后不再一一配对，不构成随机因果效应。"
+  },
+  "unchangedExecutionAndSample": {
+    "fixedSymbols": 3141,
+    "fixedRawBars": 1796835,
+    "targetSessions": 484,
+    "signalStart": "2022-01-01",
+    "signalEnd": "2023-12-31",
+    "snapshotFingerprint": "226fcb48c6729c7ee1784eb871ff124ac921733f339b9e2fbe78cb3e592a9014",
+    "eventBudgetYuan": 100000,
+    "entry": "父规则按T已知价格/量及费用冻结整手数量，T+1开盘只尝试一次，不延期。",
+    "eventPolicyReference": "父registration.eventPolicy与auditAndEvaluation整体继承；复用同一冻结SignalTargetStudy、PathRiskStudy及执行配置，费用不重定义。",
+    "outcomes": ["nextOpenNet30", "rawHigh30", "netHigh30"],
+    "horizonsSessions": [5, 10, 20, 40, 60, 120, 250],
+    "cohortPolicy": "重新生成事件后按父规则各H完整潜在观察cohort、有效数据条件分母、缺数上下界及未成熟截尾分别汇总。早达标不能将不足H的新近事件纳入H分母；不复用父试验分母。",
+    "scopeLimit": "不增加缺档补数证券、日期或当前名称过滤；仍为反复使用的开发样本、未复权价格与未认证历史身份/权益/成交代理，非独立样本外。"
+  },
+  "requiredRecordsAndNextBoundary": {
+    "records": "保存全部484日市场谓词和true/false/unknown、全部父原始候选/排名/Top5/控制、所有被过滤日与信号、active抑制、未成交、已成交、未达标、缺数和右删失。未通过市场门槛不等于收益失败。",
+    "beforeExecution": "先完成市场面板独立审计和实际绑定，再另行正式登记本唯一规则、完整输入/父日志/源码/配置hash，实施并通过合成与独立审核后才允许真实重演。失败产物保留，完成产物不可覆盖。",
+    "researchAccounting": "本设计新增实际收益试验数为0；将来若完整执行则作为新的单一候选试验独立计数。不做参数搜索，不以市场通过率或收益选择门槛。"
+  },
+  "newStrategyTrials": 0,
+  "candidateEvaluationExecuted": false,
+  "strategyReturnsCalculated": false,
+  "marketSelectedDatesCalculated": false,
+  "parametersSearched": false,
+  "certified": false,
+  "targetAchieved": false
+}

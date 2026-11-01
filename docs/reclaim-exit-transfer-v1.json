@@ -1,0 +1,72 @@
+{
+  "schema": "reclaim-exit-transfer-v1",
+  "strategyId": "strongUndercutReclaimV1",
+  "modes": ["trail10", "structure10"],
+  "reportModes": ["baseline", "trail10", "structure10"],
+  "labels": {"baseline": "原第五日退出", "trail10": "保留百分比跟踪", "structure10": "前十日低点退出"},
+  "question": "On the unchanged six-board immediate undercut/reclaim signal streams, how do removing the fifth-session no-progress exit and replacing the percentage trail with the already implemented ten-session structure exit change complete accounts and observed payoff distributions?",
+  "novelty": {
+    "classification": "Transfer of two existing exit policies to six frozen reclaim sources; no new exit definition or signal mechanism.",
+    "priorExperiments": [
+      "account-exit-comparison-v1 evaluated hold, trail10 without initial stop, and stop5trail10 on the earlier emergence signal/source.",
+      "contraction-policy-screen-v1 evaluated stop5trail10, structure10 and noProgress5 on the same 131 earlier contraction signals in 2022-2023.",
+      "relative-repair-volatility-stop-v1 changed the initial stop to entry-frozen two times mean true range while retaining trail10/noProgress5; that is not this experiment."
+    ],
+    "nameClarification": "The short mode trail10 here retains the initial five-percent stop. It is economically the older stop5trail10 configuration, not the earlier trail10-only no-initial-stop arm."
+  },
+  "population": {
+    "sources": "Use every frozen board-coverage-reclaim-v1 source: 2022-2023 and 2024-2025, main/chinext/star. No downloads, source refreshes, universe changes or 2026 observations.",
+    "signals": "Use each source's complete original immediate.signals.json byte-for-byte. Every source signalId, strategyId strongUndercutReclaimV1, symbol, signalDate and originalRank is unchanged. No new scoring, entry filter, ranking, date gate, opportunity resurrection or replacement.",
+    "baseline": "Reuse all six original immediate noProgress5 result/checkpoint/summary artifacts byte-for-byte. Only report id/policy/label become baseline; the original saved strategy and policy metadata remain intact.",
+    "calendar": "Use the inherited independent source calendar and the original target intervals, preserving pre-start raw bars and all exact missing slots. Every original signal remains, including final-session signals without a later in-period opening.",
+    "scope": "Fixed historical survivor cohorts, all previously inspected development history. Boards are not pure technology industries or historical point-in-time market universes."
+  },
+  "policies": {
+    "baseline": {
+      "execution": "reused-frozen-account", "sourcePolicy": "immediate", "engine": "ResearchExitAccount", "exitRule": "noProgress5",
+      "stopLossPct": 0.05, "trailingStopPct": 0.1, "takeProfitPct": 0, "maxHoldingDays": 0,
+      "meaning": "Existing five-percent initial price stop and ten-percent close-peak trail, plus the exact fifth holding-session close <= riskEntryPrice exit. Entry session counts as one. An invalid fifth session is unknown and never retested later."
+    },
+    "trail10": {
+      "execution": "new-independent-account", "engine": "FixedSignalAccount", "exitRule": null,
+      "stopLossPct": 0.05, "trailingStopPct": 0.1, "takeProfitPct": 0, "maxHoldingDays": 0,
+      "meaning": "Keep the original initial stop and percentage trail, remove only the additional fifth-session no-progress exit. No fixed take-profit or holding deadline."
+    },
+    "structure10": {
+      "execution": "new-independent-account", "engine": "ResearchExitAccount", "exitRule": "structure10",
+      "stopLossPct": 0.05, "trailingStopPct": 0, "takeProfitPct": 0, "maxHoldingDays": 0,
+      "meaning": "Keep the five-percent initial price stop. Disable percentage trailing and fifth-session exit. At each held close compare close strictly below the minimum raw low of the ten exact preceding source sessions, excluding today. Equality does not trigger. The inherited helper requires a valid dated current positive close/volume and ten dated positive low/volume observations; missing or invalid windows are unknown, never compressed. No new stricter status filter is added to that frozen helper. The rolling threshold is not a ratchet and may decrease."
+    }
+  },
+  "execution": {
+    "priority": "Preserve existing queued exits. Historical eligibility/delist/ST and the configured initial stop take precedence; trail10 uses the inherited percentage trail, and structure10 runs after inherited standard risk. No mutation of global config or position reference is allowed.",
+    "clock": "Only close-time exit decisions; earliest subsequent executable opening under original T+1, lot sizes, price limits, quarantine and opening-capacity proxies. Blocked/partial forced exits retain the original order and retry as inherited. A nominal five-percent stop is not a realized-loss guarantee.",
+    "capital": "Independent 500000 starting cash for each newly executed policy, five positions and twenty-percent entry budgets. All original signal opportunities are processed, not only trades filled under the baseline.",
+    "fees": "Exactly the parent's DatedFeePolicy in 2022-2023 and LegacyFeePolicy in 2024-2025, with ten-basis-point slippage each side. No change to fees, sizing, reserve arithmetic, board gates or tradeability assumptions.",
+    "references": "Retain inherited riskEntryPrice/closePeak reference conversion on preclose changes and all associated valuation warnings. Prior raw structural lows retain the original helper semantics. No corporate-action reconstruction or price repair in this experiment.",
+    "cutoff": "Keep all open holdings, partial pending exits and censored opportunities at cutoff. No artificial liquidation or zero-return substitute. FixedSignalAccount supports its existing checkpoint envelope; structure10 snapshots remain descriptive and cannot restore. No resuming or rerunning a partial experiment automatically."
+  },
+  "comparison": {
+    "primary": {"id": "trail10VsBaseline", "control": "baseline", "candidate": "trail10", "meaning": "Remove the fifth-session exit while retaining the original initial stop and percentage trail."},
+    "secondary": {"id": "structure10VsTrail10", "control": "trail10", "candidate": "structure10", "meaning": "With no fifth-session exit in either arm, replace percentage trailing by the existing rolling-low structure exit."},
+    "overall": {"id": "structure10VsBaseline", "control": "baseline", "candidate": "structure10", "meaning": "Combined exit-policy change relative to the original account."},
+    "interpretation": "These are complete-account exit-policy comparisons. Changed holding times alter available slots, budgets, later filled signals and repeated-symbol episodes; original signal dates are identical but actual entry sets need not be. Do not subtract baseline trade outcomes to fabricate a new account."
+  },
+  "evidence": {
+    "binding": "Register original source, full upstream source/input receipts, exact common schedule and baseline artifact pins. Binding creates no new signal or price feature. Require passed pre-account tests and independent input validation before any new account.",
+    "readout": "Keep all eighteen accounts and eighteen signed contrasts, thirty-six annual, seventy-two half-year, one hundred forty-four retrospective phase and eighteen event-boundary rows, full costs/exposure/holding ages/closed and open PnL/tails/exit reasons/opportunity dispositions and valuation flags.",
+    "eventBoundary": "2024-09-24 is descriptive only, using continuous prior equity and carried positions. It is never an entry/exit switch or account reset.",
+    "trialAccounting": {"experimentBatches": 1, "newAccounts": 12, "referenceAccountsReused": 6, "newSetupMechanisms": 0, "newUniverseVariants": 0, "newEntryPolicies": 0, "newExitDefinitions": 0, "transferredExitPolicies": 2},
+    "productionChanges": "None. New runner/protocol and independent audit/report code only; existing production helpers and tests are unchanged."
+  },
+  "limitations": [
+    "The six board sources and all 2022-2025 outcomes have already informed development; no fresh holdout or 2026 experiment is claimed.",
+    "Raw prices, incomplete corporate actions, historical status/membership, source survival and execution proxies remain limitations. Arithmetic validation does not certify economic validity.",
+    "A structure exit can retain a trend longer or give back more profit; neither possibility is assumed to occur, and no policy is automatically promoted.",
+    "No minimum mean winner, win rate, payoff ratio, fixed gain target or mandatory holding period is introduced."
+  ],
+  "parameterSearch": false,
+  "profitHurdles": null,
+  "certified": false,
+  "targetAchieved": false
+}

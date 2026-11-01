@@ -134,7 +134,8 @@ class tq:
     @classmethod
     def get_sector_list(cls, list_type):
         record('sectors', list_type)
-        return [{'Code':'880001.SH','Name':'Fixture Banks'},{'Code':'880002.SH','Name':'Fixture Technology'}] + [{'Code':str(880000+number)+'.SH','Name':'Fixture Sector '+str(number).zfill(2)} for number in range(3,31)]
+        items = [{'Code':'880001.SH','Name':'Fixture Banks'},{'Code':'880002.SH','Name':'Fixture Technology'}] + [{'Code':str(880000+number)+'.SH','Name':'Fixture Sector '+str(number).zfill(2)} for number in range(3,31)]
+        return items + ([{'Code':'881115.SH','Name':'Fixture Forestry'}] if (ROOT / 'local-sector-enabled').exists() else [])
     @classmethod
     def get_stock_list_in_sector(cls, block_code, block_type):
         record('sectorStocks', block_code)
@@ -142,7 +143,7 @@ class tq:
 `;
 
 async function fixture() {
-  const names = {sh: [['000001', 'SH INDEX'], ['600900', 'YANGTZE POWER']], sz: [['000001', 'SZ BANK'], ['399001', 'SZ INDEX'], ['399006', 'GROWTH INDEX']], bj: [['899050', 'BJ INDEX']]};
+  const names = {sh: [['000001', 'SH INDEX'], ['600900', 'YANGTZE POWER'], ['881115', 'Fixture Forestry'], ['880363', 'Fixture Forestry']], sz: [['000001', 'SZ BANK'], ['399001', 'SZ INDEX'], ['399006', 'GROWTH INDEX']], bj: [['899050', 'BJ INDEX']]};
   await fs.mkdir(path.join(fixtureDirectory, 'T0002/hq_cache'), {recursive: true});
   for (const [market, entries] of Object.entries(names)) {
     await fs.mkdir(path.join(fixtureDirectory, 'vipdoc', market, 'lday'), {recursive: true});
@@ -163,6 +164,18 @@ async function fixture() {
     }
     await fs.writeFile(path.join(fixtureDirectory, 'T0002/hq_cache', `${market}s.tnf`), tnf);
   }
+  const indexDates = [];
+  for (let stamp = Date.UTC(2026, 8, 30); indexDates.length < 25; stamp -= 86400000) {
+    const day = new Date(stamp); if (![0, 6].includes(day.getUTCDay())) indexDates.unshift(day.toISOString().slice(0,10));
+  }
+  const indexBytes = Buffer.alloc(indexDates.length * 32);
+  for (const [i, day] of indexDates.entries()) {
+    const offset=i*32,close=10000+i*100;
+    indexBytes.writeUInt32LE(Number(day.replaceAll('-','')),offset);
+    for (const [at,value] of [[4,close],[8,close+100],[12,close-100],[16,close]]) indexBytes.writeUInt32LE(value,offset+at);
+    indexBytes.writeFloatLE(105000+i,offset+20);indexBytes.writeUInt32LE(1000+i,offset+24);
+  }
+  await fs.writeFile(path.join(fixtureDirectory,'vipdoc/sh/lday/sh881115.day'),indexBytes);
   await fs.mkdir(vendorDirectory, {recursive: true});
   await fs.writeFile(path.join(vendorDirectory, 'tqcenter.py'), vendorSource, 'utf8');
   await fs.writeFile(path.join(fixtureDirectory, 'PYPlugins/TPythClient.dll'), 'fixture - never loaded');
@@ -194,10 +207,34 @@ app.whenReady().then(async () => {
     await fill('[data-market-path]', fixtureDirectory);
     await action('configure');
     await wait('AT.marketUI.status?.symbolCount===6 && !document.querySelector("[data-market-action=configure]").disabled', '读取测试日线');
+    await navigate('M02');
+    await wait('!!document.querySelector("[data-sector-trend=sh881115]")', '未启用MCP时读取本地板块日线');
+    assert.equal(await evaluate('document.querySelectorAll("[data-market-sector]").length'),0,'未核对目录时不能把仅有指数日线的名称当作成分入口');
+    assert.equal(await evaluate('document.querySelector("[data-market-sector-basis=daily]").getAttribute("aria-pressed")'),'true');
+    assert.match(await evaluate('document.querySelector(".market-explorer-table").innerText'),/5 日涨幅[\s\S]*20 日涨幅/);
+    await click('[data-sector-trend=sh881115]');
+    await wait('!!document.querySelector("[data-sector-history-chart]")','本地板块日线图');
+    await evaluate('(()=>{const input=document.querySelector("[data-market-sector-date]");input.value="2026-09-28";input.dispatchEvent(new Event("change",{bubbles:true}));})()');
+    await wait('document.querySelector(".sector-date-controls").innerText.includes("实际日线截至 2026-09-28") && document.querySelector(".sector-history-dates")?.innerText.endsWith("2026-09-28")','列表和图共同切换历史截止日期');
+    assert.match(await evaluate('document.querySelector(".statusbar>span:first-child").innerText'),/截至 2026-09-28/);
+    const historical=(await evaluate("atradeDesktop.market('market.sectors',{basis:'daily',asOf:'2026-09-28'})")).data;
+    const forestry=historical.items.find(item=>item.symbol==='sh881115');
+    assert.equal(forestry.price,122);
+    assert.ok(Math.abs(forestry.return5-(122/117-1)*100)<1e-9);
+    await screenshot('market-sector-cutoff.png');
+    await evaluate('document.querySelector(".market-explorer-sectors").scrollIntoView({block:"center",behavior:"instant"});true');
+    await screenshot('market-sector-cutoff-list.png');
+    await evaluate('(()=>{const input=document.querySelector("[data-market-sector-date]");input.value="2026-10-01";input.dispatchEvent(new Event("change",{bubbles:true}));})()');
+    await wait('document.querySelector(".sector-date-controls").innerText.includes("所选 2026-10-01") && document.querySelector(".sector-date-controls").innerText.includes("实际日线截至 2026-09-30")','所选日期缺少日线时显示实际日期');
+    await action('latest-sectors');
+    await wait('document.querySelector(".sector-date-controls").innerText.includes("实际日线截至 2026-09-30") && !document.querySelector(".sector-date-controls").innerText.includes("所选 2026-10-01")','返回最新本地日线');
+    await navigate('C01');
+    await wait('!!document.querySelector("#market-online-form")','返回设置');
     await setChecked('#market-online-form [name=followLocal]', false);
     await fill('#market-online-form [name=root]', fixtureDirectory);
     await fill('#market-online-form [name=refreshSeconds]', '300');
     await setChecked('#market-online-form [name=enabled]', true);
+    await fs.writeFile(path.join(vendorDirectory,'local-sector-enabled'),'fixture current membership');
     await action('online-test');
     await wait('AT.marketUI.status?.online?.connected && !document.querySelector("[data-market-action=online-test]").disabled', '真实MCP检测');
     const status = (await evaluate("atradeDesktop.market('market.online.status')")).data;
@@ -206,6 +243,19 @@ app.whenReady().then(async () => {
     assert.equal(status.refreshSeconds, 300);
     assert.deepEqual(status.tools.sort(), expectedTools);
     await screenshot('market-live-settings.png');
+
+    await navigate('M02');
+    await wait('!!document.querySelector("[data-market-sector=sh881115]")','当前MCP目录中的日线板块可查看成分');
+    assert.equal(await evaluate('document.querySelector("[data-market-sector=sh880363]")'),null,'相同名称的旧代码不会混入当前板块目录');
+    await click('[data-market-sector=sh881115]');
+    await wait('AT.state.page==="M03" && document.querySelectorAll(".market-explorer-table [data-stock]").length===2','本地日线列表到MCP成分股的真实交接');
+    assert.doesNotMatch(await evaluate('document.querySelector("main").innerText'),/没有这个板块|另一套分类/);
+    await screenshot('market-sector-membership.png');
+    await fs.unlink(path.join(vendorDirectory,'local-sector-enabled'));
+    await navigate('C01');
+    await wait('!!document.querySelector("[data-market-action=online-test]")','返回连接设置');
+    await action('online-test');
+    await wait('AT.marketUI.status?.online?.connected && !document.querySelector("[data-market-action=online-test]").disabled','刷新独立报价目录');
 
     await navigate('M01');
     await wait('document.querySelector(".market-overview-panel").innerText.includes("3,100.50") && !document.querySelector("[data-market-action=refresh-quotes]").disabled', 'MCP指数快照');
@@ -218,6 +268,7 @@ app.whenReady().then(async () => {
     await screenshot('market-live-overview.png');
 
     await navigate('M02');
+    await click('[data-market-sector-basis=live]');
     await wait('!!document.querySelector("[data-market-sector=sh880001]")', 'MCP板块目录');
     assert.match(await evaluate('document.querySelector("main").innerText'), /Fixture Banks/);
     await wait('!document.querySelector(".market-explorer-rule").innerText.includes("读取更新") && document.querySelector(".market-explorer-summary").innerText.includes("有报价 30")', '全目录分批读取30板块报价');

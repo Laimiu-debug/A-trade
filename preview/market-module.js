@@ -16,6 +16,7 @@
   let quoteData = null, quoteError = '', quoteBusy = false, quoteKey = '', quoteSerial = 0, quoteUpdated = 0;
   let overviewDaily = null, overviewKey = '', overviewBusy = false, overviewSerial = 0;
   let sectorData = null, sectorDetail = null, sectorId = '', sectorBusy = false, sectorError = '', sectorKey = '', sectorQuery = '', sectorOffset = 0, sectorTimer, sectorSerial = 0;
+  let sectorBasis = 'daily', sectorAsOf = '';
   let chartMode = 'daily', chartSymbol = '', intradayDate = '', intradayData = null, intradayKey = '', intradayError = '', intradayBusy = false, intradaySerial = 0, intradayIndex = -1, intradayUpdated = 0;
   let dailyWindow = null, minuteWindow = {start: 0, end: 240}, minuteWindowKey = '', zoomFrame = 0;
   let chartDrag = null, suppressChartClickUntil = 0, suppressContextUntil = 0;
@@ -211,10 +212,12 @@
     finally {if (serial === researchSerial) {researchBusy = false; refreshVisible();}}
   }
   async function loadSnapshot(force = false) {
-    const key = String(version);
-    if (!source?.configured || snapshotBusy || (!force && snapshotKey === key)) return;
+    const asOf = AT.state.page === 'M03' && sectorBasis === 'daily' ? sectorData?.asOf || sectorAsOf || '' : '';
+    const key = `${version}|${asOf}`;
+    if (!source?.configured || (snapshotBusy && snapshotKey === key) || (!force && snapshotKey === key)) return;
+    if (snapshotKey !== key) snapshotData = null;
     snapshotKey = key; snapshotBusy = true; snapshotError = ''; snapshotProgress = null; const serial = ++snapshotSerial; refreshVisible(); scheduleJobPoll();
-    try {const data = await call('market.snapshot', {refresh: force}); if (serial === snapshotSerial) snapshotData = data;}
+    try {const data = await call('market.snapshot', {refresh: force, ...(asOf ? {asOf} : {})}); if (serial === snapshotSerial) snapshotData = data;}
     catch (error) {if (serial === snapshotSerial) snapshotError = safeError(error);}
     finally {if (serial === snapshotSerial) {snapshotBusy = false; refreshVisible();}}
   }
@@ -281,24 +284,28 @@
     finally {if (serial === quoteSerial) {quoteBusy = false; quoteUpdated = Date.now(); refreshVisible();}}
   }
   function sectorsView(detail = false) {
-    const header = AT.head(detail ? sectorDetail?.name || '板块详情' : '板块行情', detail ? '当前板块成分 · 本地日线观察与筛选' : '板块强弱与成交活跃度 · 通达信报价', detail ? B('返回板块', 'back', 'data-nav="M02"') : B('数据源设置', 'settings', 'data-nav="C01"'));
-    const connectionError = !online?.enabled ? '请先在设置中启用通达信 MCP，读取真实板块目录和成分。' : '';
+    const daily = sectorBasis === 'daily', asOf = sectorData?.asOf || '';
+    const header = AT.head(detail ? sectorDetail?.name || '板块详情' : '板块行情', detail ? '当前板块成分 · 本地日线观察与筛选' : daily ? '板块指数日线 · 列表与走势使用相同截止日期' : '板块强弱与成交活跃度 · 通达信实时报价', detail ? B('返回板块', 'back', 'data-nav="M02"') : B('数据源设置', 'settings', 'data-nav="C01"'));
+    const connectionError = (detail || !daily) && !online?.enabled ? '请先在设置中启用通达信 MCP，读取真实板块目录和成分。' : daily && !source?.configured ? '请先选择通达信本地日线目录。' : '';
+    const today = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const controls = `<section class="panel sector-date-controls" aria-label="板块行情日期与口径"><div role="group" aria-label="板块行情口径">${[['daily','日线快照'],['live','实时报价']].map(([value,label]) => `<button type="button" class="btn small${sectorBasis === value ? ' primary' : ''}" data-market-sector-basis="${value}" aria-pressed="${sectorBasis === value}">${label}</button>`).join('')}</div>${daily ? `<label for="sector-as-of">截至日期 <input type="date" id="sector-as-of" data-market-sector-date aria-label="板块行情截至日期" max="${today}" value="${E(sectorAsOf || asOf)}"></label>${action('最新日线','latest-sectors','','small')}<span role="status">${sectorBusy ? '正在读取所选日期…' : asOf ? `${sectorAsOf && sectorAsOf !== asOf ? `所选 ${E(sectorAsOf)} · ` : ''}实际日线截至 ${E(asOf)}` : '请选择日期，或读取最新日线'}</span><p>板块涨幅来自通达信板块指数；5日 / 20日与走势图共用日线，不是成分股平均涨幅。</p>` : '<p>实时报价与已下载日线的日期可能不同；按历史日期查看请使用日线快照。</p>'}</section>`;
     if (detail) {
       const lookup = new Map([...(snapshotData?.items || []), ...(snapshotData?.staleItems || [])].map(item => [item.symbol, item]));
       const items = (sectorDetail?.items || []).map(item => ({...item, ...(lookup.get(item.symbol) || {}), code: item.code || item.symbol.slice(2)}));
-      return header + marketJobProgress('market.snapshot') + AT.marketExplorer.stockView({items, kind: 'members', key: sectorId, title: sectorDetail?.name || '成分证券', asOf: snapshotData?.asOf, computedAt: snapshotData?.computedAt,
+      return header + `<section class="panel sector-date-controls"><span>${daily ? `板块观察日 ${E(asOf || sectorAsOf || '最新日线')} · 返回板块列表可更改截至日期。` : '实时报价模式 · 成分股指标来自本地日线。'} 成分归属为当前通达信目录，未还原历史成分。</span></section>` + marketJobProgress('market.snapshot') + AT.marketExplorer.stockView({items, kind: 'members', key: sectorId, title: sectorDetail?.name || '成分证券', asOf: snapshotData?.asOf, computedAt: snapshotData?.computedAt,
         busy: sectorBusy || snapshotBusy, error: sectorError || snapshotError || connectionError, refreshAction: 'refresh-sectors', warnings: [...(sectorDetail?.warnings || []), ...(snapshotData?.warnings || []), ...(items.some(item => !item.date) ? ['部分成分尚未收录本地日线，指标保持空缺。'] : [])]});
     }
-    const items = (sectorData?.items || []).map(item => {const quote = sectorQuotes.get(item.symbol); return {...item, ...(quote ? {price: quote.price, changePercent: quote.changePercent, amount: quote.amount, asOf: quote.asOf, receivedAt: quote.receivedAt, cached: quote.cached} : {})};});
+    AT.sectorTrends?.setContext?.(daily ? {basis: 'daily', ...(asOf || sectorAsOf ? {asOf: asOf || sectorAsOf} : {})} : {});
+    const items = daily ? sectorData?.items || [] : (sectorData?.items || []).map(item => {const quote = sectorQuotes.get(item.symbol); return {...item, ...(quote ? {price: quote.price, changePercent: quote.changePercent, amount: quote.amount, asOf: quote.asOf, receivedAt: quote.receivedAt, cached: quote.cached} : {})};});
     const comparison = AT.sectorComparison?.panel({items, catalogueReady: !!sectorData, busy: sectorBusy, loadingMetrics: sectorQuoteBusy,
-      error: sectorError || sectorQuoteError || connectionError, progress: {done: sectorQuoteDone, total: items.length}}) || '';
-    return header + comparison + (AT.sectorTrends?.panel() || '') + AT.marketExplorer.sectorView({items, title: '板块强弱', busy: sectorBusy, error: sectorError || connectionError, refreshAction: 'refresh-sectors',
+      basis: sectorBasis, asOf, error: sectorError || sectorQuoteError || connectionError, progress: {done: sectorQuoteDone, total: daily ? 0 : items.length}}) || '';
+    return header + controls + comparison + (AT.sectorTrends?.panel() || '') + AT.marketExplorer.sectorView({items, basis: sectorBasis, asOf, title: '板块强弱', busy: sectorBusy, error: sectorError || connectionError, refreshAction: 'refresh-sectors',
       loadingMetrics: sectorQuoteBusy, progress: {done: sectorQuoteDone, total: items.length}, computedAt: sectorData?.receivedAt,
       warnings: [...(sectorData?.warnings || []), ...(sectorQuoteError ? [sectorQuoteError] : []), ...(items.some(item => item.receivedAt && !item.asOf) ? ['部分快照未提供交易时间，采集时间不代表行情时刻。'] : []), '板块成交额可能重叠，不相加作为全市场成交额。']});
   }
   async function loadSectorQuotes(force = false) {
     const items = sectorData?.items || [];
-    if (sectorQuoteBusy || !online?.enabled || !items.length || AT.state.page !== 'M02' || document.hidden) return;
+    if (sectorBasis === 'daily' || sectorQuoteBusy || !online?.enabled || !items.length || AT.state.page !== 'M02' || document.hidden) return;
     if (force) {sectorQuoteDone = 0; sectorQuoteError = ''; sectorQuotes = new Map([...sectorQuotes].map(([symbol, quote]) => [symbol, {...quote, cached: true}]));}
     if (sectorQuoteError || sectorQuoteDone >= items.length) return;
     sectorQuoteBusy = true; sectorQuoteError = ''; const serial = ++sectorQuoteSerial; refreshVisible();
@@ -319,13 +326,13 @@
     finally {if (serial === sectorQuoteSerial) {sectorQuoteBusy = false; sectorQuoteUpdated = Date.now(); refreshVisible();}}
   }
   async function loadSectors(force = false) {
-    const detail = AT.state.page === 'M03', key = `${version}|${detail ? sectorId : 'all'}`;
-    if (!online?.enabled || sectorBusy || (!force && sectorKey === key)) {if (!detail) loadSectorQuotes(); return;}
+    const detail = AT.state.page === 'M03', daily = sectorBasis === 'daily', key = `${version}|${detail ? sectorId : 'all'}|${sectorBasis}|${sectorAsOf}`;
+    if (((detail || !daily) ? !online?.enabled : !source?.configured) || sectorBusy || (!force && sectorKey === key)) {if (!detail) loadSectorQuotes(); return;}
     if (detail && sectorKey !== key) sectorDetail = null;
     sectorKey = key; sectorBusy = true; sectorError = ''; const serial = ++sectorSerial; refreshVisible();
     try {
       if (detail) {if (!sectorId) throw new Error('请先在板块行情中选择一个板块。'); const data = await call('market.sector', {id: sectorId}); if (serial === sectorSerial) sectorDetail = data;}
-      else {const data = await call('market.sectors'); if (serial === sectorSerial) {
+      else {const data = await call('market.sectors', daily ? {basis: 'daily', refresh: force, ...(sectorAsOf ? {asOf: sectorAsOf} : {})} : {}); if (serial === sectorSerial) {
         const symbols = new Set((data.items || []).map(item => item.symbol));
         sectorData = data; sectorQuoteSerial++;
         sectorQuotes = new Map([...sectorQuotes].filter(([symbol]) => symbols.has(symbol)).map(([symbol, quote]) => [symbol, {...quote, cached: true}]));
@@ -333,6 +340,14 @@
       }}
     } catch (error) {if (serial === sectorSerial) sectorError = safeError(error);}
     finally {if (serial === sectorSerial) {sectorBusy = false; refreshVisible(); if (!detail) loadSectorQuotes();}}
+  }
+  function changeSectorDate(basis, asOf = sectorAsOf) {
+    sectorBasis = basis; sectorAsOf = asOf;
+    sectorSerial++; sectorBusy = false; sectorKey = ''; sectorData = null; sectorError = '';
+    sectorQuoteSerial++; sectorQuotes.clear(); sectorQuoteBusy = false; sectorQuoteDone = 0; sectorQuoteError = '';
+    snapshotSerial++; snapshotBusy = false; snapshotKey = ''; snapshotData = null;
+    AT.sectorTrends?.setContext?.(basis === 'daily' ? {basis: 'daily', ...(asOf ? {asOf} : {})} : {});
+    loadSectors(); if (AT.state.page === 'M03') loadSnapshot(); refreshVisible();
   }
 
   function newsView() {
@@ -750,6 +765,7 @@
   }, {passive: false});
   const previousView = AT.view;
   AT.view = page => {
+    if (page === 'M03' && !sectorId) {queueMicrotask(() => {if (AT.state.page === 'M03') AT.navigate('M02');}); return '<section class="panel sector-date-controls" role="status">正在返回板块列表，请选择要查看的板块。</section>';}
     if (pendingDay && page === 'G01' && pendingDay.symbol !== AT.state.stock) pendingDay = null;
     if (chartDrag && (page !== 'G01' || chartDrag.symbol !== AT.state.stock || chartDrag.mode !== chartMode)) endChartDrag();
     if (page === 'G01' && lastRenderedPage !== 'G01') { barsSerial++; barsKey = ''; barsData = null; barsError = ''; barsBusy = false; }
@@ -769,7 +785,7 @@
     if (!marketPages.has(page)) return;
     const label = $('.demo-label'), status = $('.statusbar>span:first-child');
     if (label) label.textContent = page === 'C01' ? '桌面设置' : '真实行情 · TDX / MCP';
-    const asOf = page === 'G01' && barsKey === `${version}|${AT.state.stock}` && barsData ? barsData.dataAsOf : source?.latestDate;
+    const asOf = ['M02', 'M03'].includes(page) && sectorBasis === 'daily' ? sectorData?.asOf : page === 'G01' && barsKey === `${version}|${AT.state.stock}` && barsData ? barsData.dataAsOf : source?.latestDate;
     if (status) { status.replaceChildren(); const dot = document.createElement('i'); dot.className = 'status-dot'; status.append(dot, document.createTextNode(source?.configured ? ` 本地日线${asOf ? ' · 截至 ' + asOf : ''} · MCP ${online?.enabled ? online.connected ? '已连接' : '已启用' : '未启用'}` : ' 行情来源 · 尚未选择数据目录')); }
   }
   function applyPendingDay() {
@@ -810,15 +826,17 @@
     },
     async refresh() {await loadStatus(true); return source;}, async flush() {const results = await Promise.allSettled([...writes]); return results.every(result => result.status === 'fulfilled');}};
   document.addEventListener('click', event => {
-    const button = event.target.closest('[data-market-action],[data-market-limit],[data-market-mode],[data-market-sector],[data-market-history-days],[data-market-cancel]');
+    const button = event.target.closest('[data-market-action],[data-market-limit],[data-market-mode],[data-market-sector],[data-market-sector-basis],[data-market-history-days],[data-market-cancel]');
     if (!button || button.disabled) return;
     event.preventDefault(); event.stopPropagation();
     if (button.dataset.marketCancel) {cancelMarketJob(button.dataset.marketCancel); return;}
+    if (button.dataset.marketSectorBasis) {changeSectorDate(button.dataset.marketSectorBasis); return;}
     if (button.dataset.marketHistoryDays) {const count = Number(button.dataset.marketHistoryDays); if ([60, 120, 250, 500, 1000].includes(count)) {researchHistoryDays = count; loadResearch();} return;}
     if (button.dataset.marketSector) {sectorId = button.dataset.marketSector; sectorDetail = null; sectorKey = ''; sectorOffset = 0; sectorQuery = ''; AT.navigate('M03'); return;}
     if (button.dataset.marketMode) {if (chartMode === 'daily' && button.dataset.marketMode !== 'daily') intradayDate = barsData?.rows?.[selectedIndex]?.date || intradayDate; chartMode = button.dataset.marketMode; if (chartMode !== 'daily') loadIntraday(intradayBusy); refreshVisible(); return;}
     if (button.dataset.marketLimit) {barsLimit = Number(button.dataset.marketLimit); dailyWindow = null; selectedIndex = (barsData?.rows?.length || 0) - 1; redrawChart(); selectDay(selectedIndex); return;}
     const name = button.dataset.marketAction;
+    if (name === 'latest-sectors') {changeSectorDate('daily', ''); return;}
     if (name === 'reset-zoom') {
       if (chartMode === 'daily') {dailyWindow = null; selectedIndex = (barsData?.rows?.length || 0) - 1; redrawChart(); selectDay(selectedIndex);}
       else {minuteWindow = {start: 0, end: 240}; intradayIndex = (intradayData?.rows?.length || 0) - 1; redrawChart(); selectMinute(intradayIndex);}
@@ -854,6 +872,7 @@
     if (event.target.id === 'market-search-form') {event.preventDefault(); event.stopPropagation(); clearTimeout(searchTimer); listOffset = 0; loadList(true);}
   }, true);
   document.addEventListener('change', event => {
+    if (event.target.matches('[data-market-sector-date]')) {if (event.target.checkValidity()) changeSectorDate('daily', event.target.value); return;}
     if (event.target.matches('[data-market-intraday-date]')) {if (event.target.value) {intradayDate = event.target.value; loadIntraday(true);} return;}
     if (!event.target.matches('[data-market-date]')) return;
     const index = barsData?.rows.findIndex(row => row.date === event.target.value) ?? -1;

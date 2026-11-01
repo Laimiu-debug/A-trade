@@ -1,0 +1,55 @@
+{
+  "schema": "leader-stage-coverage-protocol-v1",
+  "family": "leader-stage-coverage-v1",
+  "question": "Which pre-existing admission conditions explain the absence of leader prediction observations during the policy-launch phase, and how does event coverage vary across every fixed market phase?",
+  "objective": "Support research into empirical small-loss/larger-win strategies without fixed return, win-rate, payoff or holding-duration gates. Diagnose what the existing event definition can observe before designing another trading rule.",
+  "previousCompletedBatch": 46,
+  "scope": {
+    "periods": ["2022-2023", "2024-2025"],
+    "boards": ["main", "chinext", "star"],
+    "completeTimeline": "Use all six parent source calendars and all target dates, including days with no event or prediction. Reuse audited leader-lag daily evidence, leader events, amount-handoff formations, prediction rows and board-environment daily observations with exact source-cohort identity.",
+    "focalPhaseId": "2024-09-policy-rally",
+    "focalStart": "2024-09-24",
+    "focalEnd": "2024-10-08",
+    "focalRawReconstruction": "Only the three2024-2025 cohorts. Reconstruct every fixed-cohort symbol at every source-calendar focal date A and its exact F=A-10. No new raw-price calculation for other phases. No individual-stock repair or numeric2026 access.",
+    "universeLimit": "Inherited fixed board-local cohorts and raw price/status basis. Neither total-market coverage nor investor identity is asserted."
+  },
+  "focalReconstruction": {
+    "rankClock": "Start at earliest focal A minus29 source slots, equal to earliest F minus19, through last focal A. Compute full-cohort RS20/RS60 valid populations separately on each date, with the frozen midrank and original raw61-slot validity. Raw history must extend60 more slots before the first rank date. Do not begin rank history at9.24.",
+    "reuse": "Production may reuse frozen research_leader_lag._Series, _relative_return, _rank and _leadership. Independent verification uses the separately frozen older independent verifier's pure source/rank/strength/leadership functions, never the new production builder.",
+    "originalConditions": [
+      ["meanStrengthPercentile20", ">=", 0.90],
+      ["minimumStrengthPercentile20", ">=", 0.80],
+      ["relativeReturn60Percentile", ">=", 0.90],
+      ["closePathMaxDrawdown20", "<=", 0.10],
+      ["signedPathEfficiency20", ">=", 0.35]
+    ],
+    "activation": "A requires all five conditions and close strictly above the preceding five exact highs. Only these current candidates are evaluated against F by the original parent. F requires the same five conditions but not a breakout.",
+    "firstFailure": "Reporting decomposition only: any required unknown first; otherwise first false predicate in originalConditions order; then A breakout failure. F stops after the five predicates. Keep all true/false/unknown predicate masks as well. First-failure order is not causal importance; overlapping failures must not be added together.",
+    "fullPopulation": "Retain a row for every focal symbol and date, including current/F evidence, unknown reasons and exact historical rank dates. F evidence for non-candidates is reconstructed descriptive context, not an assertion that the original parent evaluated that stock.",
+    "candidateReconciliation": "Reproduce focal parent activationCounts, formationCounts, full current candidate identities/evidence, temporal ranking and Top5 event identities. Reproduce every reconstructed day's parent rank population/digest/reasonCounts. Reject discrepancies rather than silently recalculating or repairing parents.",
+    "top20Display": "For each focal date display at most20 symbols ranked only by known full-cohort raw relativeReturn20 descending then symbol ascending. Do not prefilter by61-slot validity, five conditions, later event admission or future returns. Retain current/F condition evidence and raw RS20 value/percentile. This display is not a new trading signal or retrospective list of winners."
+  },
+  "coverageAccounting": {
+    "upstream": "All cohort symbols split into A candidate/notTriggered/unknown. Only A candidates split into F passed/failed/unknown; only F passed are ranked and capped to leader Top5. Parent leader events retain formed/incomplete/unknown group kinds, without backfill.",
+    "handoff": "Join every selected parent leader event to exactly one43formation. Keep status locked/formed/notFormed crossed with groupKind. Earliest unlocked anchor creates an inclusive A..A+5 lock even when its group is incomplete; a suppressed event never extends the lock.",
+    "prediction": "46formed events directly create20 members times5 planned offsets. Neither34member Top5 nor43initial-amount eligibility, member-breakout or traded-value-crossing masks govern these prediction rows. Keep event-formation coverage and forecast-day coverage as distinct populations.",
+    "dates": "Parent and43event metrics use formationDate A. Prediction slots use forecastDate, with null dates separately retained in overall totals. Events whose forecast dates span phases may be counted in multiple slices; do not sum their distinct counts as if disjoint. Label dates do not determine forecast phase.",
+    "environment": "Reuse the existing independently audited same-cohort daily benchmark, breadth and amount observations by their original formationDate A. Those observations end at the preceding source session A-1; retain and show environmentAsOfDate explicitly. They describe the environment available before A, not A closing-market conditions. Do not shift or recompute them. Preserve known/unknown denominators and units. Phase environmental means use only known daily values and report contributing day counts. Do not infer quantitative-fund, retail or main-force ownership.",
+    "segments": "Six full-cohort totals, all48 frozen atlas phase by board rows, and six before/from2024-09-24 rows within2024-2025. Also retain each focal date by board with its full admission decomposition and top20 display. All empty phases remain explicit.",
+    "limits": "A condition accounting identity explains why software excluded an observation; it does not establish why the market rose or which stock causally led it. Event frequency is not profit, hit rate, or independent sample size."
+  },
+  "validation": {
+    "beforeExecution": "Freeze source/input hashes and all analysis code; pass meaningful synthetic tests before reading newly aggregated coverage or focal raw results. Use one exclusive execution start; preserve failures.",
+    "independent": "Independently reconstruct full focal symbol/day states and ranks from raw sources; compare every field with controlled numerical tolerance and exact identities/statuses. Independently check original-parent reconciliation, all full-calendar joins, lock/group/status conservation,20x5forecast design, censoring, phase/epoch assignment, and all aggregate denominators.",
+    "tests": "No warmup truncation; unknown precedence; concurrent predicate failures; F does not require breakout; strict A breakout; ties and full-cohort rank populations; Top20 accepts RS20-known even when RS60 unknown; all-zero event days; duplicate/missing joins rejected; locked incomplete group; notFormed still locks; forecast versus formation boundaries; null end dates; empty slices and missing environment values; no mutation and future numeric perturbation."
+  },
+  "trialAccounting": {"completedResearchBatchesAdded": 1, "newTradingCandidates": 0, "newAccounts": 0, "reusedAccounts": 0, "meaning": "Coverage and admission diagnostic; not a trading backtest."},
+  "limitations": [
+    "All inspected2022-2025 history is development data;2026 is not a pristine holdout and is not used here.",
+    "The9.24 boundary and atlas phases are descriptive research partitions, not buy/sell switches.",
+    "Current strong stocks, persistent leaders and market-wide causal leadership are different concepts.",
+    "No winning-board selection, filter relaxation, return threshold, parameter search or new account follows automatically from this diagnostic."
+  ],
+  "targetAchieved": false
+}

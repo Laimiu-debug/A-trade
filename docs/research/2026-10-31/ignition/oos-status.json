@@ -1,0 +1,41 @@
+{
+  "schema": "ignition-oos-status-v1",
+  "trueOosResultAvailable": false,
+  "historicalRetestsCompleted": true,
+  "history": "Both development and2026 periods were previously exposed; temporal split does not reset usage.",
+  "currentStudyMaximumPriceDate": "2026-10-15",
+  "currentStudyReadNewPriceSegment": false,
+  "sourceUsageAudit": {
+    "path": "artifacts/strategy-search/profitability-review-20261031/oos-audit/audit.json",
+    "sha256": "92cc68d6d4ce63408a93f0b911755981d5579bd3761bbd696e7306e3c086e93f"
+  },
+  "auditScope": "Reuses the same-day prior usage audit; this record does not claim an additional scan of live prices or sources.",
+  "forwardProtocol": {
+    "status": "Not yet available at a sufficient independent length",
+    "exposedThrough": "2026-10-15",
+    "laterScanExposureThrough": "2026-10-23",
+    "twoDaysWithoutLocatedUse": [
+      "2026-10-26",
+      "2026-10-27"
+    ],
+    "localMissing": [
+      "2026-10-28",
+      "2026-10-29",
+      "2026-10-30"
+    ],
+    "newSegmentConsumption": "No prices or returns after2026-10-15 read in this study.",
+    "prospectiveStartNotBefore": "2026-11-02",
+    "minimumCompletedIndependentSessions": 60,
+    "minimumClosedTrades": 30,
+    "requires": "Rules/code/input identity frozen before observing that session; append-only simulated records; no real orders; verify published trading calendar; no parameter reselection from forward outcomes.",
+    "automationCreated": false,
+    "profitabilityProven": false,
+    "priorAudit": {
+      "path": "artifacts/strategy-search/profitability-review-20261031/oos-audit/audit.json",
+      "sha256": "92cc68d6d4ce63408a93f0b911755981d5579bd3761bbd696e7306e3c086e93f"
+    }
+  },
+  "productionPromotion": false,
+  "realOrders": false,
+  "automatedForwardJobCreated": false
+}

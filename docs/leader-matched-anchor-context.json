@@ -1,0 +1,22 @@
+{
+  "schema": "leader-matched-anchor-context-v1",
+  "recordedAt": "2026-10-16T20:43:51.719126+00:00",
+  "priorTurnClassification": "progress",
+  "priorEvidence": {
+    "delivery": {
+      "path": "artifacts/strategy-search/leader-amount-handoff-v1/delivery.json",
+      "sha256": "9e59cfff71905056f90e8f3785f271fa211d5cd03fd275b1b76dbf3aa51c217c"
+    },
+    "verifiedPreviousMembers": 254,
+    "completedBatches": 43
+  },
+  "decisionFrame": "Compare real versus pre-matched outside-group anchor crossing on a new common subset of inherited member first-breakout Top5; all36 accounts executed anew.",
+  "sourceAuthority": "Frozen board-source raw caches, independently verified batch43 formation/opportunity stream and direct latest user corrections.",
+  "userObjective": "Empirical repeatable small losses and larger wins; no annual30, single30, average-win, win-rate, payoff or holding-duration gate.",
+  "novelty": "Prior own activity was descriptive; peer amount/alignment used group aggregates. This experiment changes only the anchor identity used in individual amount-crossing predicates within fixed member/decision slots.",
+  "noncausalLimits": "Prior traded-value-scale matching does not balance A-day activity, price strength, theme, correlation or common news. Outside-group means only outside this one frozen group, not non-leading/unrelated/random.",
+  "populationChange": "Adding common pseudo initial and amount completeness makes the control differ from old43. Old control results are background population context, not reused matched accounts.",
+  "phaseUse": "2024-09-24 and all existing narrative phases are continuous-equity descriptive strata, never trading switches.",
+  "dataLimit": "2022-2025 repeatedly used development history; no2026 or pristine holdout claim.",
+  "format": "Continue established in-chat chart plus adjacent Sources; no external publication or user-workspace import."
+}

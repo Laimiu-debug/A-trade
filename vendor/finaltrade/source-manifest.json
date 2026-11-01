@@ -189,8 +189,9 @@
     },
     {
       "path": "backend/app/main.py",
-      "sha256": "eae923162e76c90b676bb5872c42e04f3ff1a7cb3b49855a4ba198c50eacd061",
-      "bytes": 55726
+      "sha256": "345bca8a24e08e66db6a51c80cc8ae427204752bb8e2dec69ac2cdfc7201aadc",
+      "bytes": 55725,
+      "upstreamSha256": "eae923162e76c90b676bb5872c42e04f3ff1a7cb3b49855a4ba198c50eacd061"
     },
     {
       "path": "backend/app/market_data_sync.py",
@@ -199,8 +200,8 @@
     },
     {
       "path": "backend/app/models.py",
-      "sha256": "8a3912908240c3fdfb429e1d6849e237a25dfbafc7e64133a26345de603d3202",
-      "bytes": 64618,
+      "sha256": "8704af1b5baf80fdad5e9593a12fa8c5c8e83a5703c5a244509de76f438fec6d",
+      "bytes": 64711,
       "upstreamSha256": "6a62fe8eb69c3aab8d3bf85a8a56a35ff82b74ad9bb950520f04766e45baff52"
     },
     {
@@ -240,14 +241,15 @@
     },
     {
       "path": "backend/app/store.py",
-      "sha256": "8d77916fabf46fb0e8ef6dfcda22931939e6ed7b2e1e8e38add17cbc542aca26",
-      "bytes": 869900,
+      "sha256": "fe3d49cec31109d62e94d5478e8cf2021c445bb66cdf82c4a83a4802ddf6048a",
+      "bytes": 878301,
       "upstreamSha256": "6cf84239fcc8ce3fd5bc941682e7eb5a2718d68968b0706170563503924459be"
     },
     {
       "path": "backend/app/tdx_loader.py",
-      "sha256": "20b683446decf4e1ec5b085610b20208638db2f34f354ed7255e74b341a54089",
-      "bytes": 40171
+      "sha256": "a6d53f26e0fcab4203f4a6c5e84c444d4ef2ae1a47614c2762fabff6a0b57b09",
+      "bytes": 44373,
+      "upstreamSha256": "20b683446decf4e1ec5b085610b20208638db2f34f354ed7255e74b341a54089"
     },
     {
       "path": "backend/app/utils/__init__.py",
@@ -391,8 +393,8 @@
     },
     {
       "path": "frontend/src/pages/backtest/BacktestPage.tsx",
-      "sha256": "72f342d2044cb1a23c720ee1c121449c2a3142017da559b940420d375aecabdb",
-      "bytes": 349620,
+      "sha256": "830e4b3a94a91fff0d4480094030248d1ad5ba6c01096492ae4706d1a3bac528",
+      "bytes": 350516,
       "upstreamSha256": "39cb14c1a6d8a7302590559f805fc349260e6140ca9a0a38af07b96fce93c39a"
     },
     {
@@ -682,6 +684,12 @@
       "bytes": 1061
     },
     {
+      "path": "frontend/src/shared/utils/backtestUniverse.ts",
+      "sha256": "fc06bf3c093c6834e7ecd403f1e4e68df4e31c4a19602b26b5ec48c28af3cd42",
+      "bytes": 493,
+      "upstreamSha256": null
+    },
+    {
       "path": "frontend/src/shared/utils/candleStats.ts",
       "sha256": "537595d5e21f47f14875e475579cd233794163687ab09431593b8f0c254b286d",
       "bytes": 4765
@@ -817,6 +825,12 @@
       "bytes": 24657
     },
     {
+      "path": "frontend/src/test/backtestUniverse.test.ts",
+      "sha256": "2183035b807bd4212e6d6655bbbc239206f4d0658d0256f86303242efdc552af",
+      "bytes": 1164,
+      "upstreamSha256": null
+    },
+    {
       "path": "frontend/src/test/dataQuality.test.ts",
       "sha256": "d0dda02f09b6335449002b724d794a768c1d06d9e8e81873a0fd80b5193a4a99",
       "bytes": 1412,
@@ -914,5 +928,5 @@
     }
   ],
   "upstreamSourceState": "working-tree",
-  "atradePatchRevision": "strategy-safety-grid-workspace-v3"
+  "atradePatchRevision": "source-aware-backtest-cache-v6"
 }

@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "status": "registered-before-first-real-extraction",
+  "registeredAt": "2026-10-15T15:24:18.991854+00:00",
+  "observationId": "covered-sample-market-state-observations-v1",
+  "featureVersion": "market-state-observations-v1",
+  "sourceFeatureVersion": "daily-leadership-raw-v1",
+  "design": {
+    "path": "docs/signal-market-state-research-v1.json",
+    "sha256": "e453f5cccb3ea31d9f88581dba75b26ff06e2f0d0ea38839aad0b1898ae701c0"
+  },
+  "purpose": "形成事前可观察的市场连续量和昨日强势队列变化证据，为后续单独登记的净+30%策略试验提供输入。",
+  "sample": {
+    "start": "2022-01-01",
+    "end": "2023-12-31",
+    "symbols": 3141,
+    "sessions": 484,
+    "rows": 1520244,
+    "snapshotFingerprint": "226fcb48c6729c7ee1784eb871ff124ac921733f339b9e2fbe78cb3e592a9014",
+    "meaning": "固定本地原始价样本，非完整历史全市场；已多次用于开发，非独立样本外。"
+  },
+  "input": {
+    "directory": "artifacts/strategy-search/leadership-panel-v1",
+    "filesSha256": {
+      "manifest.json": "06912e237350ba45042eaccb4970a565517ec46f34ff9e81531feef22fe59d6b",
+      "features.jsonl.gz": "58488ce25577100b09c6e3879cd94fa93fc3e6e59a4087d0f7fb99d38b126960",
+      "daily-coverage.jsonl.gz": "a09b2de7d0cf4088a9c5703bd6f4caa04691a85725fe52abe9fa19363583cacb",
+      "warmup-coverage.jsonl.gz": "d9a8a5b55dd069d5f47bf0d3ca46dcbaf46c39c5e854a774f65b464d083da614",
+      "summary.json": "67eb01a2d192abf02cb9cc985f9945fb68cfa3390bf5ac840b501a132c388611",
+      "execution-sources.zip": "3c70db4f16627292c8d0b4f9514e1910a51c4802a6772ede7686cbd468d28d0e",
+      "attempt.json": "e7241851abc8455b9ce77c50670a4a16e8ca0e734556ad600c7fbab735e40e55",
+      "independent-verification.json": "f5b6ed84e4f4ab62b2922123c63c9a565a9a225ada6cabbb687789060ed851d5",
+      "completion.json": "1c0000bd0cdfa96e6550e4662803afc4a63b3f3d92b17a04538de3ef1fd139e7"
+    }
+  },
+  "metrics": {
+    "price20": "E20为security20完整、return20有限且无该特征失败原因的所有固定证券。输出收益中位数、正/零/负数量和正收益占比；0计入分母，空分母null。不得使用baseEligibility、排名或未来结果过滤。",
+    "matched5": "T-5为第五个之前的目标交易日。固定交集I=E20(T)∩E20(T-5)，输出两端同I的正收益比例、两端中位收益、广度差(百分点)与中位收益差(比例差)。保留两端N、交集N和固定/两端覆盖。前5目标日unknown，不扩展暖启动。",
+    "amount": "EA独立于价格：amountToday和amountPrior20完整、knownAmountSessions20=20、当日/均额/比值均有限且正、无对应特征原因。输出比值中位数、N与覆盖。OHLC单独缺陷不抹除有效成交额。不推断净流入或控制者。",
+    "quality": "逐日保留每一输入完整性组的complete数量和missing/invalid/halt/unknownStatus证券数量；原因可重叠。保留featureReasons与资格旁表。未知历史身份/交易状态不升级为已知、也不自动使价格诊断无效。",
+    "marketRegime": null,
+    "minimumCoverageThreshold": null,
+    "thresholdMeaning": "本任务不分类扩张/退潮、不定义交易状态，不筛选收益；连续量非空即可输出，同时披露覆盖。"
+  },
+  "qDefinition": {
+    "id": "persistent-price-strength-five-gates-v1",
+    "values": [
+      "true",
+      "false",
+      "unknown"
+    ],
+    "gates": [
+      {
+        "field": "meanStrengthPercentile20",
+        "operator": ">=",
+        "value": 0.9
+      },
+      {
+        "field": "minimumStrengthPercentile20",
+        "operator": ">=",
+        "value": 0.8
+      },
+      {
+        "field": "relativeReturn60Percentile",
+        "operator": ">=",
+        "value": 0.9
+      },
+      {
+        "field": "closePathMaxDrawdown20",
+        "operator": "<=",
+        "value": 0.1
+      },
+      {
+        "field": "signedPathEfficiency20",
+        "operator": ">=",
+        "value": 0.35
+      }
+    ],
+    "requiredEvidence": "raw-unadjusted；security20/60、benchmark20/60、path20完整；20个有界有限的历史RS20分位、有效各自横截面N和严格有序不晚于T且末日=T的20排名日期；known/availableStrengthRankSessions20=20；五个特征有限有界且无关联featureReasons；20/60收益和相对收益有限；RS60横截面N正且不超过固定样本数。均值/最小值须与20排名一致。",
+    "priority": "任何必要证据缺失/矛盾先判unknown，即使已知另一门槛false；仍保留各项可知的失败。仅全部必要证据完整才判五项全过=true，否则false。无epsilon或舍入改变边界。",
+    "identityLimit": "完整性中的未知交易状态、ST、成员和上市身份保持诊断未知，不令所有行Q未知；已知停牌/缺失/无效必需窗口由原完整性规则处理。",
+    "excludedFilters": [
+      "五日价格突破",
+      "baseEligibility",
+      "当前名字",
+      "Top5",
+      "持仓",
+      "未来标签"
+    ],
+    "meaning": "全样本持续价格强势队列，可空、可并列，不认证市场影响、资金控盘或交易资格。"
+  },
+  "roles": {
+    "firstDay": "没有前一目标日角色，priorQState=null，当前true均为priorStateUnknownEntrant；previousCohortAvailable=false，所有昨日队列数量和率null，不伪造2021角色。",
+    "priorTrue": "昨日Qtrue固定名单，今日分continued/observedFailure/unknown三类，分母不随缺失变化；合计等于昨日强势数量。条件延续率=continued/(continued+observedFailure)；另报覆盖和包含未知的上下界。",
+    "newTrue": "昨日false且今日true为knownNewChallenger；昨日unknown或无前日且今日true为priorStateUnknownEntrant；昨日true今日true为continued。三者合计今日true。",
+    "allOtherRows": "全证券保留priorQState/currentQState以及对应转移，不仅输出昨日/今日true。baseEligibility只作原样旁表。",
+    "formation": "仅记录相邻日转移；不把重新满足自动命名修复，不把新强者自动命名卡位，不延长未知中断后的连续天数。"
+  },
+  "lifecycle": {
+    "preExecution": "先通过合成边界/时序/完整性测试及独立代码审核，冻结协议与全部执行源码归档，再运行一次完整提取。",
+    "sourceBinding": "检查9个已冻结panel文件、manifest样本/日历/每行身份与来源hash，流读消费EOF；执行前后校验输入、协议与代码hash。仅消费已审计panel，不重新读取当前行情目录。",
+    "outputs": [
+      "protocol.json",
+      "execution-sources.zip",
+      "daily.jsonl.gz",
+      "roles.jsonl.gz",
+      "summary.json",
+      "completion.json"
+    ],
+    "failure": "失败保留failure和部分输出；不自动重启/复算成功产物。技术恢复须先诊断、记录已观察输出，另编号目录，规则不可偷偷变更。",
+    "independentReplay": "逐日独立重算所有聚合指标及全证券Q/转移，不导入新特征模块；复核完整行数、分母、首日/前五日unknown、原样资格、input/output/source hashes。"
+  },
+  "newStrategyTrials": 0,
+  "returnsCalculated": false,
+  "futureLabelsCreated": false,
+  "certified": false,
+  "targetAchieved": false
+}

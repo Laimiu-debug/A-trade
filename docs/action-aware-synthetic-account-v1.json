@@ -1,0 +1,48 @@
+{
+  "schema": "action-aware-synthetic-account-v1",
+  "createdDate": "2026-10-18",
+  "parentDesign": "docs/action-aware-research-contract-v1.json",
+  "status": "implemented-isolated-synthetic-engine; source-and-market-acceptance-pending",
+  "goalStatus": "active",
+  "targetAchieved": false,
+  "humanScope": "2024-09-24 is the main bull/bear split. Primary evaluation remains post-split net realized payoff, liquidity and excess returns; bear profitability is not required. No numerical success threshold has been confirmed by the human.",
+  "implementation": {
+    "arithmetic": "service/research_action_basis.py",
+    "account": "service/research_action_account.py",
+    "actionSeams": "service/research_action_account_core.py",
+    "staticDailyFlow": "service/research_action_account_day.py",
+    "tests": ["tests/test_research_action_basis.py", "tests/test_research_action_account.py"],
+    "marketUsePermittedByThisVersion": false,
+    "legacyModulesModified": false,
+    "oldConstructorActionRejectionRetained": true,
+    "runtimeMonkeypatchUsed": false
+  },
+  "modelDecisions": [
+    "Gross cash and actual additional shares are distinct from virtual ex-reference terms. Source dates and missing fields are explicit.",
+    "Historical OHLC is compared in the as-of close's units using only already-effective, dated events. Raw bars/amount/volume stay unchanged; the output is price continuity, not portfolio total return.",
+    "Bonus shares increase lots and preserve total entry cost. Risk entry/peak and stale marks are converted once; the volatility ratchet ratio stays invariant.",
+    "Floor/ceil account-level fractional share allocations are named sensitivities. Largest-remainder lot allocation is a deterministic research convention, not evidence of actual CSDC shareholder allocation.",
+    "A required fixed tax-reserve rate is an explicit scenario. Gross receivable, provisional tax liability, paid reserved cash and spendable cash are separate. This is not an investor-specific duration/FIFO tax assessment.",
+    "Date-only dividends are spendable at the first processed opening strictly after scheduled pay-date. This conservative model does not assert a broker credit timestamp.",
+    "Receivables and dividend income remain bound to the original entry episode even if the symbol is later reentered.",
+    "Ex-day pending buys retain their frozen T-close quantity and acquire no prior-record entitlement. Saved exits are retained; locked grants can require later partial fills.",
+    "A missing ex-bar keeps valuation stale and blocks fills requiring the missing prior session. Price-continuity comparison converts the old observation's units without inventing a missing tradable quote.",
+    "Unexplained raw/reference discontinuities remain quarantined. Day rollback restores cash, lot rights, dividend claims, risk ratchets, opportunities and fees."
+  ],
+  "controlledCopyScope": {
+    "volatilityMethods": "Entry binding, forced trail queue, risk formula, ordering and trail snapshot logic remain AST-equivalent to the old frozen rule.",
+    "dailyFlowSubstitutions": ["apply_actions -> explicit research pre-open event processing", "asset_adjustment -> research net receivable/liability adjustment", "capture_rights -> original-episode record-close snapshot", "raw-close continuity check -> same-unit reference; execution quote seam unchanged"],
+    "evidence": "tests/test_research_action_account.py"
+  },
+  "unresolvedBeforeMarketReplay": [
+    "Dated event coverage for the entire frozen cohort and all feature warmup/account intervals, including explicit unsupported/unknown events; two outcome-identified issuer cases are not a complete source ledger.",
+    "An independently checked action-aware signal builder using the causal price basis for strength ranks, supports and all lookbacks; do not feed adjusted prices into the old explicitly-raw builder.",
+    "A frozen real-source adapter and complete sensitivity protocol. This implementation accepts explicit synthetic fixtures only.",
+    "Generic entitlement custody when record and ex are not adjacent source sessions. This version rejects the entire unsupported input rather than dropping affected stocks.",
+    "Actual broker fraction/credit evidence or explicit scenario bounds, and a separate accepted tax model. Floor/ceil strategy paths are sensitivities, not mathematical bounds on final strategy return.",
+    "Rebuild original-start accounts, signals, cash paths and fees across post-2024-09-24 periods. No correction of ending equity alone and no claim of a pristine historical holdout."
+  ],
+  "newMarketAccounts": 0,
+  "newStrategyTrials": 0,
+  "permissionBoundary": "Local isolated research only; no protected user JSON changes, actual orders, commit, push, packaging or publication."
+}

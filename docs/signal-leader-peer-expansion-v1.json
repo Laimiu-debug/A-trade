@@ -1,0 +1,296 @@
+{
+  "schemaVersion": 1,
+  "registeredAt": "2026-10-15T20:57:58.474176+00:00",
+  "status": "registered-rule-awaiting-reviewed-runner",
+  "candidateId": "rawLeaderPeerExpansion",
+  "controlId": "control_rawLeaderPeerExpansion",
+  "title": "事前持续强势与固定价格相关群体的扩散",
+  "objective": {
+    "singlePositionNetGainPct": 30,
+    "fixedHoldingDeadline": null,
+    "annualizedTarget": null
+  },
+  "hypothesisCount": 1,
+  "stage": "reused-development-raw-price-diagnostic",
+  "designExposure": "Thirteen earlier fixed candidate studies and two supplemental replications have been inspected. Their outcomes informed this new hypothesis. Its peer correlations, groups, expansion population and resulting outcomes have not been inspected to select parameters. This is adaptive development, not an independent holdout.",
+  "sample": {
+    "signalStart": "2022-01-01",
+    "signalEnd": "2023-12-31",
+    "warmupStart": "2021-08-02",
+    "expectedFullSnapshotFingerprint": "226fcb48c6729c7ee1784eb871ff124ac921733f339b9e2fbe78cb3e592a9014",
+    "expectedFullSecurities": 3141,
+    "expectedFullBars": 1796835,
+    "expectedScoredSessions": 484,
+    "expectedWarmupSessions": 103,
+    "expectedCalendarSessions": 587,
+    "expectedFeatureRows": 1520244,
+    "selection": {
+      "mode": "all",
+      "source": "local",
+      "markets": [
+        "sh",
+        "sz"
+      ],
+      "boards": [
+        "main"
+      ],
+      "benchmarkSymbol": "sh000300"
+    },
+    "meaning": "The unchanged original local-file sample is incomplete as a historical whole-market universe. All sample rows are retained regardless of eligibility or future results. The separately recovered 56 stocks are not appended.",
+    "newDatesOrSampleParametersAllowed": false
+  },
+  "sourceBinding": {
+    "workspace": "artifacts/strategy-search/source-workspace",
+    "panelDirectory": "artifacts/strategy-search/leadership-panel-v1",
+    "files": {
+      "manifest.json": "06912e237350ba45042eaccb4970a565517ec46f34ff9e81531feef22fe59d6b",
+      "features.jsonl.gz": "58488ce25577100b09c6e3879cd94fa93fc3e6e59a4087d0f7fb99d38b126960",
+      "daily-coverage.jsonl.gz": "a09b2de7d0cf4088a9c5703bd6f4caa04691a85725fe52abe9fa19363583cacb",
+      "warmup-coverage.jsonl.gz": "d9a8a5b55dd069d5f47bf0d3ca46dcbaf46c39c5e854a774f65b464d083da614",
+      "summary.json": "67eb01a2d192abf02cb9cc985f9945fb68cfa3390bf5ac840b501a132c388611",
+      "execution-sources.zip": "3c70db4f16627292c8d0b4f9514e1910a51c4802a6772ede7686cbd468d28d0e",
+      "attempt.json": "e7241851abc8455b9ce77c50670a4a16e8ca0e734556ad600c7fbab735e40e55",
+      "independent-verification.json": "f5b6ed84e4f4ab62b2922123c63c9a565a9a225ada6cabbb687789060ed851d5",
+      "completion.json": "1c0000bd0cdfa96e6550e4662803afc4a63b3f3d92b17a04538de3ef1fd139e7"
+    },
+    "usage": "Read audited panel identity, baseEligibility and archived causal leadership/path features at F and T. Do not use earlier strategy outcomes or later peer membership."
+  },
+  "config": {
+    "initialCapital": 1000000.0,
+    "lookbackDays": 39,
+    "topN": 5,
+    "maxPositions": 5,
+    "maxStockWeight": 0.1,
+    "rebalanceEvery": 1,
+    "switchThreshold": 0.05,
+    "stopLossPct": 0.0,
+    "takeProfitPct": 0.0,
+    "trailingStopPct": 0.0,
+    "maxHoldingDays": 0,
+    "commissionRate": 0.0003,
+    "minCommission": 5.0,
+    "transferFeeRate": 1e-05,
+    "slippageBps": 10.0,
+    "maxParticipationRate": 0.01,
+    "startDate": "2022-01-01",
+    "endDate": "2023-12-31",
+    "weighting": "equal",
+    "rebalanceMode": "risk",
+    "rightsPolicy": "skip",
+    "stampDutyRate": null,
+    "strategies": [
+      {
+        "id": "trendBreakout",
+        "kind": "trendBreakout",
+        "params": {
+          "lookback": 40,
+          "volumeRatio": 1.2,
+          "trendWindow": 80
+        },
+        "pool": "base"
+      }
+    ],
+    "combinations": [],
+    "allocation": {
+      "mode": "equal",
+      "strategyIds": [
+        "trendBreakout"
+      ]
+    },
+    "rotation": {
+      "lookbackDays": 20,
+      "cooldownDays": 5,
+      "minWeightChange": 0.1,
+      "temperature": 0.05,
+      "regimeBlend": 0.25,
+      "regimeMinObservations": 5,
+      "warmupDays": 120
+    },
+    "universe": {
+      "strictHistory": false,
+      "excludeSt": true,
+      "minListingDays": 120,
+      "minAmount20": 50000000.0,
+      "minAmplitude20": null
+    },
+    "poolSettings": {
+      "trend": {
+        "window": 60,
+        "minReturn": 0.0,
+        "rankWindow": 40,
+        "rankStart": 1,
+        "rankEnd": 500,
+        "rankEnabled": false
+      },
+      "structure": {
+        "window": 20,
+        "minDrawdown": 0.02,
+        "maxDrawdown": 0.25,
+        "minMa10Above20Days": null,
+        "minMa5Above10Days": null,
+        "maxPeakAgeDays": null,
+        "maxPriceVsMa20": null,
+        "requireAboveMa20": false,
+        "peakBasis": "close",
+        "maDaysMode": "count"
+      },
+      "volume": {
+        "window": 20,
+        "minRatio": 1.2,
+        "minVolumeChange20": null,
+        "minUpDownVolumeRatio": null,
+        "maxDownVolumeRatio": null,
+        "excludeBlowoff": false,
+        "excludeDivergence": false,
+        "excludeUpperShadow": false
+      },
+      "combined": {
+        "pools": [
+          "trend",
+          "structure",
+          "volume"
+        ],
+        "mode": "intersection"
+      }
+    }
+  },
+  "sourceImplementation": {
+    "scripts/run-signal-target-study.py": "d63f3d9b81b86a674b77c7173983096d880b84732f55443137f15c7bfc3ed452",
+    "scripts/run-strategy-search.py": "6f83a920c7086ba69a98b7fe43e2da5ded52f1b529479edf6347afc8be629750",
+    "service/execution_evidence.py": "e85c3ee91510bf9643ab6c5af1be91f2ff9bf6d70747a28ef5b6bf9bf0b87826",
+    "service/portfolio_actions.py": "bf90892a618adfa77c418ed8016f50e1c2132577661ebd0f5fcc82110d743b03",
+    "service/portfolio_config.py": "49873041d268f4fba606959e9c794df04a40bd8320af3d8511271800b0221f37",
+    "service/portfolio_continuous.py": "581793fd0ed0fd0863349e03de7863aadf4523eaffb9632e822ce3ceef2388c7",
+    "service/portfolio_engine.py": "e00db3e5c9ccd67d808b3ac40bbbcd40bf8272db88f87f16bff2594d893a39c1",
+    "service/portfolio_experiment.py": "da49afd920f04ab79039ebdfd5d1a1dd6b31b69fbfa08e58d6851c87302440d8",
+    "service/portfolio_history.py": "df9b07e8a4e51a04bc214d65e83d72a2efa4448e43f003a21d127b1642d255a8",
+    "service/portfolio_pool_styles.py": "91bbe5ff79df164758c660d54ffb20ac3a3fd0213f92d3c10ebc99538b9af078",
+    "service/portfolio_prepared.py": "d5e4eb6af05f8d1dcaa161e722a9ab2e3388d875b3a664f300b52972d584b3cd",
+    "service/portfolio_regions.py": "50df6611ee25fd2786498f41b443a2d33034181fb1417134c8eda90267f7b128",
+    "service/portfolio_rotation.py": "a74feceda39c4ee47fe50ce536bfb08117de1b505efabe4306a9af652503a1dd",
+    "service/portfolio_screen.py": "f6072b7f87e999f11596a6a5c313597df9413284db01ccb4df1c04fed509477b",
+    "service/portfolio_signals.py": "54eddff71c8f8751b786eee5c1661455de293cd03524db0bf76619d6a0f64d61",
+    "service/portfolio_study.py": "ecbdae007563f80813e806f29363d6611171c95cbfd5f997a885bd88f84045b7",
+    "service/portfolio_universe.py": "9edc171e68a0737108319b56973c129a7df3d10dd79fe7834d092db1002dc97a",
+    "service/research_target.py": "4397ee1f60c3d6e3bee40ad7b1bdaf8a4990f1671692a2256faee2a89741a9f2",
+    "service/signal_path_risk.py": "b05ee35cec2251f536f5c73dbb29e0a7103bd3294bc4f55a2efc21d0b87e8cea",
+    "service/signal_target_study.py": "821c34e58cd9e226a0dc0ab2b7dc4b241eade9364447af95a6b0da362d25c6c4",
+    "service/strategies.py": "82b6101a3c508126fd5ab4faf25e83b0961f92d198835e507319310725165c2b",
+    "service/tdx.py": "38f11fbfaeb835fce177f980b0c9b1ef887a704212be25097a8d038a90a38506",
+    "service/signal_contraction_price_proxy.py": "1a02c7e62865fac369996d0c4359389c32b13e45385e765a41e5956e85e52f7a",
+    "service/signal_persistent_leader.py": "1c9d10c06903097aff0a15e14a4a3a3df3e604b050a86fa3d7c6277ac3b2fa29"
+  },
+  "pureRule": {
+    "path": "service/signal_leader_peer_expansion.py"
+  },
+  "runner": {
+    "path": "scripts/run-signal-leader-peer-expansion.py"
+  },
+  "tests": [
+    "tests/test_signal_leader_peer_expansion.py",
+    "tests/test_signal_leader_peer_expansion_runner.py"
+  ],
+  "rule": {
+    "historySlots": 71,
+    "priceBasis": "raw-unadjusted",
+    "formationLagSessions": 10,
+    "timeOrder": "At T close, F is exactly T minus ten frozen exchange sessions. Formation uses only F-60..F. Expansion uses F..T; no subsequent data. Attempt entry once at T+1 open.",
+    "formationLeader": "Use the unchanged registered evaluate_persistent_leader at F with its archived panel and aligned raw61. Require kind signaled or notTriggered and all five THRESHOLDS passed. F closeAbovePrior5High is deliberately not required. An unevaluable parent is never upgraded because some predicates were captured.",
+    "formationLeaderThresholds": {
+      "meanStrengthPercentile20Min": 0.9,
+      "minimumStrengthPercentile20Min": 0.8,
+      "relativeReturn60PercentileMin": 0.9,
+      "closePathMaxDrawdown20Max": 0.1,
+      "signedPathEfficiency20Min": 0.35
+    },
+    "currentLeader": "At T require unchanged original persistent-leader kind signaled, including all five thresholds and T close strictly above the prior five raw highs.",
+    "missingFormationPanel": "The first ten target dates have no archived complete F panel. Mark formation leadership unavailable; do not reconstruct it from later rank histories or count it as a negative result.",
+    "formationUniverse": "Every fixed-source symbol except the leader itself. At F require baseEligibility eligible exactly true, reason eligible, and unknown a list of unique nonempty strings (empty list allowed). Historical unknowns stay unverified. All excluded and unevaluable peer records are retained.",
+    "requiredBars": "Exactly aligned ISO dates, raw-unadjusted, finite strictly positive open/high/low/close/volume, valid OHLC envelope and no explicitly known suspension. Apply to leader, peers and benchmark formation bars and to each frozen member and benchmark during expansion. Missing/invalid interior slots cannot be skipped even when endpoint returns exist.",
+    "formationReturns": "For each of 60 intervals ending F-59..F, x_s=log(C_s,j/C_s,j-1)-log(B_j/B_j-1), B is sh000300. These are benchmark-excess returns, not regression residuals and not a removal of all common market effects.",
+    "correlation": "Two-pass Pearson: mean=math.fsum(x)/60; dx=x-mean; vx=math.fsum(dx*dx), cov=math.fsum(dx*dy); rawCorrelation=cov/(sqrt(vx)*sqrt(vy)). Nonfinite inputs/results or vx/vy<=0 remain unknown. No epsilon. Retain rawCorrelation and use correlation=max(-1,min(1,rawCorrelation)) for threshold/ranking.",
+    "membership": {
+      "minimumCorrelation": 0.3,
+      "members": 20,
+      "sort": "correlation descending then symbol ascending",
+      "insufficient": "Keep up to twenty qualifying members as evidence, but fewer than twenty makes the whole group unevaluable.",
+      "freeze": "Fix membership at F; never replace or remove a member using F+1..T eligibility, prices, suspension or later outcomes."
+    },
+    "expansion": {
+      "sessionsPerHalf": 5,
+      "fixedDenominator": 20,
+      "before": "log(C_F+5/C_F)-log(B_F+5/B_F)",
+      "now": "log(C_T/C_F+5)-log(B_T/B_F+5)",
+      "positive": "strict binary-float relative log return >0; no epsilon",
+      "minimumPositiveNow": 12,
+      "minimumCountIncrease": 4,
+      "decision": "expanded iff nowPositiveCount>=12 and nowPositiveCount-beforePositiveCount>=4; otherwise notExpanded only when every required member/bar is evaluable.",
+      "unknown": "Any required member/benchmark missing, invalid or explicitly halted makes the group unevaluable. Do not drop a member or treat unknown as notExpanded."
+    }
+  },
+  "selection": {
+    "topN": 5,
+    "parentPopulation": "All symbols satisfying formationLeader and currentLeader, ranked by original persistent-leader rule: T meanStrengthPercentile20 descending, T relativeReturn60Percentile descending, then symbol ascending.",
+    "order": "Take parent Top5 first, then evaluate/apply expansion mask. Candidate keeps expanded slots; control keeps all original parent Top5 including unknown expansion. Preserve original rank, no rank-six backfill.",
+    "baselineMeaning": "New temporal leader-only baseline requires F strength and T breakout. It is not the complete population of the previously studied persistent-leader candidate.",
+    "comparison": "Nested selected-signal policies with separate active state. Actual candidate fills need not be a subset of baseline fills. This is not same-date matching, randomization or an identified causal effect.",
+    "ledger": "For every parent Top5 slot retain expansion state and candidate/baseline selected, suppressed, attempted, unfilled and target/waiting disposition. Keep absent candidate due to unknown separate from a known negative."
+  },
+  "eventPolicy": {
+    "entry": "one next-exchange-session open attempt; frozen T-close quantity; existing daily opening capacity/limit proxies and T+1 sell lock",
+    "budgetPerEvent": 100000,
+    "targetNetGainPct": 30,
+    "holdingDeadline": null,
+    "stopLoss": null,
+    "active": "Separate empty active map per group; filled event remains until net-target opening proxy or cutoff. Exit at T open releases T-close signal. Unfilled does not reserve. No backfill.",
+    "costs": "Reuse registered config/engine cost and slippage assumptions unchanged, not complete historical fee certification. Known static transfer-fee history gap retained.",
+    "labels": [
+      "rawHigh30",
+      "netHigh30",
+      "nextOpenNet30"
+    ],
+    "riskBoundariesRawPricePct": [
+      -10,
+      -20
+    ]
+  },
+  "audit": {
+    "horizons": [
+      5,
+      10,
+      20,
+      40,
+      60,
+      120,
+      250
+    ],
+    "requiredReports": [
+      "all temporal leader-only Top5 slots and three-state expansion classifications",
+      "all formation peer candidates, rank, exclusions, raw/projected correlation and fixed selected members",
+      "both independently admitted groups including suppressed/unfilled outcomes and original-slot join",
+      "all seven horizons with mature valid, unresolved and immature counts",
+      "cutoff hits, waiting, unresolved and conditional successful time-to-target",
+      "raw risk boundaries and target ordering; unique symbols/dates, year distribution, distinct group hashes and within-date membership overlap"
+    ],
+    "comparability": "Overlapping selected signals and shared members create dependence. Do not infer incremental causal impact from nested aggregate rates, use only jointly filled events, or call twenty members twenty independent confirmations.",
+    "source": "Exact original physical hashes, manifest/audit, raw dataset fingerprint and complete-content hash, symbols/calendar/counts before and after. No source workspace writes.",
+    "lifecycle": "Freeze after synthetic tests and review; one real attempt; preserve failure, refuse silent retry or changed artifacts; successful reuse verifies only.",
+    "implementation": "Archive complete runtime dependencies, unchanged parent pure module, this registration, new pure/runner/tests and independent verifier/references before first real evaluation. Independently rebuild new formula and selection evidence, then reconcile event arithmetic and original slot dispositions."
+  },
+  "limitations": [
+    "Price correlation does not establish industry/theme membership, true followers, market-wide leader influence or operator control.",
+    "Subtracting benchmark returns leaves beta/exposure differences and other common factors; this is not a factor-neutral causal design.",
+    "Raw-price corporate actions can distort correlation and returns; complete historical identity, rights, fees and opening fills remain unverified.",
+    "The source is a fixed survivor-biased local sample and repeatedly used development period. Future high hit probability remains unproven.",
+    "Formation and current leadership plus breakout are deliberately fixed prerequisites; no outcome-driven threshold relaxation, alternate window or favorable-horizon selection is allowed."
+  ],
+  "methodEvidence": [
+    {
+      "title": "Bailey et al., The Probability of Backtest Overfitting (2015)",
+      "url": "https://www.davidhbailey.com/dhbpapers/backtest-prob.pdf",
+      "scope": "Primary methodological motivation for retaining every trial and separating adaptive development from independent validation; no PBO statistic or probability guarantee is claimed."
+    }
+  ],
+  "certified": false,
+  "targetAchieved": false
+}

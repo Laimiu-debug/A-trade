@@ -1,0 +1,2692 @@
+{
+  "schema": "experimental-strategies-v1",
+  "createdDate": "2026-10-17",
+  "certified": false,
+  "targetAchieved": false,
+  "researchOverview": {
+    "title": "已完成研究后的三组实验策略",
+    "meaning": "三组固定规则支持本地日线环境分析与当前选股；也可按原费用口径复现已研究区间。环境描述不改变原准入条件，不代表盈利认证。",
+    "scope": "收缩仅原3141主板双期；另外两组覆盖三板双期，不用局部最好板块代替全组。",
+    "execution": "分析当前环境与选股只生成候选和依据；只有点击历史复现才创建独立模拟任务。保存结果打开时重核时效，不自动重跑。",
+    "researchStoppedAfterBatch49": true
+  },
+  "sourcePins": {
+    "docs/account-exit-comparison-v1.json": "1406190246a20ccb823b129f471bcd5c16ede59b78c56fe62947ff4c4f4cb21e",
+    "docs/fixed-signal-account-contract-v1.json": "0ceb6f44a374e1c08b576f7f96cfc60fa76baf8653d0c8ae792a970eb2e280bc",
+    "docs/signal-contraction-price-proxy-v1.json": "4e9d8ca66467d0402c065efd3e9c4438e9967696844c439f2597e30ebb84053d",
+    "service/research_fee_profile.py": "4bb9a3f8716cd290a320802d3f9af48cb95ba6a0ff28c111e5fc714663efda72",
+    "service/execution_evidence.py": "e85c3ee91510bf9643ab6c5af1be91f2ff9bf6d70747a28ef5b6bf9bf0b87826",
+    "service/portfolio_actions.py": "bf90892a618adfa77c418ed8016f50e1c2132577661ebd0f5fcc82110d743b03",
+    "service/portfolio_config.py": "49873041d268f4fba606959e9c794df04a40bd8320af3d8511271800b0221f37",
+    "service/portfolio_engine.py": "e00db3e5c9ccd67d808b3ac40bbbcd40bf8272db88f87f16bff2594d893a39c1",
+    "service/portfolio_pool_styles.py": "91bbe5ff79df164758c660d54ffb20ac3a3fd0213f92d3c10ebc99538b9af078",
+    "service/portfolio_rotation.py": "a74feceda39c4ee47fe50ce536bfb08117de1b505efabe4306a9af652503a1dd",
+    "service/portfolio_signals.py": "54eddff71c8f8751b786eee5c1661455de293cd03524db0bf76619d6a0f64d61",
+    "service/research_account_fees.py": "4bf2b2ca97450148541940581556c84a07d4ffebd864671badb97828121dd1f2",
+    "service/research_account_outcomes.py": "bcaca647e5a0a975cc62ce1f485be1d1d28f698ab22d3233440fbeca7c3b348b",
+    "service/research_fixed_signal_account.py": "59361f064ecb00307a2a4b5ee1890976eb2a24058a1ab9e3f6b6e2582283c753",
+    "service/research_leader_lag.py": "1c6168e7b56af0bff90dcda665ab88e9d4756f5da1b82d8b7b76b1e14bf1fc9e",
+    "service/research_leader_persistence_admission.py": "6d765b9cb5ed6dcf695132753819d865bbbaf8cc27d57e55201652c2f34741f4",
+    "service/research_structural_exits.py": "947e44373b4274a221a4f4a764eeeac22d4b1de49c76488203bb61ad9473d3b1",
+    "service/research_undercut_reclaim.py": "a071f630bf4f3656fe3d8f74af33cc0966d9e21d5a2d49ca78af7cfb5499db3e",
+    "service/research_volatility_trail.py": "3c688517a9fa28db6ebce5073e9c68d452cf1d25449d003094185c5e433ebb67",
+    "service/signal_contraction_price_proxy.py": "1a02c7e62865fac369996d0c4359389c32b13e45385e765a41e5956e85e52f7a",
+    "service/signal_target_study.py": "821c34e58cd9e226a0dc0ab2b7dc4b241eade9364447af95a6b0da362d25c6c4",
+    "service/signal_target_study_fee_profile.py": "50f6331a50d66e73f3bae7a1de817252310d52a627eff55c541774061067ed36",
+    "service/strategies.py": "82b6101a3c508126fd5ab4faf25e83b0961f92d198835e507319310725165c2b"
+  },
+  "strategies": [
+    {
+      "id": "contractionNoProgress5",
+      "name": "实验 · 三段收缩突破",
+      "description": "三段价格区间与成交量收缩后，放量突破；第5持有日未走强退出。",
+      "rules": [
+        "81个严格源交易槽；此前3个10日区间逐段缩窄，末段幅度≤8%，末段均量≤首段70%。",
+        "收盘突破此前40日最高价且在上升MA80之上，当日量≥前40日均量1.2倍。",
+        "沿原DailyScorer历史资格；按此前20日均额降序选Top5，无持仓回填。"
+      ],
+      "exit": "5%收盘初始止损、10%收盘跟踪；仅第5持有会话收盘≤风险入场价则排下一可成交开盘退出，无固定止盈。",
+      "sources": [
+        {
+          "id": "2022-2023__main",
+          "label": "2022-2023 · 原3141主板样本",
+          "period": "2022-2023",
+          "board": "main",
+          "start": "2022-01-04",
+          "end": "2023-12-29",
+          "members": 3141,
+          "signalCount": 131,
+          "initialCapital": 500000.0,
+          "fees": "原研究按日期费用假设：佣金万三、单笔最低5元，原登记过户费/印花税分段；非真实券商验证。",
+          "researchOrigin": "contraction-policy-screen-v1/noProgress5",
+          "accountData": {
+            "path": "artifacts/strategy-search/peer-amount-persistence-v1/2022-2023/account-data.json.gz",
+            "sha256": "c34a4b54c2dcfe5fd531190ac1eb9830743783231cbdcc457e76473b3675af1c"
+          },
+          "accountDatasetDigest": "a718638ad0052a6d58eabd54a366c94e62e61c047a1a57f7b6ced29c42dac860",
+          "schedule": {
+            "path": "artifacts/strategy-search/market-context-screen-v1/2022-2023/baseline.signals.json",
+            "sha256": "366c1b28debe5775f567a8bd6690762914cf27106ca56c7b8ecba0f9d2f3d4c8"
+          },
+          "config": {
+            "initialCapital": 500000.0,
+            "lookbackDays": 39,
+            "topN": 5,
+            "maxPositions": 5,
+            "maxStockWeight": 0.2,
+            "rebalanceEvery": 1,
+            "switchThreshold": 0.0,
+            "stopLossPct": 0.05,
+            "takeProfitPct": 0.0,
+            "trailingStopPct": 0.1,
+            "maxHoldingDays": 0,
+            "commissionRate": 0.0003,
+            "minCommission": 5.0,
+            "transferFeeRate": 1e-05,
+            "slippageBps": 10.0,
+            "maxParticipationRate": 0.01,
+            "startDate": "2022-01-04",
+            "endDate": "2023-12-29",
+            "weighting": "equal",
+            "rebalanceMode": "risk",
+            "rightsPolicy": "skip",
+            "stampDutyRate": null,
+            "strategies": [
+              {
+                "id": "rawThreeStageContractionBreakoutDiagnostic",
+                "kind": "momentum",
+                "params": {
+                  "lookback": 60,
+                  "trendWindow": 120,
+                  "minReturn": 0.05
+                },
+                "pool": "base"
+              }
+            ],
+            "combinations": [],
+            "allocation": {
+              "mode": "single",
+              "strategyIds": [
+                "rawThreeStageContractionBreakoutDiagnostic"
+              ]
+            },
+            "rotation": {
+              "lookbackDays": 20,
+              "cooldownDays": 5,
+              "minWeightChange": 0.1,
+              "temperature": 0.05,
+              "regimeBlend": 0.25,
+              "regimeMinObservations": 5,
+              "warmupDays": 120
+            },
+            "universe": {
+              "strictHistory": false,
+              "excludeSt": true,
+              "minListingDays": 120,
+              "minAmount20": 50000000.0,
+              "minAmplitude20": null
+            },
+            "poolSettings": {
+              "trend": {
+                "window": 60,
+                "minReturn": 0.0,
+                "rankWindow": 40,
+                "rankStart": 1,
+                "rankEnd": 500,
+                "rankEnabled": false
+              },
+              "structure": {
+                "window": 20,
+                "minDrawdown": 0.02,
+                "maxDrawdown": 0.25,
+                "minMa10Above20Days": null,
+                "minMa5Above10Days": null,
+                "maxPeakAgeDays": null,
+                "maxPriceVsMa20": null,
+                "requireAboveMa20": false,
+                "peakBasis": "close",
+                "maDaysMode": "count"
+              },
+              "volume": {
+                "window": 20,
+                "minRatio": 1.2,
+                "minVolumeChange20": null,
+                "minUpDownVolumeRatio": null,
+                "maxDownVolumeRatio": null,
+                "excludeBlowoff": false,
+                "excludeDivergence": false,
+                "excludeUpperShadow": false
+              },
+              "combined": {
+                "pools": [
+                  "trend",
+                  "structure",
+                  "volume"
+                ],
+                "mode": "intersection"
+              }
+            }
+          },
+          "feeSpec": {
+            "profile": "dated-transfer-assumption-v1",
+            "parameters": {
+              "commission_rate": 0.0003,
+              "min_commission": 5,
+              "commission_includes_transfer": false,
+              "stamp_duty_override": null,
+              "security_type": "ordinary-a-share",
+              "trading_mode": "exchange-auction"
+            }
+          },
+          "evidenceRefs": [
+            {
+              "path": "artifacts/strategy-search/contraction-policy-screen-v1/plan.json",
+              "sha256": "473c65181c14a1232d43db42d81c9e3c25218d6c62a0974ed7296ad6f40aa758"
+            },
+            {
+              "path": "artifacts/strategy-search/contraction-policy-screen-v1/source.json",
+              "sha256": "bbabb266063c14c36198fa4b40868cc48f46551b62e96251394f17bf1b2dee29"
+            },
+            {
+              "path": "artifacts/strategy-search/contraction-policy-screen-v1/noProgress5.summary.json",
+              "sha256": "ec282489e3b4ffbbf7a99bc54c7d0350621a585cd392f91b38eb6a63404097de"
+            },
+            {
+              "path": "artifacts/strategy-search/peer-amount-persistence-v1/2022-2023/input-completion.json",
+              "sha256": "739d617cceac4914ace29099a899347fc3c32b6b3c7c2c9f4270868c8969bd05"
+            },
+            {
+              "path": "artifacts/strategy-search/contraction-policy-screen-v1/noProgress5.result.json.gz",
+              "sha256": "bc376c65e8ed2089f472028412bd53fad5881989417341e1d5576e682a2b9e6f"
+            },
+            {
+              "path": "artifacts/strategy-search/final-research-review-v1/research-overview.json",
+              "sha256": "50ab07883e0b4eaf01decc2135ec2f4115b0603111bbcf721d5698bb9b3f8be9"
+            }
+          ]
+        },
+        {
+          "id": "2024-2025__main",
+          "label": "2024-2025 · 原3141主板样本",
+          "period": "2024-2025",
+          "board": "main",
+          "start": "2024-01-02",
+          "end": "2025-12-31",
+          "members": 3141,
+          "signalCount": 213,
+          "initialCapital": 500000.0,
+          "fees": "原研究 LegacyFeePolicy 续用末期固定费率：佣金万三/最低5元、过户费万0.1、卖出印花税万5；非实时费率适配。",
+          "researchOrigin": "supplemental-force-context-screen-v1/baseline10",
+          "accountData": {
+            "path": "artifacts/strategy-search/peer-amount-persistence-v1/2024-2025/account-data.json.gz",
+            "sha256": "6e24de414f167e6362ea5c8cece8782236199a463ddf092b62f8859ba0a88ed1"
+          },
+          "accountDatasetDigest": "d4ea1c39596b8d87107958b977bb1598ffe9800d1d1667a8ff24d6503eb956b3",
+          "schedule": {
+            "path": "artifacts/strategy-search/market-context-screen-v1/2024-2025/baseline.signals.json",
+            "sha256": "bc59e466c84ddae417b2f30be3d1d6b904673220d449c2743906ef04a0f8d359"
+          },
+          "config": {
+            "initialCapital": 500000.0,
+            "lookbackDays": 39,
+            "topN": 5,
+            "maxPositions": 5,
+            "maxStockWeight": 0.2,
+            "rebalanceEvery": 1,
+            "switchThreshold": 0.0,
+            "stopLossPct": 0.05,
+            "takeProfitPct": 0.0,
+            "trailingStopPct": 0.1,
+            "maxHoldingDays": 0,
+            "commissionRate": 0.0003,
+            "minCommission": 5.0,
+            "transferFeeRate": 1e-05,
+            "slippageBps": 10.0,
+            "maxParticipationRate": 0.01,
+            "startDate": "2024-01-02",
+            "endDate": "2025-12-31",
+            "weighting": "equal",
+            "rebalanceMode": "risk",
+            "rightsPolicy": "skip",
+            "stampDutyRate": null,
+            "strategies": [
+              {
+                "id": "rawThreeStageContractionBreakoutDiagnostic",
+                "kind": "momentum",
+                "params": {
+                  "lookback": 60,
+                  "trendWindow": 120,
+                  "minReturn": 0.05
+                },
+                "pool": "base"
+              }
+            ],
+            "combinations": [],
+            "allocation": {
+              "mode": "single",
+              "strategyIds": [
+                "rawThreeStageContractionBreakoutDiagnostic"
+              ]
+            },
+            "rotation": {
+              "lookbackDays": 20,
+              "cooldownDays": 5,
+              "minWeightChange": 0.1,
+              "temperature": 0.05,
+              "regimeBlend": 0.25,
+              "regimeMinObservations": 5,
+              "warmupDays": 120
+            },
+            "universe": {
+              "strictHistory": false,
+              "excludeSt": true,
+              "minListingDays": 120,
+              "minAmount20": 50000000.0,
+              "minAmplitude20": null
+            },
+            "poolSettings": {
+              "trend": {
+                "window": 60,
+                "minReturn": 0.0,
+                "rankWindow": 40,
+                "rankStart": 1,
+                "rankEnd": 500,
+                "rankEnabled": false
+              },
+              "structure": {
+                "window": 20,
+                "minDrawdown": 0.02,
+                "maxDrawdown": 0.25,
+                "minMa10Above20Days": null,
+                "minMa5Above10Days": null,
+                "maxPeakAgeDays": null,
+                "maxPriceVsMa20": null,
+                "requireAboveMa20": false,
+                "peakBasis": "close",
+                "maDaysMode": "count"
+              },
+              "volume": {
+                "window": 20,
+                "minRatio": 1.2,
+                "minVolumeChange20": null,
+                "minUpDownVolumeRatio": null,
+                "maxDownVolumeRatio": null,
+                "excludeBlowoff": false,
+                "excludeDivergence": false,
+                "excludeUpperShadow": false
+              },
+              "combined": {
+                "pools": [
+                  "trend",
+                  "structure",
+                  "volume"
+                ],
+                "mode": "intersection"
+              }
+            }
+          },
+          "feeSpec": {
+            "profile": "legacy-engine-delegate-v1",
+            "parameters": {}
+          },
+          "evidenceRefs": [
+            {
+              "path": "artifacts/strategy-search/supplemental-force-context-screen-v1/plan.json",
+              "sha256": "9bf167029fa435209d994175a5adc49af2775c716818c6140b77c385a1f20580"
+            },
+            {
+              "path": "artifacts/strategy-search/supplemental-force-context-screen-v1/source.json",
+              "sha256": "218441d1c03a6685a658baabccd86c459b88bb74bf67fb5b73d0c6a6b5f01782"
+            },
+            {
+              "path": "artifacts/strategy-search/supplemental-force-context-screen-v1/baseline10.summary.json",
+              "sha256": "bf8de434f8159273d68be73295bffd00f759ed50ba08a5ff671781a32f6e2057"
+            },
+            {
+              "path": "artifacts/strategy-search/peer-amount-persistence-v1/2024-2025/input-completion.json",
+              "sha256": "2ab8183b3ca8610d1b121bba7a676e3d526e02d5273b9ba97e99b13a40f43dda"
+            },
+            {
+              "path": "artifacts/strategy-search/supplemental-force-context-screen-v1/baseline10.result.json.gz",
+              "sha256": "6269c502e3ca532ed6fbba7c3065faca735f3b6a87c8e940ea55265e433dc685"
+            },
+            {
+              "path": "artifacts/strategy-search/supplemental-force-context-screen-v1/validation.json",
+              "sha256": "de1f0c53f627408beec8d79ef032264df049aa0e51cb32cc17c05ba101244859"
+            },
+            {
+              "path": "artifacts/strategy-search/final-research-review-v1/research-overview.json",
+              "sha256": "50ab07883e0b4eaf01decc2135ec2f4115b0603111bbcf721d5698bb9b3f8be9"
+            }
+          ]
+        }
+      ],
+      "status": "experimental",
+      "certified": false,
+      "targetAchieved": false,
+      "limitations": [
+        "实验性历史研究，不是获利保证；所有2022—2025数据均已用于开发，不能称样本外。",
+        "未复权、历史证券状态、退市覆盖及权益资料仍有限；保留未知和估值质量标记。",
+        "收盘确认，下一独立交易会话开盘单次尝试；原Top5无补位，现金/涨跌停/容量可能阻止成交。",
+        "不自动下单、不写真实账户；中断不假恢复，必须新建任务重新开始。"
+      ],
+      "dataRequirements": "默认仅下列SHA锁定历史来源；显式新输入须完整冻结cohort、独立交易日历与原始未复权数据。",
+      "researchResults": [
+        {
+          "period": "2022-2023",
+          "board": "main",
+          "metrics": {
+            "signals": 131,
+            "closed": 60,
+            "accountReturnPct": 6.448462307940144,
+            "maxDrawdownPct": 18.686966323610413,
+            "winRatePct": 25.0,
+            "meanWinPct": 14.08156206437018,
+            "meanLossPct": -3.854526476006088,
+            "closedMeanPct": 0.6294956590879787,
+            "profitFactor": 1.1754329886386088,
+            "meanExposurePct": 43.88259283851582,
+            "openPositions": 1,
+            "unreliableValuationDays": 0,
+            "top5ShareOfGrossProfitPct": 75.20526902952585
+          }
+        },
+        {
+          "period": "2024-2025",
+          "board": "main",
+          "metrics": {
+            "signals": 213,
+            "closed": 73,
+            "accountReturnPct": -0.6759312285518739,
+            "maxDrawdownPct": 29.955247712072975,
+            "winRatePct": 27.397260273972602,
+            "meanWinPct": 12.102367050278152,
+            "meanLossPct": -4.817391164668572,
+            "closedMeanPct": -0.18184096879275707,
+            "profitFactor": 0.8995145979441989,
+            "meanExposurePct": 56.041228015392136,
+            "openPositions": 1,
+            "unreliableValuationDays": 17,
+            "top5ShareOfGrossProfitPct": 62.74843218281101
+          }
+        }
+      ],
+      "researchResultsRef": {
+        "path": "artifacts/strategy-search/final-research-review-v1/research-overview.json",
+        "sha256": "50ab07883e0b4eaf01decc2135ec2f4115b0603111bbcf721d5698bb9b3f8be9"
+      }
+    },
+    {
+      "id": "persistentLeaderTrail10",
+      "name": "实验 · 持续领涨突破",
+      "description": "当日领涨候选先共同排名Top5，再保留10个交易日前已满足持续强势条件者。",
+      "rules": [
+        "沿原同板完整cohort，相对沪深300计算RS20/RS60排名。",
+        "近20日RS20平均百分位≥90%、最低≥80%；RS60≥90%，20日最大回撤≤10%、路径效率≥0.35。",
+        "当日突破谓词沿原leader-lag；先按当日强度均值/RS60/股票代码排序Top5，再要求F=A−10五条件passed；未知不补位。"
+      ],
+      "exit": "5%收盘初始止损、10%收盘跟踪，无第5日退出、固定止盈或持有期限。",
+      "sources": [
+        {
+          "id": "2022-2023__main",
+          "label": "2022-2023 · 主板",
+          "period": "2022-2023",
+          "board": "main",
+          "start": "2022-01-04",
+          "end": "2023-12-29",
+          "members": 2990,
+          "signalCount": 127,
+          "initialCapital": 500000.0,
+          "fees": "原研究按日期费用假设：佣金万三、单笔最低5元，原登记过户费/印花税分段；非真实券商验证。",
+          "researchOrigin": "leader-persistence-admission-v1/persistent",
+          "accountData": {
+            "path": "artifacts/strategy-search/board-coverage-reclaim-v1/2022-2023/main.account-data.json.gz",
+            "sha256": "19b475e1414fdb915a7aae979939867f804f198cf4416d245887162eb18852d8"
+          },
+          "accountDatasetDigest": "a4a3109f25c6e7a4947c20cf7f04928a9dc0787d4194d102e7ef1a05e5deffaa",
+          "schedule": {
+            "path": "artifacts/strategy-search/leader-persistence-admission-v1/2022-2023/main/persistent.signals.json",
+            "sha256": "fec7bcca857549badf52a711b710b9968b7fd2b01aba12c5f6f2dd8316169868"
+          },
+          "config": {
+            "initialCapital": 500000.0,
+            "lookbackDays": 39,
+            "topN": 5,
+            "maxPositions": 5,
+            "maxStockWeight": 0.2,
+            "rebalanceEvery": 1,
+            "switchThreshold": 0.0,
+            "stopLossPct": 0.05,
+            "takeProfitPct": 0.0,
+            "trailingStopPct": 0.1,
+            "maxHoldingDays": 0,
+            "commissionRate": 0.0003,
+            "minCommission": 5.0,
+            "transferFeeRate": 1e-05,
+            "slippageBps": 10.0,
+            "maxParticipationRate": 0.01,
+            "startDate": "2022-01-04",
+            "endDate": "2023-12-29",
+            "weighting": "equal",
+            "rebalanceMode": "risk",
+            "rightsPolicy": "skip",
+            "stampDutyRate": null,
+            "strategies": [
+              {
+                "id": "leaderPersistenceAdmissionV1",
+                "kind": "momentum",
+                "params": {
+                  "lookback": 60,
+                  "trendWindow": 120,
+                  "minReturn": 0.05
+                },
+                "pool": "base"
+              }
+            ],
+            "combinations": [],
+            "allocation": {
+              "mode": "single",
+              "strategyIds": [
+                "leaderPersistenceAdmissionV1"
+              ]
+            },
+            "rotation": {
+              "lookbackDays": 20,
+              "cooldownDays": 5,
+              "minWeightChange": 0.1,
+              "temperature": 0.05,
+              "regimeBlend": 0.25,
+              "regimeMinObservations": 5,
+              "warmupDays": 120
+            },
+            "universe": {
+              "strictHistory": false,
+              "excludeSt": true,
+              "minListingDays": 120,
+              "minAmount20": 50000000.0,
+              "minAmplitude20": null
+            },
+            "poolSettings": {
+              "trend": {
+                "window": 60,
+                "minReturn": 0.0,
+                "rankWindow": 40,
+                "rankStart": 1,
+                "rankEnd": 500,
+                "rankEnabled": false
+              },
+              "structure": {
+                "window": 20,
+                "minDrawdown": 0.02,
+                "maxDrawdown": 0.25,
+                "minMa10Above20Days": null,
+                "minMa5Above10Days": null,
+                "maxPeakAgeDays": null,
+                "maxPriceVsMa20": null,
+                "requireAboveMa20": false,
+                "peakBasis": "close",
+                "maDaysMode": "count"
+              },
+              "volume": {
+                "window": 20,
+                "minRatio": 1.2,
+                "minVolumeChange20": null,
+                "minUpDownVolumeRatio": null,
+                "maxDownVolumeRatio": null,
+                "excludeBlowoff": false,
+                "excludeDivergence": false,
+                "excludeUpperShadow": false
+              },
+              "combined": {
+                "pools": [
+                  "trend",
+                  "structure",
+                  "volume"
+                ],
+                "mode": "intersection"
+              }
+            }
+          },
+          "feeSpec": {
+            "profile": "dated-transfer-assumption-v1",
+            "parameters": {
+              "commission_rate": 0.0003,
+              "min_commission": 5,
+              "commission_includes_transfer": false,
+              "stamp_duty_override": null,
+              "security_type": "ordinary-a-share",
+              "trading_mode": "exchange-auction"
+            }
+          },
+          "evidenceRefs": [
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/plan.json",
+              "sha256": "51826b8447f68f55600058a7356f7f35a9c94708b9e99dbd40cd502c026ea349"
+            },
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/validation.json",
+              "sha256": "feb74fcc3945ff0659c23b145e7b26643be9c71fc6f0572ac6595e12fcc13f80"
+            },
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/2022-2023/main/input-completion.json",
+              "sha256": "12ebe432bbccda104b255ef599c904021325c34d30692e04d5b4461ac489dbf5"
+            },
+            {
+              "path": "artifacts/strategy-search/board-coverage-reclaim-v1/source-validation.json",
+              "sha256": "fb666f86c8f78cd8c1b569bb8a44030e567b56c22db4d91b4880afb91152c649"
+            },
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/2022-2023/main/trail10/persistent.summary.json",
+              "sha256": "e222c6dbbffc851668ac9e37096b8e2ebcefdc01c191e7a0873bff35e93e26fd"
+            },
+            {
+              "path": "artifacts/strategy-search/final-research-review-v1/research-overview.json",
+              "sha256": "50ab07883e0b4eaf01decc2135ec2f4115b0603111bbcf721d5698bb9b3f8be9"
+            }
+          ]
+        },
+        {
+          "id": "2022-2023__chinext",
+          "label": "2022-2023 · 创业板",
+          "period": "2022-2023",
+          "board": "chinext",
+          "start": "2022-01-04",
+          "end": "2023-12-29",
+          "members": 1010,
+          "signalCount": 45,
+          "initialCapital": 500000.0,
+          "fees": "原研究按日期费用假设：佣金万三、单笔最低5元，原登记过户费/印花税分段；非真实券商验证。",
+          "researchOrigin": "leader-persistence-admission-v1/persistent",
+          "accountData": {
+            "path": "artifacts/strategy-search/board-coverage-reclaim-v1/2022-2023/chinext.account-data.json.gz",
+            "sha256": "e7e0e8fa5599bb9da07faafec5984a06111a7e36ad63ff02908e2da199e5ba85"
+          },
+          "accountDatasetDigest": "44d22ab05c8a107e6a1905523a0224f5e913c5ca41ee1ed62fc3eb683beb332b",
+          "schedule": {
+            "path": "artifacts/strategy-search/leader-persistence-admission-v1/2022-2023/chinext/persistent.signals.json",
+            "sha256": "112d86f5bcbf87348d3369596cee643e9af18b391d400bf3ac1c6bd475eba63e"
+          },
+          "config": {
+            "initialCapital": 500000.0,
+            "lookbackDays": 39,
+            "topN": 5,
+            "maxPositions": 5,
+            "maxStockWeight": 0.2,
+            "rebalanceEvery": 1,
+            "switchThreshold": 0.0,
+            "stopLossPct": 0.05,
+            "takeProfitPct": 0.0,
+            "trailingStopPct": 0.1,
+            "maxHoldingDays": 0,
+            "commissionRate": 0.0003,
+            "minCommission": 5.0,
+            "transferFeeRate": 1e-05,
+            "slippageBps": 10.0,
+            "maxParticipationRate": 0.01,
+            "startDate": "2022-01-04",
+            "endDate": "2023-12-29",
+            "weighting": "equal",
+            "rebalanceMode": "risk",
+            "rightsPolicy": "skip",
+            "stampDutyRate": null,
+            "strategies": [
+              {
+                "id": "leaderPersistenceAdmissionV1",
+                "kind": "momentum",
+                "params": {
+                  "lookback": 60,
+                  "trendWindow": 120,
+                  "minReturn": 0.05
+                },
+                "pool": "base"
+              }
+            ],
+            "combinations": [],
+            "allocation": {
+              "mode": "single",
+              "strategyIds": [
+                "leaderPersistenceAdmissionV1"
+              ]
+            },
+            "rotation": {
+              "lookbackDays": 20,
+              "cooldownDays": 5,
+              "minWeightChange": 0.1,
+              "temperature": 0.05,
+              "regimeBlend": 0.25,
+              "regimeMinObservations": 5,
+              "warmupDays": 120
+            },
+            "universe": {
+              "strictHistory": false,
+              "excludeSt": true,
+              "minListingDays": 120,
+              "minAmount20": 50000000.0,
+              "minAmplitude20": null
+            },
+            "poolSettings": {
+              "trend": {
+                "window": 60,
+                "minReturn": 0.0,
+                "rankWindow": 40,
+                "rankStart": 1,
+                "rankEnd": 500,
+                "rankEnabled": false
+              },
+              "structure": {
+                "window": 20,
+                "minDrawdown": 0.02,
+                "maxDrawdown": 0.25,
+                "minMa10Above20Days": null,
+                "minMa5Above10Days": null,
+                "maxPeakAgeDays": null,
+                "maxPriceVsMa20": null,
+                "requireAboveMa20": false,
+                "peakBasis": "close",
+                "maDaysMode": "count"
+              },
+              "volume": {
+                "window": 20,
+                "minRatio": 1.2,
+                "minVolumeChange20": null,
+                "minUpDownVolumeRatio": null,
+                "maxDownVolumeRatio": null,
+                "excludeBlowoff": false,
+                "excludeDivergence": false,
+                "excludeUpperShadow": false
+              },
+              "combined": {
+                "pools": [
+                  "trend",
+                  "structure",
+                  "volume"
+                ],
+                "mode": "intersection"
+              }
+            }
+          },
+          "feeSpec": {
+            "profile": "dated-transfer-assumption-v1",
+            "parameters": {
+              "commission_rate": 0.0003,
+              "min_commission": 5,
+              "commission_includes_transfer": false,
+              "stamp_duty_override": null,
+              "security_type": "ordinary-a-share",
+              "trading_mode": "exchange-auction"
+            }
+          },
+          "evidenceRefs": [
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/plan.json",
+              "sha256": "51826b8447f68f55600058a7356f7f35a9c94708b9e99dbd40cd502c026ea349"
+            },
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/validation.json",
+              "sha256": "feb74fcc3945ff0659c23b145e7b26643be9c71fc6f0572ac6595e12fcc13f80"
+            },
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/2022-2023/chinext/input-completion.json",
+              "sha256": "bbeb84e5ebaac29d914db1ed0f72f4b9205ea3f8a26a2c796ac7eb6ffffd1a9e"
+            },
+            {
+              "path": "artifacts/strategy-search/board-coverage-reclaim-v1/source-validation.json",
+              "sha256": "fb666f86c8f78cd8c1b569bb8a44030e567b56c22db4d91b4880afb91152c649"
+            },
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/2022-2023/chinext/trail10/persistent.summary.json",
+              "sha256": "c86ac2b7209f19d5e7e5e4fe165f4eb1289db063410b546ad98456da6fb3e5f5"
+            },
+            {
+              "path": "artifacts/strategy-search/final-research-review-v1/research-overview.json",
+              "sha256": "50ab07883e0b4eaf01decc2135ec2f4115b0603111bbcf721d5698bb9b3f8be9"
+            }
+          ]
+        },
+        {
+          "id": "2022-2023__star",
+          "label": "2022-2023 · 科创板",
+          "period": "2022-2023",
+          "board": "star",
+          "start": "2022-01-04",
+          "end": "2023-12-29",
+          "members": 339,
+          "signalCount": 15,
+          "initialCapital": 500000.0,
+          "fees": "原研究按日期费用假设：佣金万三、单笔最低5元，原登记过户费/印花税分段；非真实券商验证。",
+          "researchOrigin": "leader-persistence-admission-v1/persistent",
+          "accountData": {
+            "path": "artifacts/strategy-search/board-coverage-reclaim-v1/2022-2023/star.account-data.json.gz",
+            "sha256": "a7977c89b704c1aff8127d83ff885d6887f980442ff879fa9544501ea4259fd8"
+          },
+          "accountDatasetDigest": "642eda6fd10c2056cd6460cb59c8aa03020a88ce54e1fadff22f93280411e1c5",
+          "schedule": {
+            "path": "artifacts/strategy-search/leader-persistence-admission-v1/2022-2023/star/persistent.signals.json",
+            "sha256": "0fdc7c8a1e510b78333babc66d80b837d14a8907d369511c5e120dd76ee8e8ed"
+          },
+          "config": {
+            "initialCapital": 500000.0,
+            "lookbackDays": 39,
+            "topN": 5,
+            "maxPositions": 5,
+            "maxStockWeight": 0.2,
+            "rebalanceEvery": 1,
+            "switchThreshold": 0.0,
+            "stopLossPct": 0.05,
+            "takeProfitPct": 0.0,
+            "trailingStopPct": 0.1,
+            "maxHoldingDays": 0,
+            "commissionRate": 0.0003,
+            "minCommission": 5.0,
+            "transferFeeRate": 1e-05,
+            "slippageBps": 10.0,
+            "maxParticipationRate": 0.01,
+            "startDate": "2022-01-04",
+            "endDate": "2023-12-29",
+            "weighting": "equal",
+            "rebalanceMode": "risk",
+            "rightsPolicy": "skip",
+            "stampDutyRate": null,
+            "strategies": [
+              {
+                "id": "leaderPersistenceAdmissionV1",
+                "kind": "momentum",
+                "params": {
+                  "lookback": 60,
+                  "trendWindow": 120,
+                  "minReturn": 0.05
+                },
+                "pool": "base"
+              }
+            ],
+            "combinations": [],
+            "allocation": {
+              "mode": "single",
+              "strategyIds": [
+                "leaderPersistenceAdmissionV1"
+              ]
+            },
+            "rotation": {
+              "lookbackDays": 20,
+              "cooldownDays": 5,
+              "minWeightChange": 0.1,
+              "temperature": 0.05,
+              "regimeBlend": 0.25,
+              "regimeMinObservations": 5,
+              "warmupDays": 120
+            },
+            "universe": {
+              "strictHistory": false,
+              "excludeSt": true,
+              "minListingDays": 120,
+              "minAmount20": 50000000.0,
+              "minAmplitude20": null
+            },
+            "poolSettings": {
+              "trend": {
+                "window": 60,
+                "minReturn": 0.0,
+                "rankWindow": 40,
+                "rankStart": 1,
+                "rankEnd": 500,
+                "rankEnabled": false
+              },
+              "structure": {
+                "window": 20,
+                "minDrawdown": 0.02,
+                "maxDrawdown": 0.25,
+                "minMa10Above20Days": null,
+                "minMa5Above10Days": null,
+                "maxPeakAgeDays": null,
+                "maxPriceVsMa20": null,
+                "requireAboveMa20": false,
+                "peakBasis": "close",
+                "maDaysMode": "count"
+              },
+              "volume": {
+                "window": 20,
+                "minRatio": 1.2,
+                "minVolumeChange20": null,
+                "minUpDownVolumeRatio": null,
+                "maxDownVolumeRatio": null,
+                "excludeBlowoff": false,
+                "excludeDivergence": false,
+                "excludeUpperShadow": false
+              },
+              "combined": {
+                "pools": [
+                  "trend",
+                  "structure",
+                  "volume"
+                ],
+                "mode": "intersection"
+              }
+            }
+          },
+          "feeSpec": {
+            "profile": "dated-transfer-assumption-v1",
+            "parameters": {
+              "commission_rate": 0.0003,
+              "min_commission": 5,
+              "commission_includes_transfer": false,
+              "stamp_duty_override": null,
+              "security_type": "ordinary-a-share",
+              "trading_mode": "exchange-auction"
+            }
+          },
+          "evidenceRefs": [
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/plan.json",
+              "sha256": "51826b8447f68f55600058a7356f7f35a9c94708b9e99dbd40cd502c026ea349"
+            },
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/validation.json",
+              "sha256": "feb74fcc3945ff0659c23b145e7b26643be9c71fc6f0572ac6595e12fcc13f80"
+            },
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/2022-2023/star/input-completion.json",
+              "sha256": "f855b193f7cb85575ae50cb27a30c4bd8d39b0e5132d817eb38e16178c9d42bb"
+            },
+            {
+              "path": "artifacts/strategy-search/board-coverage-reclaim-v1/source-validation.json",
+              "sha256": "fb666f86c8f78cd8c1b569bb8a44030e567b56c22db4d91b4880afb91152c649"
+            },
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/2022-2023/star/trail10/persistent.summary.json",
+              "sha256": "a0908f8ff4b0df9114821b954696cb9834845f76bc5ad2540946c1690f9eeb2c"
+            },
+            {
+              "path": "artifacts/strategy-search/final-research-review-v1/research-overview.json",
+              "sha256": "50ab07883e0b4eaf01decc2135ec2f4115b0603111bbcf721d5698bb9b3f8be9"
+            }
+          ]
+        },
+        {
+          "id": "2024-2025__main",
+          "label": "2024-2025 · 主板",
+          "period": "2024-2025",
+          "board": "main",
+          "start": "2024-01-02",
+          "end": "2025-12-31",
+          "members": 3126,
+          "signalCount": 223,
+          "initialCapital": 500000.0,
+          "fees": "原研究 LegacyFeePolicy 续用末期固定费率：佣金万三/最低5元、过户费万0.1、卖出印花税万5；非实时费率适配。",
+          "researchOrigin": "leader-persistence-admission-v1/persistent",
+          "accountData": {
+            "path": "artifacts/strategy-search/board-coverage-reclaim-v1/2024-2025/main.account-data.json.gz",
+            "sha256": "90feb0bcd5ea0cd24c53e98c6542ead9fa3e8d57bfe689375cb8e9c14d243b5f"
+          },
+          "accountDatasetDigest": "695560f023e9a1a7d87be003c377a3f74375cd03d94ab42b12e04dd5b0292c4c",
+          "schedule": {
+            "path": "artifacts/strategy-search/leader-persistence-admission-v1/2024-2025/main/persistent.signals.json",
+            "sha256": "41cda7bb71734b4282dcd3023644e153f92fd521a759b611d1a4520630b54a00"
+          },
+          "config": {
+            "initialCapital": 500000.0,
+            "lookbackDays": 39,
+            "topN": 5,
+            "maxPositions": 5,
+            "maxStockWeight": 0.2,
+            "rebalanceEvery": 1,
+            "switchThreshold": 0.0,
+            "stopLossPct": 0.05,
+            "takeProfitPct": 0.0,
+            "trailingStopPct": 0.1,
+            "maxHoldingDays": 0,
+            "commissionRate": 0.0003,
+            "minCommission": 5.0,
+            "transferFeeRate": 1e-05,
+            "slippageBps": 10.0,
+            "maxParticipationRate": 0.01,
+            "startDate": "2024-01-02",
+            "endDate": "2025-12-31",
+            "weighting": "equal",
+            "rebalanceMode": "risk",
+            "rightsPolicy": "skip",
+            "stampDutyRate": null,
+            "strategies": [
+              {
+                "id": "leaderPersistenceAdmissionV1",
+                "kind": "momentum",
+                "params": {
+                  "lookback": 60,
+                  "trendWindow": 120,
+                  "minReturn": 0.05
+                },
+                "pool": "base"
+              }
+            ],
+            "combinations": [],
+            "allocation": {
+              "mode": "single",
+              "strategyIds": [
+                "leaderPersistenceAdmissionV1"
+              ]
+            },
+            "rotation": {
+              "lookbackDays": 20,
+              "cooldownDays": 5,
+              "minWeightChange": 0.1,
+              "temperature": 0.05,
+              "regimeBlend": 0.25,
+              "regimeMinObservations": 5,
+              "warmupDays": 120
+            },
+            "universe": {
+              "strictHistory": false,
+              "excludeSt": true,
+              "minListingDays": 120,
+              "minAmount20": 50000000.0,
+              "minAmplitude20": null
+            },
+            "poolSettings": {
+              "trend": {
+                "window": 60,
+                "minReturn": 0.0,
+                "rankWindow": 40,
+                "rankStart": 1,
+                "rankEnd": 500,
+                "rankEnabled": false
+              },
+              "structure": {
+                "window": 20,
+                "minDrawdown": 0.02,
+                "maxDrawdown": 0.25,
+                "minMa10Above20Days": null,
+                "minMa5Above10Days": null,
+                "maxPeakAgeDays": null,
+                "maxPriceVsMa20": null,
+                "requireAboveMa20": false,
+                "peakBasis": "close",
+                "maDaysMode": "count"
+              },
+              "volume": {
+                "window": 20,
+                "minRatio": 1.2,
+                "minVolumeChange20": null,
+                "minUpDownVolumeRatio": null,
+                "maxDownVolumeRatio": null,
+                "excludeBlowoff": false,
+                "excludeDivergence": false,
+                "excludeUpperShadow": false
+              },
+              "combined": {
+                "pools": [
+                  "trend",
+                  "structure",
+                  "volume"
+                ],
+                "mode": "intersection"
+              }
+            }
+          },
+          "feeSpec": {
+            "profile": "legacy-engine-delegate-v1",
+            "parameters": {}
+          },
+          "evidenceRefs": [
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/plan.json",
+              "sha256": "51826b8447f68f55600058a7356f7f35a9c94708b9e99dbd40cd502c026ea349"
+            },
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/validation.json",
+              "sha256": "feb74fcc3945ff0659c23b145e7b26643be9c71fc6f0572ac6595e12fcc13f80"
+            },
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/2024-2025/main/input-completion.json",
+              "sha256": "544f96810e5275426ad65ccfc7e46b769e01612ac029778813f7985f9b919b31"
+            },
+            {
+              "path": "artifacts/strategy-search/board-coverage-reclaim-v1/source-validation.json",
+              "sha256": "fb666f86c8f78cd8c1b569bb8a44030e567b56c22db4d91b4880afb91152c649"
+            },
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/2024-2025/main/trail10/persistent.summary.json",
+              "sha256": "3b5fe95c0556694d24d66497b984654499e7c6ffd6a5285334e3df3021a3f800"
+            },
+            {
+              "path": "artifacts/strategy-search/final-research-review-v1/research-overview.json",
+              "sha256": "50ab07883e0b4eaf01decc2135ec2f4115b0603111bbcf721d5698bb9b3f8be9"
+            }
+          ]
+        },
+        {
+          "id": "2024-2025__chinext",
+          "label": "2024-2025 · 创业板",
+          "period": "2024-2025",
+          "board": "chinext",
+          "start": "2024-01-02",
+          "end": "2025-12-31",
+          "members": 1312,
+          "signalCount": 65,
+          "initialCapital": 500000.0,
+          "fees": "原研究 LegacyFeePolicy 续用末期固定费率：佣金万三/最低5元、过户费万0.1、卖出印花税万5；非实时费率适配。",
+          "researchOrigin": "leader-persistence-admission-v1/persistent",
+          "accountData": {
+            "path": "artifacts/strategy-search/board-coverage-reclaim-v1/2024-2025/chinext.account-data.json.gz",
+            "sha256": "dfb6a0ea90779601d2d7b9c3b45a192cf55eecff9fbadd764deafd440fb98276"
+          },
+          "accountDatasetDigest": "7d5fee0bcb3c8216f2d17fc6af7a32e66604e01abd4fc9986024eb5bab75a0ce",
+          "schedule": {
+            "path": "artifacts/strategy-search/leader-persistence-admission-v1/2024-2025/chinext/persistent.signals.json",
+            "sha256": "0f9211c99358cf9c8b370e69230ef763b880e4be110266ff7e54b06264dd176e"
+          },
+          "config": {
+            "initialCapital": 500000.0,
+            "lookbackDays": 39,
+            "topN": 5,
+            "maxPositions": 5,
+            "maxStockWeight": 0.2,
+            "rebalanceEvery": 1,
+            "switchThreshold": 0.0,
+            "stopLossPct": 0.05,
+            "takeProfitPct": 0.0,
+            "trailingStopPct": 0.1,
+            "maxHoldingDays": 0,
+            "commissionRate": 0.0003,
+            "minCommission": 5.0,
+            "transferFeeRate": 1e-05,
+            "slippageBps": 10.0,
+            "maxParticipationRate": 0.01,
+            "startDate": "2024-01-02",
+            "endDate": "2025-12-31",
+            "weighting": "equal",
+            "rebalanceMode": "risk",
+            "rightsPolicy": "skip",
+            "stampDutyRate": null,
+            "strategies": [
+              {
+                "id": "leaderPersistenceAdmissionV1",
+                "kind": "momentum",
+                "params": {
+                  "lookback": 60,
+                  "trendWindow": 120,
+                  "minReturn": 0.05
+                },
+                "pool": "base"
+              }
+            ],
+            "combinations": [],
+            "allocation": {
+              "mode": "single",
+              "strategyIds": [
+                "leaderPersistenceAdmissionV1"
+              ]
+            },
+            "rotation": {
+              "lookbackDays": 20,
+              "cooldownDays": 5,
+              "minWeightChange": 0.1,
+              "temperature": 0.05,
+              "regimeBlend": 0.25,
+              "regimeMinObservations": 5,
+              "warmupDays": 120
+            },
+            "universe": {
+              "strictHistory": false,
+              "excludeSt": true,
+              "minListingDays": 120,
+              "minAmount20": 50000000.0,
+              "minAmplitude20": null
+            },
+            "poolSettings": {
+              "trend": {
+                "window": 60,
+                "minReturn": 0.0,
+                "rankWindow": 40,
+                "rankStart": 1,
+                "rankEnd": 500,
+                "rankEnabled": false
+              },
+              "structure": {
+                "window": 20,
+                "minDrawdown": 0.02,
+                "maxDrawdown": 0.25,
+                "minMa10Above20Days": null,
+                "minMa5Above10Days": null,
+                "maxPeakAgeDays": null,
+                "maxPriceVsMa20": null,
+                "requireAboveMa20": false,
+                "peakBasis": "close",
+                "maDaysMode": "count"
+              },
+              "volume": {
+                "window": 20,
+                "minRatio": 1.2,
+                "minVolumeChange20": null,
+                "minUpDownVolumeRatio": null,
+                "maxDownVolumeRatio": null,
+                "excludeBlowoff": false,
+                "excludeDivergence": false,
+                "excludeUpperShadow": false
+              },
+              "combined": {
+                "pools": [
+                  "trend",
+                  "structure",
+                  "volume"
+                ],
+                "mode": "intersection"
+              }
+            }
+          },
+          "feeSpec": {
+            "profile": "legacy-engine-delegate-v1",
+            "parameters": {}
+          },
+          "evidenceRefs": [
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/plan.json",
+              "sha256": "51826b8447f68f55600058a7356f7f35a9c94708b9e99dbd40cd502c026ea349"
+            },
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/validation.json",
+              "sha256": "feb74fcc3945ff0659c23b145e7b26643be9c71fc6f0572ac6595e12fcc13f80"
+            },
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/2024-2025/chinext/input-completion.json",
+              "sha256": "95dd02eef010d40045640450ec60680278aeae904aa2bde0635e760344c8400e"
+            },
+            {
+              "path": "artifacts/strategy-search/board-coverage-reclaim-v1/source-validation.json",
+              "sha256": "fb666f86c8f78cd8c1b569bb8a44030e567b56c22db4d91b4880afb91152c649"
+            },
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/2024-2025/chinext/trail10/persistent.summary.json",
+              "sha256": "5471dcba3c7bc2d43108983328db1cb5c289f0f22b2a376e62410cc8e74d7da6"
+            },
+            {
+              "path": "artifacts/strategy-search/final-research-review-v1/research-overview.json",
+              "sha256": "50ab07883e0b4eaf01decc2135ec2f4115b0603111bbcf721d5698bb9b3f8be9"
+            }
+          ]
+        },
+        {
+          "id": "2024-2025__star",
+          "label": "2024-2025 · 科创板",
+          "period": "2024-2025",
+          "board": "star",
+          "start": "2024-01-02",
+          "end": "2025-12-31",
+          "members": 561,
+          "signalCount": 25,
+          "initialCapital": 500000.0,
+          "fees": "原研究 LegacyFeePolicy 续用末期固定费率：佣金万三/最低5元、过户费万0.1、卖出印花税万5；非实时费率适配。",
+          "researchOrigin": "leader-persistence-admission-v1/persistent",
+          "accountData": {
+            "path": "artifacts/strategy-search/board-coverage-reclaim-v1/2024-2025/star.account-data.json.gz",
+            "sha256": "b893491e912eb73c64dcce4c6d99958aabd23891cb41880a5b893fff915d0ee7"
+          },
+          "accountDatasetDigest": "8bbaed8c84bb1904d43d5f6c4203aa8f26f9371298770752d49a91641512b781",
+          "schedule": {
+            "path": "artifacts/strategy-search/leader-persistence-admission-v1/2024-2025/star/persistent.signals.json",
+            "sha256": "1d97c29f6ab5e16952bd53a51d361781ff1d147bbffc54358b29352c8d87d588"
+          },
+          "config": {
+            "initialCapital": 500000.0,
+            "lookbackDays": 39,
+            "topN": 5,
+            "maxPositions": 5,
+            "maxStockWeight": 0.2,
+            "rebalanceEvery": 1,
+            "switchThreshold": 0.0,
+            "stopLossPct": 0.05,
+            "takeProfitPct": 0.0,
+            "trailingStopPct": 0.1,
+            "maxHoldingDays": 0,
+            "commissionRate": 0.0003,
+            "minCommission": 5.0,
+            "transferFeeRate": 1e-05,
+            "slippageBps": 10.0,
+            "maxParticipationRate": 0.01,
+            "startDate": "2024-01-02",
+            "endDate": "2025-12-31",
+            "weighting": "equal",
+            "rebalanceMode": "risk",
+            "rightsPolicy": "skip",
+            "stampDutyRate": null,
+            "strategies": [
+              {
+                "id": "leaderPersistenceAdmissionV1",
+                "kind": "momentum",
+                "params": {
+                  "lookback": 60,
+                  "trendWindow": 120,
+                  "minReturn": 0.05
+                },
+                "pool": "base"
+              }
+            ],
+            "combinations": [],
+            "allocation": {
+              "mode": "single",
+              "strategyIds": [
+                "leaderPersistenceAdmissionV1"
+              ]
+            },
+            "rotation": {
+              "lookbackDays": 20,
+              "cooldownDays": 5,
+              "minWeightChange": 0.1,
+              "temperature": 0.05,
+              "regimeBlend": 0.25,
+              "regimeMinObservations": 5,
+              "warmupDays": 120
+            },
+            "universe": {
+              "strictHistory": false,
+              "excludeSt": true,
+              "minListingDays": 120,
+              "minAmount20": 50000000.0,
+              "minAmplitude20": null
+            },
+            "poolSettings": {
+              "trend": {
+                "window": 60,
+                "minReturn": 0.0,
+                "rankWindow": 40,
+                "rankStart": 1,
+                "rankEnd": 500,
+                "rankEnabled": false
+              },
+              "structure": {
+                "window": 20,
+                "minDrawdown": 0.02,
+                "maxDrawdown": 0.25,
+                "minMa10Above20Days": null,
+                "minMa5Above10Days": null,
+                "maxPeakAgeDays": null,
+                "maxPriceVsMa20": null,
+                "requireAboveMa20": false,
+                "peakBasis": "close",
+                "maDaysMode": "count"
+              },
+              "volume": {
+                "window": 20,
+                "minRatio": 1.2,
+                "minVolumeChange20": null,
+                "minUpDownVolumeRatio": null,
+                "maxDownVolumeRatio": null,
+                "excludeBlowoff": false,
+                "excludeDivergence": false,
+                "excludeUpperShadow": false
+              },
+              "combined": {
+                "pools": [
+                  "trend",
+                  "structure",
+                  "volume"
+                ],
+                "mode": "intersection"
+              }
+            }
+          },
+          "feeSpec": {
+            "profile": "legacy-engine-delegate-v1",
+            "parameters": {}
+          },
+          "evidenceRefs": [
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/plan.json",
+              "sha256": "51826b8447f68f55600058a7356f7f35a9c94708b9e99dbd40cd502c026ea349"
+            },
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/validation.json",
+              "sha256": "feb74fcc3945ff0659c23b145e7b26643be9c71fc6f0572ac6595e12fcc13f80"
+            },
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/2024-2025/star/input-completion.json",
+              "sha256": "8c3fab3ba2d06c03be3219fa12deacd00fb25e4354bfb2385a35dcdcb1b7ca27"
+            },
+            {
+              "path": "artifacts/strategy-search/board-coverage-reclaim-v1/source-validation.json",
+              "sha256": "fb666f86c8f78cd8c1b569bb8a44030e567b56c22db4d91b4880afb91152c649"
+            },
+            {
+              "path": "artifacts/strategy-search/leader-persistence-admission-v1/2024-2025/star/trail10/persistent.summary.json",
+              "sha256": "4c31377103e111b187a29b0ef2fd29899673615413350b86e5dd6e59642bed9b"
+            },
+            {
+              "path": "artifacts/strategy-search/final-research-review-v1/research-overview.json",
+              "sha256": "50ab07883e0b4eaf01decc2135ec2f4115b0603111bbcf721d5698bb9b3f8be9"
+            }
+          ]
+        }
+      ],
+      "status": "experimental",
+      "certified": false,
+      "targetAchieved": false,
+      "limitations": [
+        "实验性历史研究，不是获利保证；所有2022—2025数据均已用于开发，不能称样本外。",
+        "未复权、历史证券状态、退市覆盖及权益资料仍有限；保留未知和估值质量标记。",
+        "收盘确认，下一独立交易会话开盘单次尝试；原Top5无补位，现金/涨跌停/容量可能阻止成交。",
+        "不自动下单、不写真实账户；中断不假恢复，必须新建任务重新开始。"
+      ],
+      "dataRequirements": "默认仅下列SHA锁定历史来源；显式新输入须完整冻结cohort、独立交易日历与原始未复权数据。",
+      "researchResults": [
+        {
+          "period": "2022-2023",
+          "board": "main",
+          "metrics": {
+            "accountReturnPct": -32.987855543761945,
+            "maxDrawdownPct": 38.56052186320088,
+            "meanExposurePct": 34.74409273279872,
+            "investedSessionPct": 81.61157024793388,
+            "signals": 127,
+            "closed": 54,
+            "winRatePct": 16.666666666666664,
+            "meanWinPct": 17.984071947935604,
+            "meanLossPct": -7.6909858759497345,
+            "closedMeanPct": -3.4118095719688446,
+            "closedMedianPct": -6.495009163606364,
+            "payoffRatio": 2.3383311630012336,
+            "profitFactor": 0.4161460536447853,
+            "maxConsecutiveLosses": 17,
+            "closedPnlAmount": -152912.82064386978,
+            "openRealizedPnlAmount": 0.0,
+            "openUnrealizedPnlAmount": -12026.457074939986,
+            "openPositions": 2,
+            "feesPaid": 6094.19171881,
+            "slippageAlreadyInFillPrices": 8024.085999999638,
+            "top1ShareOfGrossProfitPct": 36.924597385906175,
+            "top5ShareOfGrossProfitPct": 82.68904531440936,
+            "unreliableValuationDays": 371,
+            "openStaleMarks": 0
+          }
+        },
+        {
+          "period": "2022-2023",
+          "board": "chinext",
+          "metrics": {
+            "accountReturnPct": -1.826867344293976,
+            "maxDrawdownPct": 15.055838277838724,
+            "meanExposurePct": 10.386528604933401,
+            "investedSessionPct": 31.818181818181817,
+            "signals": 45,
+            "closed": 23,
+            "winRatePct": 21.73913043478261,
+            "meanWinPct": 25.117445008394668,
+            "meanLossPct": -6.910649848372532,
+            "closedMeanPct": 0.051979468315990075,
+            "closedMedianPct": -5.674687682786431,
+            "payoffRatio": 3.634599575944347,
+            "profitFactor": 0.9239031755827432,
+            "maxConsecutiveLosses": 9,
+            "closedPnlAmount": -9134.336721469765,
+            "openRealizedPnlAmount": 0.0,
+            "openUnrealizedPnlAmount": 0.0,
+            "openPositions": 0,
+            "feesPaid": 3432.24172147,
+            "slippageAlreadyInFillPrices": 4415.094999999759,
+            "top1ShareOfGrossProfitPct": 67.31945807413253,
+            "top5ShareOfGrossProfitPct": 100.0,
+            "unreliableValuationDays": 0,
+            "openStaleMarks": 0
+          }
+        },
+        {
+          "period": "2022-2023",
+          "board": "star",
+          "metrics": {
+            "accountReturnPct": 2.220839089548588,
+            "maxDrawdownPct": 6.0151628363868985,
+            "meanExposurePct": 2.2548114998032798,
+            "investedSessionPct": 10.12396694214876,
+            "signals": 15,
+            "closed": 6,
+            "winRatePct": 33.33333333333333,
+            "meanWinPct": 19.40897312720503,
+            "meanLossPct": -6.103006330636672,
+            "closedMeanPct": 2.4009868219772286,
+            "closedMedianPct": -5.052199437610865,
+            "payoffRatio": 3.1802315245477164,
+            "profitFactor": 1.5750098844423284,
+            "maxConsecutiveLosses": 2,
+            "closedPnlAmount": 14097.955660043852,
+            "openRealizedPnlAmount": 0.0,
+            "openUnrealizedPnlAmount": -2993.7602123009856,
+            "openPositions": 1,
+            "feesPaid": 1024.3223522572,
+            "slippageAlreadyInFillPrices": 1316.202199999938,
+            "top1ShareOfGrossProfitPct": 74.49778130330994,
+            "top5ShareOfGrossProfitPct": 100.0,
+            "unreliableValuationDays": 0,
+            "openStaleMarks": 0
+          }
+        },
+        {
+          "period": "2024-2025",
+          "board": "main",
+          "metrics": {
+            "accountReturnPct": -20.044229559251875,
+            "maxDrawdownPct": 35.1177002024012,
+            "meanExposurePct": 40.12079372362585,
+            "investedSessionPct": 72.78350515463917,
+            "signals": 223,
+            "closed": 78,
+            "winRatePct": 21.794871794871796,
+            "meanWinPct": 19.494051256257002,
+            "meanLossPct": -7.356659713234863,
+            "closedMeanPct": -1.5045816814225337,
+            "closedMedianPct": -6.181697219270058,
+            "payoffRatio": 2.6498508856113854,
+            "profitFactor": 0.6815818479505822,
+            "maxConsecutiveLosses": 12,
+            "closedPnlAmount": -111743.57765822933,
+            "openRealizedPnlAmount": 0.0,
+            "openUnrealizedPnlAmount": 11522.429861970013,
+            "openPositions": 2,
+            "feesPaid": 6766.9257962599995,
+            "slippageAlreadyInFillPrices": 12201.221999999341,
+            "top1ShareOfGrossProfitPct": 22.134945243003227,
+            "top5ShareOfGrossProfitPct": 63.08423469592274,
+            "unreliableValuationDays": 0,
+            "openStaleMarks": 0
+          }
+        },
+        {
+          "period": "2024-2025",
+          "board": "chinext",
+          "metrics": {
+            "accountReturnPct": 17.013099062552048,
+            "maxDrawdownPct": 9.175357698013134,
+            "meanExposurePct": 6.971871882103404,
+            "investedSessionPct": 18.762886597938145,
+            "signals": 65,
+            "closed": 18,
+            "winRatePct": 33.33333333333333,
+            "meanWinPct": 30.631431191583705,
+            "meanLossPct": -7.0584826435806525,
+            "closedMeanPct": 5.504821968140799,
+            "closedMedianPct": -6.195363984271738,
+            "payoffRatio": 4.339662323805741,
+            "profitFactor": 1.9922772243325582,
+            "maxConsecutiveLosses": 5,
+            "closedPnlAmount": 85065.49531276019,
+            "openRealizedPnlAmount": 0.0,
+            "openUnrealizedPnlAmount": 0.0,
+            "openPositions": 0,
+            "feesPaid": 2035.1326872399998,
+            "slippageAlreadyInFillPrices": 3595.3719999998216,
+            "top1ShareOfGrossProfitPct": 29.011148113322623,
+            "top5ShareOfGrossProfitPct": 98.33365997627176,
+            "unreliableValuationDays": 0,
+            "openStaleMarks": 0
+          }
+        },
+        {
+          "period": "2024-2025",
+          "board": "star",
+          "metrics": {
+            "accountReturnPct": 0.7502934021453489,
+            "maxDrawdownPct": 11.802731897143047,
+            "meanExposurePct": 3.7527552802649393,
+            "investedSessionPct": 11.752577319587628,
+            "signals": 25,
+            "closed": 10,
+            "winRatePct": 30.0,
+            "meanWinPct": 22.520865050788597,
+            "meanLossPct": -8.69870009215377,
+            "closedMeanPct": 0.6671694507289386,
+            "closedMedianPct": -5.170993139239304,
+            "payoffRatio": 2.5889920117032688,
+            "profitFactor": 1.0648302412011519,
+            "maxConsecutiveLosses": 5,
+            "closedPnlAmount": 3751.467010726803,
+            "openRealizedPnlAmount": 0.0,
+            "openUnrealizedPnlAmount": 0.0,
+            "openPositions": 0,
+            "feesPaid": 1057.9847992732998,
+            "slippageAlreadyInFillPrices": 1887.11818999992,
+            "top1ShareOfGrossProfitPct": 67.79727693809976,
+            "top5ShareOfGrossProfitPct": 100.0,
+            "unreliableValuationDays": 0,
+            "openStaleMarks": 0
+          }
+        }
+      ],
+      "researchResultsRef": {
+        "path": "artifacts/strategy-search/final-research-review-v1/research-overview.json",
+        "sha256": "50ab07883e0b4eaf01decc2135ec2f4115b0603111bbcf721d5698bb9b3f8be9"
+      }
+    },
+    {
+      "id": "strongReclaimVolatilityTrail",
+      "name": "实验 · 强股支撑收回",
+      "description": "先验强股跌破此前支撑后收回，使用不放松的历史波动跟踪退出。",
+      "rules": [
+        "T−1完整61槽RS60百分位≥80%且自身60日收益为正；前20日显式成交额均须正。",
+        "T低点严格低于此前20槽最低价，收盘严格收回；按此前20日均额降序取Top5。",
+        "使用原immediate信号；退出波动来自持仓T之前21精确槽，20项TR/reference简单均值×3。"
+      ],
+      "exit": "原5%初始收盘止损优先；按closePeak与3×meanTRPct20生成相对风险入场价的单调收紧下限，未知窗口保留旧下限；无10%固定跟踪/第5日/止盈。",
+      "sources": [
+        {
+          "id": "2022-2023__main",
+          "label": "2022-2023 · 主板",
+          "period": "2022-2023",
+          "board": "main",
+          "start": "2022-01-04",
+          "end": "2023-12-29",
+          "members": 2990,
+          "signalCount": 2081,
+          "initialCapital": 500000.0,
+          "fees": "原研究按日期费用假设：佣金万三、单笔最低5元，原登记过户费/印花税分段；非真实券商验证。",
+          "researchOrigin": "reclaim-volatility-trail-v1/immediate",
+          "accountData": {
+            "path": "artifacts/strategy-search/board-coverage-reclaim-v1/2022-2023/main.account-data.json.gz",
+            "sha256": "19b475e1414fdb915a7aae979939867f804f198cf4416d245887162eb18852d8"
+          },
+          "accountDatasetDigest": "a4a3109f25c6e7a4947c20cf7f04928a9dc0787d4194d102e7ef1a05e5deffaa",
+          "schedule": {
+            "path": "artifacts/strategy-search/board-coverage-reclaim-v1/2022-2023/main/immediate.signals.json",
+            "sha256": "08329dcbdae36c5735c5d87188ca808e7baa2ac10fb9ff73229901fb85b4dead"
+          },
+          "config": {
+            "initialCapital": 500000.0,
+            "lookbackDays": 39,
+            "topN": 5,
+            "maxPositions": 5,
+            "maxStockWeight": 0.2,
+            "rebalanceEvery": 1,
+            "switchThreshold": 0.0,
+            "stopLossPct": 0.05,
+            "takeProfitPct": 0.0,
+            "trailingStopPct": 0.0,
+            "maxHoldingDays": 0,
+            "commissionRate": 0.0003,
+            "minCommission": 5.0,
+            "transferFeeRate": 1e-05,
+            "slippageBps": 10.0,
+            "maxParticipationRate": 0.01,
+            "startDate": "2022-01-04",
+            "endDate": "2023-12-29",
+            "weighting": "equal",
+            "rebalanceMode": "risk",
+            "rightsPolicy": "skip",
+            "stampDutyRate": null,
+            "strategies": [
+              {
+                "id": "strongUndercutReclaimV1",
+                "kind": "momentum",
+                "params": {
+                  "lookback": 60,
+                  "trendWindow": 120,
+                  "minReturn": 0.05
+                },
+                "pool": "base"
+              }
+            ],
+            "combinations": [],
+            "allocation": {
+              "mode": "single",
+              "strategyIds": [
+                "strongUndercutReclaimV1"
+              ]
+            },
+            "rotation": {
+              "lookbackDays": 20,
+              "cooldownDays": 5,
+              "minWeightChange": 0.1,
+              "temperature": 0.05,
+              "regimeBlend": 0.25,
+              "regimeMinObservations": 5,
+              "warmupDays": 120
+            },
+            "universe": {
+              "strictHistory": false,
+              "excludeSt": true,
+              "minListingDays": 120,
+              "minAmount20": 50000000.0,
+              "minAmplitude20": null
+            },
+            "poolSettings": {
+              "trend": {
+                "window": 60,
+                "minReturn": 0.0,
+                "rankWindow": 40,
+                "rankStart": 1,
+                "rankEnd": 500,
+                "rankEnabled": false
+              },
+              "structure": {
+                "window": 20,
+                "minDrawdown": 0.02,
+                "maxDrawdown": 0.25,
+                "minMa10Above20Days": null,
+                "minMa5Above10Days": null,
+                "maxPeakAgeDays": null,
+                "maxPriceVsMa20": null,
+                "requireAboveMa20": false,
+                "peakBasis": "close",
+                "maDaysMode": "count"
+              },
+              "volume": {
+                "window": 20,
+                "minRatio": 1.2,
+                "minVolumeChange20": null,
+                "minUpDownVolumeRatio": null,
+                "maxDownVolumeRatio": null,
+                "excludeBlowoff": false,
+                "excludeDivergence": false,
+                "excludeUpperShadow": false
+              },
+              "combined": {
+                "pools": [
+                  "trend",
+                  "structure",
+                  "volume"
+                ],
+                "mode": "intersection"
+              }
+            }
+          },
+          "feeSpec": {
+            "profile": "dated-transfer-assumption-v1",
+            "parameters": {
+              "commission_rate": 0.0003,
+              "min_commission": 5,
+              "commission_includes_transfer": false,
+              "stamp_duty_override": null,
+              "security_type": "ordinary-a-share",
+              "trading_mode": "exchange-auction"
+            }
+          },
+          "evidenceRefs": [
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/plan.json",
+              "sha256": "4edd15d2b074ff81992c61e7bfac652e6e77780bbd4f930fb2e7332014fbe1d5"
+            },
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/validation.json",
+              "sha256": "a4161122f3ea8c2b8efb04e2dfe6a67cd2ee5c6d8a6cafcdb5e20f560df5fabf"
+            },
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/2022-2023/main/input-completion.json",
+              "sha256": "d6122a3535e823ae96b1cc9da6e917e643b7348fe3159288c303961c858e3bda"
+            },
+            {
+              "path": "artifacts/strategy-search/board-coverage-reclaim-v1/source-validation.json",
+              "sha256": "fb666f86c8f78cd8c1b569bb8a44030e567b56c22db4d91b4880afb91152c649"
+            },
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/2022-2023/main/volatilityTrail.summary.json",
+              "sha256": "841ff007c49cb49e655b2d39651faa4141a98fed44606d4cf7d7b45fc7d541f7"
+            },
+            {
+              "path": "artifacts/strategy-search/final-research-review-v1/research-overview.json",
+              "sha256": "50ab07883e0b4eaf01decc2135ec2f4115b0603111bbcf721d5698bb9b3f8be9"
+            }
+          ]
+        },
+        {
+          "id": "2022-2023__chinext",
+          "label": "2022-2023 · 创业板",
+          "period": "2022-2023",
+          "board": "chinext",
+          "start": "2022-01-04",
+          "end": "2023-12-29",
+          "members": 1010,
+          "signalCount": 1447,
+          "initialCapital": 500000.0,
+          "fees": "原研究按日期费用假设：佣金万三、单笔最低5元，原登记过户费/印花税分段；非真实券商验证。",
+          "researchOrigin": "reclaim-volatility-trail-v1/immediate",
+          "accountData": {
+            "path": "artifacts/strategy-search/board-coverage-reclaim-v1/2022-2023/chinext.account-data.json.gz",
+            "sha256": "e7e0e8fa5599bb9da07faafec5984a06111a7e36ad63ff02908e2da199e5ba85"
+          },
+          "accountDatasetDigest": "44d22ab05c8a107e6a1905523a0224f5e913c5ca41ee1ed62fc3eb683beb332b",
+          "schedule": {
+            "path": "artifacts/strategy-search/board-coverage-reclaim-v1/2022-2023/chinext/immediate.signals.json",
+            "sha256": "9f14721c24572d954753f8c62ae20259ee12d74d84c3c11485d4f57a531289b3"
+          },
+          "config": {
+            "initialCapital": 500000.0,
+            "lookbackDays": 39,
+            "topN": 5,
+            "maxPositions": 5,
+            "maxStockWeight": 0.2,
+            "rebalanceEvery": 1,
+            "switchThreshold": 0.0,
+            "stopLossPct": 0.05,
+            "takeProfitPct": 0.0,
+            "trailingStopPct": 0.0,
+            "maxHoldingDays": 0,
+            "commissionRate": 0.0003,
+            "minCommission": 5.0,
+            "transferFeeRate": 1e-05,
+            "slippageBps": 10.0,
+            "maxParticipationRate": 0.01,
+            "startDate": "2022-01-04",
+            "endDate": "2023-12-29",
+            "weighting": "equal",
+            "rebalanceMode": "risk",
+            "rightsPolicy": "skip",
+            "stampDutyRate": null,
+            "strategies": [
+              {
+                "id": "strongUndercutReclaimV1",
+                "kind": "momentum",
+                "params": {
+                  "lookback": 60,
+                  "trendWindow": 120,
+                  "minReturn": 0.05
+                },
+                "pool": "base"
+              }
+            ],
+            "combinations": [],
+            "allocation": {
+              "mode": "single",
+              "strategyIds": [
+                "strongUndercutReclaimV1"
+              ]
+            },
+            "rotation": {
+              "lookbackDays": 20,
+              "cooldownDays": 5,
+              "minWeightChange": 0.1,
+              "temperature": 0.05,
+              "regimeBlend": 0.25,
+              "regimeMinObservations": 5,
+              "warmupDays": 120
+            },
+            "universe": {
+              "strictHistory": false,
+              "excludeSt": true,
+              "minListingDays": 120,
+              "minAmount20": 50000000.0,
+              "minAmplitude20": null
+            },
+            "poolSettings": {
+              "trend": {
+                "window": 60,
+                "minReturn": 0.0,
+                "rankWindow": 40,
+                "rankStart": 1,
+                "rankEnd": 500,
+                "rankEnabled": false
+              },
+              "structure": {
+                "window": 20,
+                "minDrawdown": 0.02,
+                "maxDrawdown": 0.25,
+                "minMa10Above20Days": null,
+                "minMa5Above10Days": null,
+                "maxPeakAgeDays": null,
+                "maxPriceVsMa20": null,
+                "requireAboveMa20": false,
+                "peakBasis": "close",
+                "maDaysMode": "count"
+              },
+              "volume": {
+                "window": 20,
+                "minRatio": 1.2,
+                "minVolumeChange20": null,
+                "minUpDownVolumeRatio": null,
+                "maxDownVolumeRatio": null,
+                "excludeBlowoff": false,
+                "excludeDivergence": false,
+                "excludeUpperShadow": false
+              },
+              "combined": {
+                "pools": [
+                  "trend",
+                  "structure",
+                  "volume"
+                ],
+                "mode": "intersection"
+              }
+            }
+          },
+          "feeSpec": {
+            "profile": "dated-transfer-assumption-v1",
+            "parameters": {
+              "commission_rate": 0.0003,
+              "min_commission": 5,
+              "commission_includes_transfer": false,
+              "stamp_duty_override": null,
+              "security_type": "ordinary-a-share",
+              "trading_mode": "exchange-auction"
+            }
+          },
+          "evidenceRefs": [
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/plan.json",
+              "sha256": "4edd15d2b074ff81992c61e7bfac652e6e77780bbd4f930fb2e7332014fbe1d5"
+            },
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/validation.json",
+              "sha256": "a4161122f3ea8c2b8efb04e2dfe6a67cd2ee5c6d8a6cafcdb5e20f560df5fabf"
+            },
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/2022-2023/chinext/input-completion.json",
+              "sha256": "2c893553193cf4debb2e3c0a5884c283d5cf38515e2b5f02dda9c9beea5f4639"
+            },
+            {
+              "path": "artifacts/strategy-search/board-coverage-reclaim-v1/source-validation.json",
+              "sha256": "fb666f86c8f78cd8c1b569bb8a44030e567b56c22db4d91b4880afb91152c649"
+            },
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/2022-2023/chinext/volatilityTrail.summary.json",
+              "sha256": "4cc52f8850b0789930b2ca3d6d86d9b9fdc495a2c11081ed749ed4f4a78078dd"
+            },
+            {
+              "path": "artifacts/strategy-search/final-research-review-v1/research-overview.json",
+              "sha256": "50ab07883e0b4eaf01decc2135ec2f4115b0603111bbcf721d5698bb9b3f8be9"
+            }
+          ]
+        },
+        {
+          "id": "2022-2023__star",
+          "label": "2022-2023 · 科创板",
+          "period": "2022-2023",
+          "board": "star",
+          "start": "2022-01-04",
+          "end": "2023-12-29",
+          "members": 339,
+          "signalCount": 867,
+          "initialCapital": 500000.0,
+          "fees": "原研究按日期费用假设：佣金万三、单笔最低5元，原登记过户费/印花税分段；非真实券商验证。",
+          "researchOrigin": "reclaim-volatility-trail-v1/immediate",
+          "accountData": {
+            "path": "artifacts/strategy-search/board-coverage-reclaim-v1/2022-2023/star.account-data.json.gz",
+            "sha256": "a7977c89b704c1aff8127d83ff885d6887f980442ff879fa9544501ea4259fd8"
+          },
+          "accountDatasetDigest": "642eda6fd10c2056cd6460cb59c8aa03020a88ce54e1fadff22f93280411e1c5",
+          "schedule": {
+            "path": "artifacts/strategy-search/board-coverage-reclaim-v1/2022-2023/star/immediate.signals.json",
+            "sha256": "8bdd8303b469110a553cbe9045f9c3ed9b0f40377223dd1d5b17d3da3a35b952"
+          },
+          "config": {
+            "initialCapital": 500000.0,
+            "lookbackDays": 39,
+            "topN": 5,
+            "maxPositions": 5,
+            "maxStockWeight": 0.2,
+            "rebalanceEvery": 1,
+            "switchThreshold": 0.0,
+            "stopLossPct": 0.05,
+            "takeProfitPct": 0.0,
+            "trailingStopPct": 0.0,
+            "maxHoldingDays": 0,
+            "commissionRate": 0.0003,
+            "minCommission": 5.0,
+            "transferFeeRate": 1e-05,
+            "slippageBps": 10.0,
+            "maxParticipationRate": 0.01,
+            "startDate": "2022-01-04",
+            "endDate": "2023-12-29",
+            "weighting": "equal",
+            "rebalanceMode": "risk",
+            "rightsPolicy": "skip",
+            "stampDutyRate": null,
+            "strategies": [
+              {
+                "id": "strongUndercutReclaimV1",
+                "kind": "momentum",
+                "params": {
+                  "lookback": 60,
+                  "trendWindow": 120,
+                  "minReturn": 0.05
+                },
+                "pool": "base"
+              }
+            ],
+            "combinations": [],
+            "allocation": {
+              "mode": "single",
+              "strategyIds": [
+                "strongUndercutReclaimV1"
+              ]
+            },
+            "rotation": {
+              "lookbackDays": 20,
+              "cooldownDays": 5,
+              "minWeightChange": 0.1,
+              "temperature": 0.05,
+              "regimeBlend": 0.25,
+              "regimeMinObservations": 5,
+              "warmupDays": 120
+            },
+            "universe": {
+              "strictHistory": false,
+              "excludeSt": true,
+              "minListingDays": 120,
+              "minAmount20": 50000000.0,
+              "minAmplitude20": null
+            },
+            "poolSettings": {
+              "trend": {
+                "window": 60,
+                "minReturn": 0.0,
+                "rankWindow": 40,
+                "rankStart": 1,
+                "rankEnd": 500,
+                "rankEnabled": false
+              },
+              "structure": {
+                "window": 20,
+                "minDrawdown": 0.02,
+                "maxDrawdown": 0.25,
+                "minMa10Above20Days": null,
+                "minMa5Above10Days": null,
+                "maxPeakAgeDays": null,
+                "maxPriceVsMa20": null,
+                "requireAboveMa20": false,
+                "peakBasis": "close",
+                "maDaysMode": "count"
+              },
+              "volume": {
+                "window": 20,
+                "minRatio": 1.2,
+                "minVolumeChange20": null,
+                "minUpDownVolumeRatio": null,
+                "maxDownVolumeRatio": null,
+                "excludeBlowoff": false,
+                "excludeDivergence": false,
+                "excludeUpperShadow": false
+              },
+              "combined": {
+                "pools": [
+                  "trend",
+                  "structure",
+                  "volume"
+                ],
+                "mode": "intersection"
+              }
+            }
+          },
+          "feeSpec": {
+            "profile": "dated-transfer-assumption-v1",
+            "parameters": {
+              "commission_rate": 0.0003,
+              "min_commission": 5,
+              "commission_includes_transfer": false,
+              "stamp_duty_override": null,
+              "security_type": "ordinary-a-share",
+              "trading_mode": "exchange-auction"
+            }
+          },
+          "evidenceRefs": [
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/plan.json",
+              "sha256": "4edd15d2b074ff81992c61e7bfac652e6e77780bbd4f930fb2e7332014fbe1d5"
+            },
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/validation.json",
+              "sha256": "a4161122f3ea8c2b8efb04e2dfe6a67cd2ee5c6d8a6cafcdb5e20f560df5fabf"
+            },
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/2022-2023/star/input-completion.json",
+              "sha256": "bb798a08ad580a55cf648102b6864c5db4db00b84b280eb34594939d1857be0a"
+            },
+            {
+              "path": "artifacts/strategy-search/board-coverage-reclaim-v1/source-validation.json",
+              "sha256": "fb666f86c8f78cd8c1b569bb8a44030e567b56c22db4d91b4880afb91152c649"
+            },
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/2022-2023/star/volatilityTrail.summary.json",
+              "sha256": "446ac788965c360c174e0baa1f64723d70897a60450df3d045437cfba0564bf8"
+            },
+            {
+              "path": "artifacts/strategy-search/final-research-review-v1/research-overview.json",
+              "sha256": "50ab07883e0b4eaf01decc2135ec2f4115b0603111bbcf721d5698bb9b3f8be9"
+            }
+          ]
+        },
+        {
+          "id": "2024-2025__main",
+          "label": "2024-2025 · 主板",
+          "period": "2024-2025",
+          "board": "main",
+          "start": "2024-01-02",
+          "end": "2025-12-31",
+          "members": 3126,
+          "signalCount": 1707,
+          "initialCapital": 500000.0,
+          "fees": "原研究 LegacyFeePolicy 续用末期固定费率：佣金万三/最低5元、过户费万0.1、卖出印花税万5；非实时费率适配。",
+          "researchOrigin": "reclaim-volatility-trail-v1/immediate",
+          "accountData": {
+            "path": "artifacts/strategy-search/board-coverage-reclaim-v1/2024-2025/main.account-data.json.gz",
+            "sha256": "90feb0bcd5ea0cd24c53e98c6542ead9fa3e8d57bfe689375cb8e9c14d243b5f"
+          },
+          "accountDatasetDigest": "695560f023e9a1a7d87be003c377a3f74375cd03d94ab42b12e04dd5b0292c4c",
+          "schedule": {
+            "path": "artifacts/strategy-search/board-coverage-reclaim-v1/2024-2025/main/immediate.signals.json",
+            "sha256": "e7abe388910d00ac48ecaaa052904157d997e57e8401e329d6881824778a37e0"
+          },
+          "config": {
+            "initialCapital": 500000.0,
+            "lookbackDays": 39,
+            "topN": 5,
+            "maxPositions": 5,
+            "maxStockWeight": 0.2,
+            "rebalanceEvery": 1,
+            "switchThreshold": 0.0,
+            "stopLossPct": 0.05,
+            "takeProfitPct": 0.0,
+            "trailingStopPct": 0.0,
+            "maxHoldingDays": 0,
+            "commissionRate": 0.0003,
+            "minCommission": 5.0,
+            "transferFeeRate": 1e-05,
+            "slippageBps": 10.0,
+            "maxParticipationRate": 0.01,
+            "startDate": "2024-01-02",
+            "endDate": "2025-12-31",
+            "weighting": "equal",
+            "rebalanceMode": "risk",
+            "rightsPolicy": "skip",
+            "stampDutyRate": null,
+            "strategies": [
+              {
+                "id": "strongUndercutReclaimV1",
+                "kind": "momentum",
+                "params": {
+                  "lookback": 60,
+                  "trendWindow": 120,
+                  "minReturn": 0.05
+                },
+                "pool": "base"
+              }
+            ],
+            "combinations": [],
+            "allocation": {
+              "mode": "single",
+              "strategyIds": [
+                "strongUndercutReclaimV1"
+              ]
+            },
+            "rotation": {
+              "lookbackDays": 20,
+              "cooldownDays": 5,
+              "minWeightChange": 0.1,
+              "temperature": 0.05,
+              "regimeBlend": 0.25,
+              "regimeMinObservations": 5,
+              "warmupDays": 120
+            },
+            "universe": {
+              "strictHistory": false,
+              "excludeSt": true,
+              "minListingDays": 120,
+              "minAmount20": 50000000.0,
+              "minAmplitude20": null
+            },
+            "poolSettings": {
+              "trend": {
+                "window": 60,
+                "minReturn": 0.0,
+                "rankWindow": 40,
+                "rankStart": 1,
+                "rankEnd": 500,
+                "rankEnabled": false
+              },
+              "structure": {
+                "window": 20,
+                "minDrawdown": 0.02,
+                "maxDrawdown": 0.25,
+                "minMa10Above20Days": null,
+                "minMa5Above10Days": null,
+                "maxPeakAgeDays": null,
+                "maxPriceVsMa20": null,
+                "requireAboveMa20": false,
+                "peakBasis": "close",
+                "maDaysMode": "count"
+              },
+              "volume": {
+                "window": 20,
+                "minRatio": 1.2,
+                "minVolumeChange20": null,
+                "minUpDownVolumeRatio": null,
+                "maxDownVolumeRatio": null,
+                "excludeBlowoff": false,
+                "excludeDivergence": false,
+                "excludeUpperShadow": false
+              },
+              "combined": {
+                "pools": [
+                  "trend",
+                  "structure",
+                  "volume"
+                ],
+                "mode": "intersection"
+              }
+            }
+          },
+          "feeSpec": {
+            "profile": "legacy-engine-delegate-v1",
+            "parameters": {}
+          },
+          "evidenceRefs": [
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/plan.json",
+              "sha256": "4edd15d2b074ff81992c61e7bfac652e6e77780bbd4f930fb2e7332014fbe1d5"
+            },
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/validation.json",
+              "sha256": "a4161122f3ea8c2b8efb04e2dfe6a67cd2ee5c6d8a6cafcdb5e20f560df5fabf"
+            },
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/2024-2025/main/input-completion.json",
+              "sha256": "bdb28c62b7dcf1a706b58355cbb635f3a9db1e508a5d839601d1d2f6ff7cfcd1"
+            },
+            {
+              "path": "artifacts/strategy-search/board-coverage-reclaim-v1/source-validation.json",
+              "sha256": "fb666f86c8f78cd8c1b569bb8a44030e567b56c22db4d91b4880afb91152c649"
+            },
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/2024-2025/main/volatilityTrail.summary.json",
+              "sha256": "c93b44b4e3fe4c1b6d9b33548ad53032ae3830a2dbaa8a3a8dcea6102d221236"
+            },
+            {
+              "path": "artifacts/strategy-search/final-research-review-v1/research-overview.json",
+              "sha256": "50ab07883e0b4eaf01decc2135ec2f4115b0603111bbcf721d5698bb9b3f8be9"
+            }
+          ]
+        },
+        {
+          "id": "2024-2025__chinext",
+          "label": "2024-2025 · 创业板",
+          "period": "2024-2025",
+          "board": "chinext",
+          "start": "2024-01-02",
+          "end": "2025-12-31",
+          "members": 1312,
+          "signalCount": 1221,
+          "initialCapital": 500000.0,
+          "fees": "原研究 LegacyFeePolicy 续用末期固定费率：佣金万三/最低5元、过户费万0.1、卖出印花税万5；非实时费率适配。",
+          "researchOrigin": "reclaim-volatility-trail-v1/immediate",
+          "accountData": {
+            "path": "artifacts/strategy-search/board-coverage-reclaim-v1/2024-2025/chinext.account-data.json.gz",
+            "sha256": "dfb6a0ea90779601d2d7b9c3b45a192cf55eecff9fbadd764deafd440fb98276"
+          },
+          "accountDatasetDigest": "7d5fee0bcb3c8216f2d17fc6af7a32e66604e01abd4fc9986024eb5bab75a0ce",
+          "schedule": {
+            "path": "artifacts/strategy-search/board-coverage-reclaim-v1/2024-2025/chinext/immediate.signals.json",
+            "sha256": "0f819033eda1b66f2db0d379d82c3237fd3e7eb32b046864169873afa80ad7ed"
+          },
+          "config": {
+            "initialCapital": 500000.0,
+            "lookbackDays": 39,
+            "topN": 5,
+            "maxPositions": 5,
+            "maxStockWeight": 0.2,
+            "rebalanceEvery": 1,
+            "switchThreshold": 0.0,
+            "stopLossPct": 0.05,
+            "takeProfitPct": 0.0,
+            "trailingStopPct": 0.0,
+            "maxHoldingDays": 0,
+            "commissionRate": 0.0003,
+            "minCommission": 5.0,
+            "transferFeeRate": 1e-05,
+            "slippageBps": 10.0,
+            "maxParticipationRate": 0.01,
+            "startDate": "2024-01-02",
+            "endDate": "2025-12-31",
+            "weighting": "equal",
+            "rebalanceMode": "risk",
+            "rightsPolicy": "skip",
+            "stampDutyRate": null,
+            "strategies": [
+              {
+                "id": "strongUndercutReclaimV1",
+                "kind": "momentum",
+                "params": {
+                  "lookback": 60,
+                  "trendWindow": 120,
+                  "minReturn": 0.05
+                },
+                "pool": "base"
+              }
+            ],
+            "combinations": [],
+            "allocation": {
+              "mode": "single",
+              "strategyIds": [
+                "strongUndercutReclaimV1"
+              ]
+            },
+            "rotation": {
+              "lookbackDays": 20,
+              "cooldownDays": 5,
+              "minWeightChange": 0.1,
+              "temperature": 0.05,
+              "regimeBlend": 0.25,
+              "regimeMinObservations": 5,
+              "warmupDays": 120
+            },
+            "universe": {
+              "strictHistory": false,
+              "excludeSt": true,
+              "minListingDays": 120,
+              "minAmount20": 50000000.0,
+              "minAmplitude20": null
+            },
+            "poolSettings": {
+              "trend": {
+                "window": 60,
+                "minReturn": 0.0,
+                "rankWindow": 40,
+                "rankStart": 1,
+                "rankEnd": 500,
+                "rankEnabled": false
+              },
+              "structure": {
+                "window": 20,
+                "minDrawdown": 0.02,
+                "maxDrawdown": 0.25,
+                "minMa10Above20Days": null,
+                "minMa5Above10Days": null,
+                "maxPeakAgeDays": null,
+                "maxPriceVsMa20": null,
+                "requireAboveMa20": false,
+                "peakBasis": "close",
+                "maDaysMode": "count"
+              },
+              "volume": {
+                "window": 20,
+                "minRatio": 1.2,
+                "minVolumeChange20": null,
+                "minUpDownVolumeRatio": null,
+                "maxDownVolumeRatio": null,
+                "excludeBlowoff": false,
+                "excludeDivergence": false,
+                "excludeUpperShadow": false
+              },
+              "combined": {
+                "pools": [
+                  "trend",
+                  "structure",
+                  "volume"
+                ],
+                "mode": "intersection"
+              }
+            }
+          },
+          "feeSpec": {
+            "profile": "legacy-engine-delegate-v1",
+            "parameters": {}
+          },
+          "evidenceRefs": [
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/plan.json",
+              "sha256": "4edd15d2b074ff81992c61e7bfac652e6e77780bbd4f930fb2e7332014fbe1d5"
+            },
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/validation.json",
+              "sha256": "a4161122f3ea8c2b8efb04e2dfe6a67cd2ee5c6d8a6cafcdb5e20f560df5fabf"
+            },
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/2024-2025/chinext/input-completion.json",
+              "sha256": "84a578fc5496fe524dae2531da022f56b0dfe45688ccddb43ef946ef32018eab"
+            },
+            {
+              "path": "artifacts/strategy-search/board-coverage-reclaim-v1/source-validation.json",
+              "sha256": "fb666f86c8f78cd8c1b569bb8a44030e567b56c22db4d91b4880afb91152c649"
+            },
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/2024-2025/chinext/volatilityTrail.summary.json",
+              "sha256": "994eff949ec8447a541af0e9f680ba8cffa06c0f50a07bbc25c34ba9f2128287"
+            },
+            {
+              "path": "artifacts/strategy-search/final-research-review-v1/research-overview.json",
+              "sha256": "50ab07883e0b4eaf01decc2135ec2f4115b0603111bbcf721d5698bb9b3f8be9"
+            }
+          ]
+        },
+        {
+          "id": "2024-2025__star",
+          "label": "2024-2025 · 科创板",
+          "period": "2024-2025",
+          "board": "star",
+          "start": "2024-01-02",
+          "end": "2025-12-31",
+          "members": 561,
+          "signalCount": 832,
+          "initialCapital": 500000.0,
+          "fees": "原研究 LegacyFeePolicy 续用末期固定费率：佣金万三/最低5元、过户费万0.1、卖出印花税万5；非实时费率适配。",
+          "researchOrigin": "reclaim-volatility-trail-v1/immediate",
+          "accountData": {
+            "path": "artifacts/strategy-search/board-coverage-reclaim-v1/2024-2025/star.account-data.json.gz",
+            "sha256": "b893491e912eb73c64dcce4c6d99958aabd23891cb41880a5b893fff915d0ee7"
+          },
+          "accountDatasetDigest": "8bbaed8c84bb1904d43d5f6c4203aa8f26f9371298770752d49a91641512b781",
+          "schedule": {
+            "path": "artifacts/strategy-search/board-coverage-reclaim-v1/2024-2025/star/immediate.signals.json",
+            "sha256": "e555db6ed2c11df06f56b8ffedc5248fb39f9dde813970dff83dd2254fd41030"
+          },
+          "config": {
+            "initialCapital": 500000.0,
+            "lookbackDays": 39,
+            "topN": 5,
+            "maxPositions": 5,
+            "maxStockWeight": 0.2,
+            "rebalanceEvery": 1,
+            "switchThreshold": 0.0,
+            "stopLossPct": 0.05,
+            "takeProfitPct": 0.0,
+            "trailingStopPct": 0.0,
+            "maxHoldingDays": 0,
+            "commissionRate": 0.0003,
+            "minCommission": 5.0,
+            "transferFeeRate": 1e-05,
+            "slippageBps": 10.0,
+            "maxParticipationRate": 0.01,
+            "startDate": "2024-01-02",
+            "endDate": "2025-12-31",
+            "weighting": "equal",
+            "rebalanceMode": "risk",
+            "rightsPolicy": "skip",
+            "stampDutyRate": null,
+            "strategies": [
+              {
+                "id": "strongUndercutReclaimV1",
+                "kind": "momentum",
+                "params": {
+                  "lookback": 60,
+                  "trendWindow": 120,
+                  "minReturn": 0.05
+                },
+                "pool": "base"
+              }
+            ],
+            "combinations": [],
+            "allocation": {
+              "mode": "single",
+              "strategyIds": [
+                "strongUndercutReclaimV1"
+              ]
+            },
+            "rotation": {
+              "lookbackDays": 20,
+              "cooldownDays": 5,
+              "minWeightChange": 0.1,
+              "temperature": 0.05,
+              "regimeBlend": 0.25,
+              "regimeMinObservations": 5,
+              "warmupDays": 120
+            },
+            "universe": {
+              "strictHistory": false,
+              "excludeSt": true,
+              "minListingDays": 120,
+              "minAmount20": 50000000.0,
+              "minAmplitude20": null
+            },
+            "poolSettings": {
+              "trend": {
+                "window": 60,
+                "minReturn": 0.0,
+                "rankWindow": 40,
+                "rankStart": 1,
+                "rankEnd": 500,
+                "rankEnabled": false
+              },
+              "structure": {
+                "window": 20,
+                "minDrawdown": 0.02,
+                "maxDrawdown": 0.25,
+                "minMa10Above20Days": null,
+                "minMa5Above10Days": null,
+                "maxPeakAgeDays": null,
+                "maxPriceVsMa20": null,
+                "requireAboveMa20": false,
+                "peakBasis": "close",
+                "maDaysMode": "count"
+              },
+              "volume": {
+                "window": 20,
+                "minRatio": 1.2,
+                "minVolumeChange20": null,
+                "minUpDownVolumeRatio": null,
+                "maxDownVolumeRatio": null,
+                "excludeBlowoff": false,
+                "excludeDivergence": false,
+                "excludeUpperShadow": false
+              },
+              "combined": {
+                "pools": [
+                  "trend",
+                  "structure",
+                  "volume"
+                ],
+                "mode": "intersection"
+              }
+            }
+          },
+          "feeSpec": {
+            "profile": "legacy-engine-delegate-v1",
+            "parameters": {}
+          },
+          "evidenceRefs": [
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/plan.json",
+              "sha256": "4edd15d2b074ff81992c61e7bfac652e6e77780bbd4f930fb2e7332014fbe1d5"
+            },
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/validation.json",
+              "sha256": "a4161122f3ea8c2b8efb04e2dfe6a67cd2ee5c6d8a6cafcdb5e20f560df5fabf"
+            },
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/2024-2025/star/input-completion.json",
+              "sha256": "951e2a5a4a92dbcf1474756211f682017a62ffdbdcd8f60e8a66b911af741007"
+            },
+            {
+              "path": "artifacts/strategy-search/board-coverage-reclaim-v1/source-validation.json",
+              "sha256": "fb666f86c8f78cd8c1b569bb8a44030e567b56c22db4d91b4880afb91152c649"
+            },
+            {
+              "path": "artifacts/strategy-search/reclaim-volatility-trail-v1/2024-2025/star/volatilityTrail.summary.json",
+              "sha256": "4d449054de073dd58d2a85386964f5e7db1fb9ced7f4dfa3fd7425fee16c0a9e"
+            },
+            {
+              "path": "artifacts/strategy-search/final-research-review-v1/research-overview.json",
+              "sha256": "50ab07883e0b4eaf01decc2135ec2f4115b0603111bbcf721d5698bb9b3f8be9"
+            }
+          ]
+        }
+      ],
+      "status": "experimental",
+      "certified": false,
+      "targetAchieved": false,
+      "limitations": [
+        "实验性历史研究，不是获利保证；所有2022—2025数据均已用于开发，不能称样本外。",
+        "未复权、历史证券状态、退市覆盖及权益资料仍有限；保留未知和估值质量标记。",
+        "收盘确认，下一独立交易会话开盘单次尝试；原Top5无补位，现金/涨跌停/容量可能阻止成交。",
+        "不自动下单、不写真实账户；中断不假恢复，必须新建任务重新开始。"
+      ],
+      "dataRequirements": "默认仅下列SHA锁定历史来源；显式新输入须完整冻结cohort、独立交易日历与原始未复权数据。",
+      "researchResults": [
+        {
+          "period": "2022-2023",
+          "board": "main",
+          "metrics": {
+            "accountReturnPct": -54.24982280872383,
+            "maxDrawdownPct": 61.03591013670583,
+            "meanExposurePct": 95.49015244042725,
+            "investedSessionPct": null,
+            "signals": 2081,
+            "closed": 154,
+            "winRatePct": 16.233766233766232,
+            "meanWinPct": 17.04236033522159,
+            "meanLossPct": -6.956738368048476,
+            "closedMeanPct": -3.06078078634879,
+            "closedMedianPct": null,
+            "payoffRatio": 2.4497630115709472,
+            "profitFactor": 0.3632853309720909,
+            "maxConsecutiveLosses": 23,
+            "closedPnlAmount": -311616.3536103292,
+            "openRealizedPnlAmount": 0.0,
+            "openUnrealizedPnlAmount": 40367.23956671001,
+            "openPositions": 5,
+            "feesPaid": 12337.391043619999,
+            "slippageAlreadyInFillPrices": 15982.722999999134,
+            "top1ShareOfGrossProfitPct": 17.20745106921225,
+            "top5ShareOfGrossProfitPct": 57.38800562238872,
+            "unreliableValuationDays": 6,
+            "openStaleMarks": null
+          }
+        },
+        {
+          "period": "2022-2023",
+          "board": "chinext",
+          "metrics": {
+            "accountReturnPct": -54.422992185237774,
+            "maxDrawdownPct": 63.705248103969794,
+            "meanExposurePct": 95.65449578756255,
+            "investedSessionPct": null,
+            "signals": 1447,
+            "closed": 156,
+            "winRatePct": 17.307692307692307,
+            "meanWinPct": 14.993021764734873,
+            "meanLossPct": -6.5457984573101236,
+            "closedMeanPct": -2.8179257265715663,
+            "closedMedianPct": null,
+            "payoffRatio": 2.2904802007753813,
+            "profitFactor": 0.40726481592462505,
+            "maxConsecutiveLosses": 25,
+            "closedPnlAmount": -289510.83574538893,
+            "openRealizedPnlAmount": 0.0,
+            "openUnrealizedPnlAmount": 17395.87481920002,
+            "openPositions": 5,
+            "feesPaid": 13628.08392619,
+            "slippageAlreadyInFillPrices": 17617.87699999902,
+            "top1ShareOfGrossProfitPct": 34.47581172459556,
+            "top5ShareOfGrossProfitPct": 67.2001968115416,
+            "unreliableValuationDays": 0,
+            "openStaleMarks": null
+          }
+        },
+        {
+          "period": "2022-2023",
+          "board": "star",
+          "metrics": {
+            "accountReturnPct": -57.209860614579334,
+            "maxDrawdownPct": 59.92368120034547,
+            "meanExposurePct": 93.91622914730527,
+            "investedSessionPct": null,
+            "signals": 867,
+            "closed": 127,
+            "winRatePct": 15.748031496062993,
+            "meanWinPct": 15.289229646015292,
+            "meanLossPct": -6.858161164365005,
+            "closedMeanPct": -3.3703830839901547,
+            "closedMedianPct": null,
+            "payoffRatio": 2.2293482581684003,
+            "profitFactor": 0.4042905252872834,
+            "maxConsecutiveLosses": 18,
+            "closedPnlAmount": -275948.83939749945,
+            "openRealizedPnlAmount": 0.0,
+            "openUnrealizedPnlAmount": -10100.463675397179,
+            "openPositions": 5,
+            "feesPaid": 12071.134942897499,
+            "slippageAlreadyInFillPrices": 15495.338129999212,
+            "top1ShareOfGrossProfitPct": 22.310208050481975,
+            "top5ShareOfGrossProfitPct": 73.03302176739783,
+            "unreliableValuationDays": 393,
+            "openStaleMarks": null
+          }
+        },
+        {
+          "period": "2024-2025",
+          "board": "main",
+          "metrics": {
+            "accountReturnPct": 21.496695762876257,
+            "maxDrawdownPct": 25.67331314810112,
+            "meanExposurePct": 98.01371757716115,
+            "investedSessionPct": null,
+            "signals": 1707,
+            "closed": 107,
+            "winRatePct": 30.8411214953271,
+            "meanWinPct": 16.255758174645063,
+            "meanLossPct": -6.518446896685274,
+            "closedMeanPct": 0.5053733589586619,
+            "closedMedianPct": null,
+            "payoffRatio": 2.4938084841822294,
+            "profitFactor": 1.0115066864625912,
+            "maxConsecutiveLosses": 18,
+            "closedPnlAmount": 5222.973794571182,
+            "openRealizedPnlAmount": 0.0,
+            "openUnrealizedPnlAmount": 102260.50501981002,
+            "openPositions": 5,
+            "feesPaid": 11205.62718562,
+            "slippageAlreadyInFillPrices": 20226.89399999889,
+            "top1ShareOfGrossProfitPct": 13.070026741275342,
+            "top5ShareOfGrossProfitPct": 41.78668438431657,
+            "unreliableValuationDays": 0,
+            "openStaleMarks": null
+          }
+        },
+        {
+          "period": "2024-2025",
+          "board": "chinext",
+          "metrics": {
+            "accountReturnPct": 111.0262470297202,
+            "maxDrawdownPct": 34.22004591406614,
+            "meanExposurePct": 88.45270991379279,
+            "investedSessionPct": null,
+            "signals": 1221,
+            "closed": 79,
+            "winRatePct": 24.050632911392405,
+            "meanWinPct": 51.99133225645337,
+            "meanLossPct": -7.465407759444921,
+            "closedMeanPct": 6.83431452285973,
+            "closedMedianPct": null,
+            "payoffRatio": 6.964299061987085,
+            "profitFactor": 2.0617910519671283,
+            "maxConsecutiveLosses": 23,
+            "closedPnlAmount": 478280.14631770103,
+            "openRealizedPnlAmount": 0.0,
+            "openUnrealizedPnlAmount": 76851.08883090013,
+            "openPositions": 5,
+            "feesPaid": 9532.2568514,
+            "slippageAlreadyInFillPrices": 17138.507999999027,
+            "top1ShareOfGrossProfitPct": 33.33111540300225,
+            "top5ShareOfGrossProfitPct": 70.1737137477819,
+            "unreliableValuationDays": 393,
+            "openStaleMarks": null
+          }
+        },
+        {
+          "period": "2024-2025",
+          "board": "star",
+          "metrics": {
+            "accountReturnPct": 32.66883691306596,
+            "maxDrawdownPct": 29.075120928404242,
+            "meanExposurePct": 91.78781107414133,
+            "investedSessionPct": null,
+            "signals": 832,
+            "closed": 93,
+            "winRatePct": 29.03225806451613,
+            "meanWinPct": 27.09481528598255,
+            "meanLossPct": -7.020094276936584,
+            "closedMeanPct": 2.88423430584639,
+            "closedMedianPct": null,
+            "payoffRatio": 3.859608463521395,
+            "profitFactor": 1.396344753802432,
+            "maxConsecutiveLosses": 14,
+            "closedPnlAmount": 180098.37755191678,
+            "openRealizedPnlAmount": 0.0,
+            "openUnrealizedPnlAmount": -16754.192986587026,
+            "openPositions": 5,
+            "feesPaid": 10285.657144671499,
+            "slippageAlreadyInFillPrices": 18537.24828999898,
+            "top1ShareOfGrossProfitPct": 23.655092895413617,
+            "top5ShareOfGrossProfitPct": 64.31474974571825,
+            "unreliableValuationDays": 142,
+            "openStaleMarks": null
+          }
+        }
+      ],
+      "researchResultsRef": {
+        "path": "artifacts/strategy-search/final-research-review-v1/research-overview.json",
+        "sha256": "50ab07883e0b4eaf01decc2135ec2f4115b0603111bbcf721d5698bb9b3f8be9"
+      }
+    }
+  ]
+}

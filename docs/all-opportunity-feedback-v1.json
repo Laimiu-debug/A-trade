@@ -1,0 +1,50 @@
+{
+  "schema": "all-opportunity-feedback-v1",
+  "question": "With the original opportunity stream, models and execution rules held fixed, does broadening the feedback population improve executable payoff distributions beyond the original entered subset?",
+  "periods": ["2022-2023", "2024-2025"],
+  "boards": ["main", "chinext", "star"],
+  "exits": ["trail10", "volatilityTrail"],
+  "populations": ["originalEntered", "allExecutable"],
+  "models": ["intercept", "ridge"],
+  "candidateIds": ["originalEntered__intercept", "originalEntered__ridge", "allExecutable__intercept", "allExecutable__ridge"],
+  "trialAccounting": {"experimentBatches": 1, "newEntryPolicies": 4, "newAccounts": 48, "referenceAccountsReused": 12, "newExitDefinitions": 0, "newUniverseVariants": 0},
+  "predecessor": "The completed independent-shadow-labels-v1 library and its independently verified compact daily decisions. Reuse their exact decision bytes; do not rerun paths, change training or select a favorable population after seeing this experiment.",
+  "populationContrast": "Both populations come from the SAME independently executed original-opportunity library. originalEntered applies the original baseline actual-entry membership mask. allExecutable contains every independently entered opportunity. Neither population depends on the new candidate accounts. This isolates membership expansion and the resulting formation-day weight changes; it does not compare differently sized label ledgers.",
+  "clock": "The original signal forms at T close and attempts entry only at its original next independent session open. The frozen model decision uses environment and matured labels available at A=T-1. A is not a new signal date. No calendar boundary changes admissions or training.",
+  "label": "A fully closed independent opportunity's net PnL divided by invested amount including entry fees. Before its final exit it remains unknown. The inherited 126-calendar-slot closed-label window, 20 distinct eligible formation days, formation-day equal weighting, three features, training-only standardization and lambda=1 are unchanged.",
+  "features": ["price20.positiveReturn20Breadth", "amount.medianRelativeToOwnPrior20", "retention.continuous.retentionLower"],
+  "admission": "Use the already-audited per-date Boolean model allow. Preserve every original same-day signal and its rank when allowed; preserve all original signals under fallback. Never rerank, substitute, backfill, shift dates, retrain or use eventual outcomes to change admission. Freeze all 48 schedules and independently validate them before the first new account.",
+  "execution": "Each candidate gets its own complete shared cash/positions replay: original capital 500000, five positions, 20 percent close-time entry budget, original lots/opening capacity/T+1/partial exits, 10bp-per-side slippage, historical fee-policy settings including their original value types, and unchanged exit rules. Reuse the 12 original unfiltered baseline account result/checkpoint bytes. Single-opportunity paths are labels, never compounded portfolio returns.",
+  "contrasts": [
+    "Within each model, allExecutable minus originalEntered, on the same source and exit.",
+    "Within each population, ridge minus intercept, on the same source and exit.",
+    "Each of the four candidates minus the original unfiltered executable baseline."
+  ],
+  "accountEvaluation": [
+    "Complete continuous equity return and maximum drawdown, fees/slippage, exposure, capital occupancy and executed/unfilled opportunity counts.",
+    "Closed net-return distribution, wins/losses/zeros, ordinary and tail loss magnitudes, average and median wins/losses, profit factor and longest losing streak.",
+    "Closed and open PnL separately, including concentration in the largest winners. No open loser or remaining holding may disappear from the account.",
+    "Original calendar-year, half-year and inherited narrative-phase intervals, plus descriptive before/from 2024-09-24 cuts for the 2024-2025 accounts. Carry account equity across cuts; never reset at the boundary.",
+    "Report every source/exit/candidate, including failures and reduced market exposure. No annualized return, individual gain, win-rate, average winner or payoff-ratio acceptance threshold."
+  ],
+  "pairedPredictionEvaluation": {
+    "status": "Predeclared post-outcome diagnostic, not admission input or an account-run gate.",
+    "comparisons": ["allExecutable versus originalEntered for each model", "ridge versus intercept for each population"],
+    "evaluationPopulation": "Same original formation identity and same independently executable opportunity. Both sides are evaluated against the SAME allExecutable independent path's eventual fully closed net-return label.",
+    "support": "Separate both fitted, candidate-only fitted, control-only fitted and neither fitted. Primary paired errors use both fitted only. New coverage is reported separately and never mixed into a common-support score. Preserve unfilled, open/unmatured and missing-prediction counts without assigning zero returns.",
+    "weighting": "Within each declared slice and evaluation cell, give each represented formation date equal total weight, divided equally over its eligible closed opportunities. Report episode count, distinct formation-day count and weight denominator. Cell means with different denominators are not additive.",
+    "metrics": ["MAE in percentage points", "MSE in squared percentage points", "formation-day-weighted realized net-return mean", "both allow/reject and discordant allow 00/01/10/11 cells", "each side's allow/reject conditional diagnostics"],
+    "periodAttribution": "Overall, calendar years and descriptive before/from 2024-09-24 are attributed by original formation T. A later final exit may be used to evaluate that formation cohort after the fact; labels still unclosed by the fixed period cutoff remain unknown. This differs deliberately from carried-equity account interval attribution.",
+    "limitations": "Overlapping stocks, formation dates and holding intervals are dependent. These are finite-sample development diagnostics, without an independence claim, significance claim or forecast-skill certification. Lower prediction error does not imply higher executable account profit."
+  },
+  "fixedBoundaries": [
+    "2022-2025 have repeatedly informed research and are development data. No untouched holdout or 2026 results are claimed.",
+    "9.24 is an interpretive event boundary, not a date-coded buy switch. Technology/leadership interpretations do not establish quantitative or main-force participant identity from OHLCV.",
+    "Retain inherited historical-universe, raw-price and fee-assumption qualifications. Do not expand into individual-stock discontinuity investigations or change frozen executions in this experiment.",
+    "No live trades, user workspace imports, commits, pushes, builds or deployments."
+  ],
+  "parameterSearch": false,
+  "holdoutClaim": false,
+  "certified": false,
+  "targetAchieved": false
+}

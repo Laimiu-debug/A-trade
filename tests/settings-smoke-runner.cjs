@@ -62,17 +62,38 @@ app.whenReady().then(async () => {
   await check(`document.querySelector('[name=singleStockMax]').validity.rangeOverflow && AT.state.positionRules.totalMax === 0`, '拒绝超过 100% 的仓位');
   await fillRules({singleStockMax: 80, totalMax: 50});
   await check(`document.querySelector('[data-rule-feedback]').textContent.includes('单股仓位上限不能高于') && AT.state.positionRules.singleStockMax === 0`, '拒绝单股上限高于总量');
+  await check(`document.activeElement.name === 'singleStockMax' && document.activeElement.getAttribute('aria-invalid') === 'true' && document.querySelector('[data-rule-error=singleStockMax]').textContent.includes('单股仓位上限不能高于') && document.querySelector('[name=totalMax]').value === '50'`, '跨字段错误定位到单股上限且保留输入');
   await fillRules({singleStockMax: 20, totalMax: 75});
   await until(`document.querySelector('[data-rule-feedback]')?.textContent === '参数已保存。'`, '保存正常仓位');
   await navigate('C02');
   await check(`document.querySelector('[name=commissionRate]').value === '0' && document.querySelector('[name=minCommission]').value === '0' && AT.state.positionRules.totalMax === 75`, '切页后费率与仓位不串值');
+  await evaluate(`const field=document.querySelector('[name=commissionRate]');field.value='6.8';field.dispatchEvent(new Event('input',{bubbles:true}));true`);
+  await until(`document.querySelector('[data-rule-feedback]').textContent.includes('草稿已保留')`, '费率草稿自动保留');
+  await check(`AT.state.fees.commissionRate === 0 && AT.state.settingsRuleDrafts.fees.commissionRate === '6.8' && document.querySelector('[data-rule-state]').textContent.includes('尚未应用')`, '草稿与已生效参数明确分开');
+  await screenshot('settings-rule-draft.png',1080);
+  const draftOnDisk=JSON.parse(await fs.readFile(path.join(dataDirectory,'workspace-state.json'),'utf8'));
+  assert.equal(draftOnDisk.state.settingsRuleDrafts.fees.commissionRate,'6.8');
+  assert.equal(draftOnDisk.state.fees.commissionRate,0);
+  await new Promise((resolve,reject)=>{win.webContents.once('did-finish-load',resolve);win.webContents.once('did-fail-load',(_event,code,description)=>reject(new Error(`${code}: ${description}`)));win.webContents.reload();});
+  await evaluate(`window.__settingsSmokeErrors=[];window.addEventListener('error',event=>window.__settingsSmokeErrors.push(event.message));window.addEventListener('unhandledrejection',event=>window.__settingsSmokeErrors.push(String(event.reason?.message||event.reason)));`);
+  await check(`document.querySelector('[name=commissionRate]').value === '6.8' && document.querySelector('[data-rule-feedback]').textContent.includes('已恢复上次草稿') && AT.state.fees.commissionRate === 0`, '重新加载从已保存工作区恢复未应用草稿');
+  await evaluate(`document.querySelector('[data-rule-discard=fees]').click()`);
+  await until(`!AT.state.settingsRuleDrafts?.fees && document.querySelector('[name=commissionRate]').value === '0'`, '放弃恢复的草稿并落盘');
+  await check(`parseFloat(getComputedStyle(document.querySelector('#rule-form .field')).fontSize) >= 14 && parseFloat(getComputedStyle(document.querySelector('.settings-rule-description')).fontSize) >= 14`, '参数标签与正文默认至少十四像素');
   await evaluate(`window.__settingsOriginalPersist=AT.persist;AT.persist=async()=>false;true`);
   try {
+    await fillRules({commissionRate:10001,minCommission:0});
+    await until(`document.querySelector('[data-rule-feedback]')?.textContent.includes('草稿暂未保存')`, '无效草稿保存失败也显示失败状态');
+    await check(`document.querySelector('[name=commissionRate]').getAttribute('aria-invalid') === 'true' && document.querySelector('[data-rule-error=commissionRate]').textContent.includes('0—10000')`, '保存失败反馈不覆盖字段校验指引');
     await fillRules({commissionRate: 8, minCommission: 0});
     await until(`document.querySelector('[data-rule-feedback]')?.textContent.includes('保存失败')`, '模拟费率保存失败');
     await check(`AT.state.fees.commissionRate === 0 && AT.state.fees.minCommission === 0 && document.querySelector('[name=commissionRate]').value === '8'`, '费率保存失败保留原状态与可重试草稿');
+    await evaluate(`document.querySelector('[data-rule-discard=fees]').click()`);
+    await until(`document.querySelector('[data-rule-feedback]')?.textContent.includes('草稿清除失败')`, '模拟草稿清除失败');
+    await check(`AT.state.settingsRuleDrafts.fees.commissionRate === '8' && document.querySelector('[name=commissionRate]').value === '8' && AT.state.fees.commissionRate === 0`, '放弃写入失败时保留草稿和已生效值');
   } finally {await evaluate(`AT.persist=window.__settingsOriginalPersist;delete window.__settingsOriginalPersist`);}
   await evaluate(`document.querySelector('[data-rule-discard=fees]').click()`);
+  await until(`!AT.state.settingsRuleDrafts?.fees && !document.querySelector('#rule-form').getAttribute('aria-busy').includes('true')`, '放弃失败的参数草稿完成');
   await check(`document.querySelector('[name=commissionRate]').value === '0' && AT.state.fees.commissionRate === 0`, '保存失败后放弃恢复原参数');
   assert.equal(await evaluate('AT.persist()'), true);
   const afterDiscard = JSON.parse(await fs.readFile(path.join(dataDirectory, 'workspace-state.json'), 'utf8'));
@@ -149,6 +170,10 @@ app.whenReady().then(async () => {
   assert.equal(exported.state.compact, true);
   assert.equal(exported.state.businessReviewDrafts['fixture-account|new:daily'].title, '隔离验收复盘草稿');
   assert.equal(exportedText.includes('fixture-memory-only-key'), false);
+  await navigate('C03');
+  await fillRules({singleStockMax:90,totalMax:50});
+  await check(`!!document.querySelector('[aria-invalid=true]')`, '备份恢复前建立未应用的错误草稿');
+  await navigate('C04');
   await evaluate(`AT.state.compact=false;AT.state.largeText=false;AT.state.reduced=false;AT.state.sidebarCollapsed=false;AT.state.businessReviewDrafts={};AT.state.fees={commissionRate:9,minCommission:8};AT.state.positionRules={singleStockMax:10,totalMax:40};AT.persist();AT.render();`);
   await evaluate(`(() => {const transfer=new DataTransfer();transfer.items.add(new File([${JSON.stringify(exportedText)}],'interface-export.json',{type:'application/json'}));const input=document.querySelector('#restore-file');input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));})()`);
   await until(`!!document.querySelector('[data-action="confirm-restore"]')`, '界面恢复确认摘要');
@@ -158,6 +183,20 @@ app.whenReady().then(async () => {
   await check(`AT.state.largeText && AT.state.reduced && AT.state.sidebarCollapsed && AT.state.businessReviewDrafts['fixture-account|new:daily'].fields.quickObservation === '需要保留的草稿内容' && AT.state.fees.commissionRate === 0 && AT.state.positionRules.totalMax === 75`, '偏好、复盘草稿、独立规则完整往返');
   const stored = JSON.parse(await fs.readFile(path.join(dataDirectory, 'workspace-state.json'), 'utf8'));
   assert.equal(stored.state.businessReviewDrafts['fixture-account|new:daily'].title, '隔离验收复盘草稿');
+  await navigate('C03');
+  await check(`!AT.state.settingsRuleDrafts?.positionRules && !document.querySelector('#rule-form [aria-invalid=true]') && !document.querySelector('[data-rule-feedback]').textContent.includes('不能高于') && document.querySelector('[name=singleStockMax]').value === '20'`, '恢复不含草稿的备份后清除旧草稿和旧错误反馈');
+  await fillRules({singleStockMax:90,totalMax:50});
+  await navigate('C04');
+  const withDraft=structuredClone(exported);withDraft.state.settingsRuleDrafts={positionRules:{singleStockMax:'12',totalMax:'65'}};
+  await evaluate(`(() => {const transfer=new DataTransfer();transfer.items.add(new File([${JSON.stringify(JSON.stringify(withDraft))}],'interface-draft.json',{type:'application/json'}));const input=document.querySelector('#restore-file');input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  await until(`!!document.querySelector('[data-action="confirm-restore"]')`, '导入带规则草稿的备份');
+  await evaluate(`document.querySelector('[data-action="confirm-restore"]').click()`);
+  await until(`!document.querySelector('[data-action="confirm-restore"]')`, '带规则草稿的备份恢复完成');
+  await navigate('C03');
+  await check(`document.querySelector('[name=singleStockMax]').value === '12' && AT.state.positionRules.singleStockMax === 20 && !document.querySelector('#rule-form [aria-invalid=true]') && document.querySelector('[data-rule-feedback]').textContent.includes('已恢复上次草稿')`, '恢复新草稿时不沿用旧错误且不应用新草稿');
+  await evaluate(`document.querySelector('[data-rule-discard=positionRules]').click()`);
+  await until(`!AT.state.settingsRuleDrafts?.positionRules`, '清理隔离验收中的恢复草稿');
+  await navigate('C04');
   await screenshot('settings-backup-820.png', 820);
 
   // A tiny isolated TDX fixture verifies that diagnosis preserves real scan timestamps.

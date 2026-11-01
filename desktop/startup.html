@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>A-trade · 正在启动</title>
+  <style>
+    *{box-sizing:border-box}html,body{margin:0;height:100%;font-family:'Microsoft YaHei UI','Segoe UI',sans-serif;color:#24364b;background:#f4f7fb}
+    body{display:grid;place-items:center}.titlebar{position:absolute;inset:0 0 auto;height:46px;padding:0 18px;display:flex;align-items:center;justify-content:space-between;-webkit-app-region:drag;color:#597086;font-size:13px}
+    button{border:0;background:transparent;color:#597086;font:inherit;padding:9px 14px;cursor:pointer;-webkit-app-region:no-drag}button:hover{background:#e6edf6;color:#24364b}
+    main{width:min(440px,80vw);text-align:center}img{width:60px;height:60px}h1{font-size:28px;letter-spacing:.5px;margin:20px 0 12px;font-weight:650}p{font-size:14px;color:#597086;line-height:1.8;margin:0}
+    .track{height:4px;margin:28px auto 0;width:224px;background:#dfe8f3;overflow:hidden;border-radius:8px}.track span{display:block;height:100%;width:38%;background:#386eea;border-radius:8px;animation:loading 1.5s ease-in-out infinite}
+    @keyframes loading{from{transform:translateX(-110%)}to{transform:translateX(370%)}}@media(prefers-reduced-motion:reduce){.track span{animation:none;width:100%}}
+  </style>
+</head>
+<body>
+  <div class="titlebar"><span>A-trade</span><button type="button" aria-label="取消启动并关闭">关闭</button></div>
+  <main aria-busy="true"><img src="../preview/assets/app-mark.svg" alt=""><h1>A-trade</h1><p role="status">正在读取本地工作区，请稍候…</p><div class="track" aria-hidden="true"><span></span></div></main>
+  <script src="startup.js"></script>
+</body>
+</html>

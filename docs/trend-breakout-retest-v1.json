@@ -1,0 +1,23 @@
+{
+  "schema": "trend-breakout-retest-v1",
+  "registeredHypothesisDate": "2026-10-18",
+  "humanSteering": "Stop expanding bonus/dividend record research. Focus on post2024-09-24 payoff, broad-market turnover and excess return; bear profit is unnecessary.",
+  "scope": {"startDate": "2024-09-24", "endDate": "2026-10-15", "boards": ["main", "chinext", "star"], "continuousAccounts": true, "annualCashReset": false},
+  "hypothesis": "Waiting for the first constructive retest after an early aligned120-session breakout may reduce failed chase entries while a persistent volatility trail retains large winners. Adequate liquidity can remain present during moderate turnover contraction.",
+  "policies": ["immediate", "immediateLiquid", "retestLiquid"],
+  "commonSeed": "Exactly the old liquid-trend-breakout-v1 common raw Top5: first close above prior120 HIGH, previous close not above its prior120 HIGH; prior20 mean amount>=50m CNY; fixed Top5 by prior20 amount then symbol, before trend filtering. Close>MA60>MA120>MA120 lag20, prior20 return<=15%. Exact141 valid calendar-slot window required. No rank backfill.",
+  "setupTiming": "Seeds include20 sessions before account start. One active setup per symbol. A seed on a day that started with an active setup is ignored, even if the old setup ends that day. Setup is examined on the next1..20 independent sessions; unknown bar or any subsequent close below original prior120 HIGH invalidates it. End-of-source setups are censored, not failed trades.",
+  "retest": "First session at age3..20 with low<=1.03*original breakout level, level<=close<=1.05*level, close>open and close>previous close, and current close>MA60>MA120>MA120 lag20. Consume that first qualifying retest even if it loses ranking or the liquidity gate fails. Never retry it later. Rank daily retests by strictly-prior20 mean raw amount then symbol; original Top5 only, no backfill.",
+  "liquidity": "All21 exact market observations required. Current T total SH composite+SZ composite index amount>=1e12 CNY; current5 mean including T>=0.8*prior20 mean. This relaxes the old expansion condition while retaining its current turnover floor. One frozen gate, no threshold search. Keep turnover raw and separate from research-universe stock sums.",
+  "exitAndExecution": "Unchanged VolatilityTrailAccount: close-time initial5% stop; prior20 normalized true-range mean times3 ratcheting close floor; no fixed take profit, percentage trail or holding deadline. T-close frozen budget/quantity, one T+1-open attempt;20% initial weight,5 positions,500000 initial cash; inherited lot, fee, cash and capacity constraints. No adds/backfill or order cancellation from future outcomes.",
+  "comparison": "9 fresh independent cash accounts,3 boards x3 policies, all continuous from9.24 through cutoff. Report2024Q4/2025/2026 carried-equity slices and closed trades by exit date; never reset equity each year. Compare each board's index price return on identical dates.",
+  "preAccountVerification": "Synthetic causal/state/ranking checks plus full independent raw-window replay of every seed and retest schedule for all source members. Freeze sources/rules before any account.",
+  "afterAccountVerification": "Independently reconstruct every held-day exit/risk floor and closed-trade/curve payoff, PF, cash/PnL/fees. Keep open positions separate; disclose sample size, concentration, realized loss distribution and unreliable valuation days.",
+  "screensAreProposals": {"payoffRatioMin": 3, "profitFactorMin": 1.5, "meanLossAbsolutePctMax": 5, "maxDrawdownPctMax": 20, "closedEpisodesMin": 30, "humanConfirmed": false},
+  "limitations": ["Raw-price uncertified model with surviving fixed cohorts; known missing-entitlement issues remain flagged. No expanded corporate-action data work under latest human instruction.", "2024-2026 history has been exposed; chronological slices are replication/development evidence, not a pristine holdout.", "Latest shared local cutoff is2026-10-15; expected2026-10-16 session is missing.", "A complete test or a high realized payoff ratio alone cannot prove stable goal achievement."],
+  "parameterSweep": false,
+  "newAccountsPlanned": 9,
+  "newStrategyTrialsPlanned": 1,
+  "targetAchieved": false,
+  "permissionBoundary": "Local isolated research only; preserve protected user JSON and all previous results. No actual trades, commit, push, packaging or publication."
+}

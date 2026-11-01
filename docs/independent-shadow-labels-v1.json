@@ -1,0 +1,32 @@
+{
+  "version": "independent-shadow-labels-v1",
+  "purpose": "Diagnose entry selection and closure maturity in feedback labels using the same independently simulated opportunity library, before proposing another account policy.",
+  "population": "All 8155 original frozen undercut-reclaim Top5 formations, two registered exits each; no reranking or replacement.",
+  "source": "Exact online-feedback-entry-v1 parent plan, source snapshots, calendars, environment rows, original schedules and baseline disposition records.",
+  "pathContract": {
+    "initialCapital": 500000,
+    "entryWeight": 0.2,
+    "intendedSignalCloseBudget": 100000,
+    "execution": "Each formation is a separate one-signal, one-security simulation using the unchanged FixedSignalAccount or VolatilityTrailAccount. Preserve all original security fields and bars, full source calendar, original period start/end, fees, slippage, lot, participation and opening gates.",
+    "prefix": "Process all original period sessions before formation. Do not reset history, quarantine or eligibility by shortening the start date.",
+    "entry": "Original Tclose signal and quantity reservation; one attempt at the next source session open; partial remainder expires; no retry, add or backfill.",
+    "exit": "Unchanged trail10 or volatilityTrail, including close-time signals, next-session execution, deferred and partial sells, and inherited reference conversion.",
+    "earlyTermination": "Allowed only after the signal is terminal, there is no position and no unsettled rights, cash receivable/payable, or forced exit. Otherwise process the original cutoff. No future empty sessions affect this label; report the actual last processed date.",
+    "closedLabel": "Fully closed episode net cash PnL divided by initial investedAmount including entry fees; all partial proceeds and charges included. Label matures on final exit date.",
+    "openOrUnfilled": "Open episodes carry unknown final exit and net return, never zero labels. Record terminal mark, realized partial PnL and unfilled entry reasons separately.",
+    "notPortfolio": "Overlapping independent paths are labels, not one investable combined portfolio. Do not aggregate hypothetical profits as an account return. Record path executions separately from new candidate-account trials."
+  },
+  "comparisons": {
+    "main": "Within the SAME independent path library compare allExecutable with originalEntered, the latter selected solely by original baseline filledQuantity>0 for that exit.",
+    "bridge": "Reconcile old actual baseline labels with the corresponding independent-path subset; differences include changing original account capital, lots, fees, execution capacity and resulting exit timing. This bridge is separate from membership selection.",
+    "feedback": "Reuse unchanged research_online_feedback implementation: A=T-1, 126 source-calendar slots by final exit date, 20 eligible formation days, each formation day total weight one, same three features and lambda=1. Open/future labels are unavailable.",
+    "epochs": "Full periods 2022-2023 and 2024-2025, each year, and descriptive 2024-09-24 boundary in the latter. No model feature or entry switch uses this date.",
+    "dependence": "Repeated formations and overlapping paths remain dependent; larger row counts are not independent sample counts. Report formation-day and symbol coverage, immature counts and ages, and the still-unresolved maturity selection.",
+    "promotion": "Diagnostic only. No profit, payoff, win-rate or duration threshold is introduced; no new strategy selected from these outcomes."
+  },
+  "validation": "Meaningful synthetic equivalence and boundary tests before historical execution; validate source identities, every path label and fills, and independent readout reconciliation. Additional direct unchanged-engine full-period reference paths: per period/board/exit choose original-order first and last, plus first closed, unfilled, open and partial path; deduplicate, at most six, never rank by profit. Full-population independent arithmetic and risk checks are distinct from this bounded equivalence sample.",
+  "historicalScope": "2022-2025 repeatedly viewed development; 2026 excluded. Frozen survivors and available raw price/rights evidence retain inherited qualifications.",
+  "newCandidateAccounts": 0,
+  "certified": false,
+  "targetAchieved": false
+}

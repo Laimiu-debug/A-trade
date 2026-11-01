@@ -3,6 +3,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawn, execFileSync } = require('node:child_process');
 const { pythonCommand } = require('../desktop/business-service.cjs');
+const { writeRuntimeManifest } = require('./runtime-manifest.cjs');
 
 const root = path.resolve(__dirname, '..');
 const PYTHON_VERSION = '3.13.16';
@@ -30,6 +31,16 @@ async function fingerprint(directory, relative = '') {
   }
   return output;
 }
+async function trimPython(directory, trimRoot = path.resolve(directory)) {
+  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+    const item = path.join(directory, entry.name);
+    if (!path.resolve(item).startsWith(trimRoot + path.sep)) throw new Error('Unsafe runtime trim path');
+    if (entry.isDirectory()) {
+      if (/^(tests?|demos?|examples?|docs|__pycache__)$/i.test(entry.name)) await fs.rm(item, { recursive: true });
+      else await trimPython(item, trimRoot);
+    } else if (/\.(?:chm|h|hpp|lib|pyc)$/i.test(entry.name)) await fs.unlink(item);
+  }
+}
 async function main() {
   if (process.platform !== 'win32' || process.arch !== 'x64') throw new Error('此构建脚本需要 Windows x64。');
   const buildPython = pythonCommand();
@@ -49,18 +60,31 @@ async function main() {
   const electronVersion = (await fs.readFile(path.join(electronRoot, 'version'), 'utf8')).trim().replace(/^v/, '');
   const expectedElectron = require('../node_modules/electron/package.json').version;
   if (electronVersion !== expectedElectron) throw new Error('Electron runtime does not match the dependency lock.');
-  for (const entry of await fs.readdir(electronRoot)) await copy(path.join(electronRoot, entry), path.join(output, entry));
+  for (const entry of await fs.readdir(electronRoot)) {
+    if (entry === 'locales') {
+      await fs.mkdir(path.join(output, entry));
+      for (const locale of ['zh-CN.pak', 'zh-TW.pak', 'en-US.pak']) await copy(path.join(electronRoot, entry, locale), path.join(output, entry, locale));
+    } else await copy(path.join(electronRoot, entry), path.join(output, entry));
+  }
   await fs.unlink(path.join(output, 'resources/default_app.asar')).catch(error => { if(error.code!=='ENOENT')throw error; });
   await fs.rename(path.join(output, 'electron.exe'), path.join(output, 'A-trade.exe'));
   const appRoot = path.join(output, 'resources/app');
   await fs.mkdir(appRoot);
   for (const folder of ['desktop', 'preview', 'service', 'licenses', 'vendor']) await copy(path.join(root, folder), path.join(appRoot, folder));
+  // Runtime strategy definitions belong in the release; research archives and
+  // user scan results remain outside the application bundle.
+  await fs.mkdir(path.join(appRoot, 'docs'));
+  for (const file of ['experimental-strategies-v1.json', 'fixed-signal-account-contract-v1.json',
+    'account-exit-comparison-v1.json', 'signal-contraction-price-proxy-v1.json']) {
+    await fs.copyFile(path.join(root, 'docs', file), path.join(appRoot, 'docs', file));
+  }
   await fs.copyFile(path.join(root, 'requirements-portable.lock.txt'), path.join(appRoot, 'requirements-portable.lock.txt'));
   await fs.writeFile(path.join(appRoot, 'package.json'), JSON.stringify({ name: pkg.name, productName: pkg.productName,
     version: pkg.version, description: pkg.description, main: pkg.main, private: true }, null, 2) + '\n');
   const { resedit } = await import('@electron/packager/resedit');
   await resedit(path.join(output, 'A-trade.exe'), { iconPath: path.join(root, 'desktop/assets/app-icon.ico'),
-    productVersion: pkg.version, fileVersion: pkg.version, productName: pkg.productName,
+    // This is the stable engine binary; the outer launcher carries the app version.
+    productVersion: electronVersion, fileVersion: electronVersion, productName: pkg.productName,
     win32Metadata: { CompanyName: 'A-trade', FileDescription: 'A-trade 股票研究与回测', ProductName: pkg.productName,
       OriginalFilename: 'A-trade.exe', InternalName: 'A-trade' } });
   const cache = path.join(dist, 'runtime-cache');
@@ -87,6 +111,7 @@ async function main() {
   console.log('Installing the locked account/research/market dependencies...');
   await run(buildPython, ['-m', 'pip', 'install', '--disable-pip-version-check', '--ignore-installed', '--only-binary=:all:', '--no-compile',
     '--target', path.join(runtime, 'Lib/site-packages'), '--requirement', path.join(root, 'requirements-portable.lock.txt')]);
+  await trimPython(path.join(runtime, 'Lib/site-packages'));
   let revision = null, sourceDirty = null;
   try {
     revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8', windowsHide: true }).trim();
@@ -102,9 +127,13 @@ async function main() {
   await run(path.join(runtime, 'python.exe'), ['-B', '-c',
     'import sys,sqlite3,ssl,mcp,numpy,pandas,win32api,fastapi,uvicorn; from service.portfolio_engine import PortfolioEngine; from service.research_service import ResearchService; from service.finaltrade_runtime import verify_source; verify_source(); assert sys.flags.isolated; print("PASS bundled Python, SQLite, SSL, MCP, numpy, pandas, win32, FastAPI and fixed reference source")'],
     { cwd: output, env: validationEnv });
+  await run(path.join(runtime, 'python.exe'), ['-B', '-c',
+    'import sys; from pathlib import Path; from service.experimental_strategies import catalogue; from service.experimental_scan_service import ExperimentalScanService; from service.experimental_strategy_service import ExperimentalStrategyService; from service import experimental_scan; root=Path(sys.executable).resolve().parent.parent / "app"; assert Path(experimental_scan.__file__).resolve().is_relative_to(root); c=catalogue(); assert len(c["strategies"])==3; assert [len(s["researchResults"]) for s in c["strategies"]]==[2,6,6]; assert not c["automaticExecution"]; assert all(not r["available"] for s in c["strategies"] for r in s["sources"]); print("PASS packaged experimental catalogue: 3 strategies, 14 research rows, current scan imports and unavailable historical archive guards")'],
+    { cwd: output, env: validationEnv });
   await fs.copyFile(path.join(root, 'docs/portable-release.md'), path.join(output, '使用说明.md'));
   await fs.writeFile(path.join(output, 'build-info.json'), JSON.stringify({ ...metadata,
     applicationFiles: await fingerprint(appRoot), executableSha256: sha256(await fs.readFile(path.join(output, 'A-trade.exe'))) }, null, 2) + '\n');
+  await writeRuntimeManifest(output);
   await fs.writeFile(path.join(dist, 'latest-portable.json'), JSON.stringify({ directory: output, version: pkg.version }, null, 2) + '\n');
   console.log(`PORTABLE_DIRECTORY=${output}`);
 }

@@ -22,6 +22,20 @@ test('analysis presets survive state validation and interface backup restore',()
   const restored=backup.prepare(JSON.parse(JSON.stringify(exported)),state(),options).candidate;
   assert.deepEqual(restored.analysisPresets,original.analysisPresets);
 });
+
+test('rule drafts round-trip independently and modern snapshots clear drafts outside the snapshot',()=>{
+  const original=state();original.settingsRuleDrafts={fees:{commissionRate:'',minCommission:'0'},positionRules:{singleStockMax:'90',totalMax:'50'}};
+  const exported=backup.create(original,options);
+  assert.deepEqual(exported.state.settingsRuleDrafts,original.settingsRuleDrafts);
+  const restored=backup.prepare(JSON.parse(JSON.stringify(exported)),state(),options).candidate;
+  assert.deepEqual(restored.settingsRuleDrafts,original.settingsRuleDrafts);
+  assert.deepEqual(restored.fees,original.fees);
+  assert.deepEqual(restored.positionRules,original.positionRules);
+  const cleared=backup.prepare(backup.create(state(),options),original,options).candidate;
+  assert.equal(Object.hasOwn(cleared,'settingsRuleDrafts'),false);
+  const invalid=structuredClone(exported);invalid.state.settingsRuleDrafts.fees.commissionRate=7;
+  assert.throws(()=>backup.prepare(invalid,state(),options),/草稿/);
+});
 test('legacy backups migrate ambiguous rules and pause desktop demo tasks without mutating input',()=>{
   const old=state();delete old.fees;delete old.positionRules;delete old.businessReviewDrafts;old.ruleA=20;old.ruleB=70;
   old.tasks=[{id:'t1',name:'示例',type:'策略',stock:'600900',status:'running',progress:25}];
@@ -68,4 +82,17 @@ test('successful persistence precedes applying restored preferences and replacin
   app.AT.state.customTrades=[oldTrade];app.AT.trades=[oldTrade,baseTrade];const incoming=state();incoming.compact=true;incoming.customTrades=[];
   app.AT.ui.restoreCandidate=backup.create(incoming,options);await app.restore();
   assert.equal(app.AT.state.compact,true);assert.deepEqual(app.AT.trades,[baseTrade]);assert.equal(app.context.applied,true);assert.equal(app.context.closed,true);assert.equal(app.AT.ui.restoreCandidate,null);
+});
+
+test('restoring waits for an in-flight settings save and leaves confirmation retryable',async()=>{
+  let writes=0;
+  const app=restoreHandler(async()=>{writes++;return true;}),before=structuredClone(app.AT.state),incoming=state();
+  incoming.compact=true;app.AT.ui.restoreCandidate=backup.create(incoming,options);app.AT.ui.committingSettings=true;
+  await app.restore();
+  assert.equal(writes,0);assert.deepEqual(app.AT.state,before);assert.ok(app.AT.ui.restoreCandidate);
+  assert.equal(app.error.hidden,false);assert.match(app.error.textContent,/正在保存设置/);
+  assert.equal(app.context.closed,undefined);assert.equal(app.button.disabled,false);
+  app.AT.ui.committingSettings=false;
+  await app.restore();
+  assert.equal(writes,1);assert.equal(app.AT.state.compact,true);assert.equal(app.context.closed,true);
 });

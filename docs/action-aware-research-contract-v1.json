@@ -1,0 +1,29 @@
+{
+  "schema": "action-aware-research-contract-v1",
+  "createdDate": "2026-10-18",
+  "status": "engineering-design-after-two-verified-source-cases; not implemented or market-tested",
+  "goalStatus": "active",
+  "targetAchieved": false,
+  "humanScope": "Primary post2024-09-24 bull-market research, net realized payoff and market liquidity; bear profit unnecessary. Numerical screens remain assistant proposals.",
+  "reason": "Batch51/52 raw-price model arithmetic passed, but dated issuer notices explain two material held-price discontinuities and missing share/cash entitlements. Do not use these model account numbers as economic-return validation.",
+  "evidence": "artifacts/strategy-search/reclaim-corporate-action-audit-v1/readout.json",
+  "caseFacts": [
+    {"symbol": "sh688195", "publicDate": "2026-05-23", "recordDate": "2026-05-28", "exDate": "2026-05-29", "shareAvailableDate": "2026-05-29", "cashPayDate": "2026-05-29", "actualGrossCashPerOldShare": "0.164", "actualAdditionalSharesPerOldShare": "0.4", "referenceCash": "0.164", "referenceAdditionalShareRatio": "0.4"},
+    {"symbol": "sh688200", "publicDate": "2026-06-05", "recordDate": "2026-06-10", "exDate": "2026-06-11", "shareAvailableDate": "2026-06-11", "cashPayDate": "2026-06-11", "actualGrossCashPerOldShare": "1.19", "actualAdditionalSharesPerOldShare": "0.48", "referenceCash": "1.1890", "referenceAdditionalShareRatio": "0.4796"}
+  ],
+  "requirements": [
+    "Archive dated primary issuer terms, publication/availability, registration, ex, share-availability and cash-pay dates. Future or later-finalized terms cannot enter an earlier decision.",
+    "Keep actual investor entitlements distinct from virtual ex-reference ratios;0.48 actual shares is not0.4796 reference ratio. Document exact source units and immutable hashes.",
+    "Represent share quantities, fractional allocation uncertainty, gross dividend receivables, paid cash and any deferred tax separately. Unknown is not zero. Do not invent broker-specific allocation or net cash.",
+    "Keep raw bars immutable. Define an explicit causal comparable-price feature basis for prior returns, ranks and support windows. Never silently relabel adjusted prices as raw or apply a latest forward-adjusted series to past decisions.",
+    "Apply documented action and reference changes exactly once to risk-entry/peak/ratchet units; do not double-adjust through both preclose and a declared action. Keep the real market move after ex-reference adjustment.",
+    "Retain quarantine for unexplained/conflicting events. Do not remove the safety gate, drop affected stocks after seeing outcomes, cancel saved exits or hand-adjust final equity to create better returns.",
+    "The old VolatilityTrailAccount explicitly rejects declared corporateActions. Implement any extended support as an isolated version under a new contract, not a mutable-data or constructor-guard workaround.",
+    "Synthetic independent cash/share/price/fee fixtures must cover pure cash, pure split, combined differential distribution, fractional uncertainty, deferred cash/tax, partial fills, lot locks, action-order timing and rollback. No new market account until these pass.",
+    "Rebuild every affected signal, opening decision and account from the original start with a frozen corrected-source/feature version. An event changes rankings, fills and future cash/slots, so correcting only the two final holdings cannot validate the strategy.",
+    "Preserve all earlier studies and failure evidence. Register source/algorithm changes as a new experiment; no retroactive claim that prior raw-price trials were economically certified."
+  ],
+  "nextIndependentChecks": ["Review existing portfolio_actions fields and arithmetic against the two issuer cases", "Establish complete-enough dated event coverage and explicit unknowns for the chosen cohort/windows", "Engineering oracle before action-aware source/feature/account market replication"],
+  "newMarketAccountsAuthorizedByThisDesign": 0,
+  "permissionBoundary": "Local isolated research only; user workspace remains unchanged. No actual orders, commit, push, packaging, publication or global runtime monkeypatch."
+}

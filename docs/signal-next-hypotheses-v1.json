@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "status": "draft-not-registered",
+  "purpose": "Three proposed entry hypotheses for a later single-position net +30 percent outcome. These are designs, not completed trials or proven high-probability signals.",
+  "candidateCount": 3,
+  "registeredCandidateCount": 0,
+  "newRealMarketTrialsExecuted": 0,
+  "newOutcomesCalculated": false,
+  "implementationAuthorizedByThisDocument": false,
+  "priority": ["threeStageContractionBreakoutDraft", "oversoldStabilizationRepairDraft", "breadthRepairRelativeStrengthDraft"],
+  "priorityReason": "Begin with one fixed contraction-breakout version: its extra formation inputs are existing daily OHLCV. Oversold repair has distinct downside-tail risks. Market breadth requires materially better dated population evidence.",
+  "objective": {
+    "targetNetGainPct": 30,
+    "annualizedReturnTarget": null,
+    "holdingDeadlineSessions": null,
+    "stopOrderProposed": false,
+    "highProbabilityDefinition": "The existing program's 80 percent screening threshold remains an assistant-proposed interpretation, not a user-approved guarantee or an observed result. Report independently validated uncertainty and waiting time before claiming high probability."
+  },
+  "designInputsRead": [
+    "service/strategies.py",
+    "docs/signal-target-candidates-v1.json",
+    "docs/signal-sequence-candidate-v1.json",
+    "docs/signal-sequence-price-proxy-v1.json",
+    "artifacts/strategy-search/next-stage-outline.json",
+    "artifacts/strategy-search/program.json"
+  ],
+  "priorResearchContext": {
+    "sevenPreviouslyInspectedCandidates": ["trendBreakout", "momentum", "trendPullback", "pullbackVolumeConfirm", "firstBreakoutTenSessions", "momentumMarketUp", "rawPriceBreakoutRetestRenewalDiagnostic"],
+    "strictSequenceCounterpart": "breakoutQuietRetestRenewedStrength remains distinct from the raw-price diagnostic and is not represented as a completed real-market trial.",
+    "disclosure": "These new designs were written after earlier development outcomes were known. They are adaptive research proposals, not outcome-blind independent hypotheses."
+  },
+  "commonProposedRules": {
+    "notation": "C/H/L/V denote session close/high/low/volume. MA_n is an arithmetic mean of n closes including the stated session. Prior n sessions exclude the current session. All offsets use the independent exchange calendar.",
+    "informationTime": "Evaluate T only after its close with data whose observation and historical availability end at T. Never use a later low, future signal, future-delisting status, or later-finalized action terms to select T.",
+    "baseEligibility": "Retain the existing declared main-board, listing-age, historical-ST and liquidity policy with explicit evidence coverage. Current basic-table name/status never supplies historical eligibility. A new sample requires its own manifest and cannot silently alter the completed 3141-security study.",
+    "priceComparability": "Require verified comparable price/volume regimes for a strict interpretation. A separately named raw-price diagnostic may preserve unverified action/identity flags, but cannot infer no actions from empty factors/dividends or claim economic-return certification.",
+    "evaluationPriority": "Known hard ineligibility first; required-input unknowns separately; observed pattern invalidation; expiry only after the last permitted formation session; then trigger. No same-session invalidation and reanchoring. A known halt cannot trigger, consumes formation time, and does not override a known hard rejection. Unknown missing bars are not assumed to be halts.",
+    "selection": "Log all raw signals. Among each candidate's T signals, rank arithmetic mean amount over T-20..T-1 descending, symbol ascending; take Top5 before the external same-symbol active-event filter, with no backfill. Any future result tests this complete selection rule, not an isolated indicator effect.",
+    "entry": "Freeze order inputs at T close. Reuse the existing one-attempt T+1 exchange-session opening-price proxy, costs, quantity reserve, tradability gates and T+1 sale lock. Do not observe the opening price and then invent a decision executed at that same price. Failed entries remain failed, without delayed replacement.",
+    "holding": "Preserve the currently declared no-stop/no-fixed-expiry event policy. Formation expiry is not a holding deadline. Net +30 opening-price outcomes remain proxies until full-position execution and entitlement evidence is independently reconciled.",
+    "noParameterScan": true,
+    "parameterMeaning": "The constants below define one proposed version per idea. They are not optimized or empirically justified. Changing them after outcomes are inspected creates another recorded attempt."
+  },
+  "candidates": [
+    {
+      "id": "threeStageContractionBreakoutDraft",
+      "priority": 1,
+      "hypothesis": "A breakout preceded by successive reductions in price range and volume may distinguish an orderly consolidation from an isolated price/volume surge. Whether this raises later +30 frequency is unknown.",
+      "existingBase": "Use exact default trendBreakout: C_T exceeds prior40 maximum H, C_T > MA80_T > MA80_(T-1), and V_T / prior40 mean V >= 1.2; retain complete aligned causal indicator-history requirements.",
+      "additionalFormation": [
+        "Before T, divide T-30..T-1 into three non-overlapping ten-session blocks, oldest first.",
+        "For block j define D_j = max(H in block j) / min(L in block j) - 1. Require D_1 > D_2 > D_3 and D_3 <= 0.08.",
+        "Require mean(V in block3) <= 0.70 * mean(V in block1). All required prices and volumes must be known and positive."
+      ],
+      "signal": "Emit at T close when both the exact existing breakout predicate and every additional formation condition pass. Do not wait for a subsequent retest or use a future contraction to retain an earlier signal.",
+      "distinction": "The new explanatory feature is contraction across three preceding blocks. Existing volume confirmation, first-breakout deduplication and the B/R/T sequence do not impose this pre-breakout contraction path.",
+      "additionalFields": "No new numerical formation fields beyond daily OHLCV. Still requires dated identity, price/volume-unit and corporate-action comparability evidence; later execution certification needs auction/capacity data.",
+      "failureScenarios": ["Volume shrinks because liquidity disappears rather than supply being absorbed.", "A news gap or crowded breakout reverses after the opening attempt.", "Share changes or inconsistent volume units manufacture apparent contraction."]
+    },
+    {
+      "id": "oversoldStabilizationRepairDraft",
+      "priority": 2,
+      "hypothesis": "A large decline followed by a held low and renewed short-range strength may identify recoveries with enough upside to reach +30, but permanent impairment can dominate this group.",
+      "anchor": "While idle, S qualifies only if r20_S=C_S/C_(S-20)-1 <= -0.20 and r20_(S-1)>-0.20, C_S<MA60_S, and V_S>=1.5*mean(V_(S-20)..V_(S-1)). Freeze S and anchor low A=L_S; do not replace A with a later low.",
+      "waiting": "On every session after S, an observed L<A invalidates before any trigger. Do not reanchor on that session. Known halts consume the ten-session formation clock; missing required observations abort as unknown.",
+      "signal": "At the first T in S+3..S+10 inclusive, require C_T>max(H_(T-5)..H_(T-1)) and V_T>=mean(V_(T-20)..V_(T-1)). The anchor must remain valid through T. S+10 may still trigger; expire only when no signal has occurred by its close. Reset raw detector idle after emission, independently of positions.",
+      "distinction": "This starts below MA60 after a 20 percent twenty-session decline. Existing trendPullback requires an ascending MA80 and a 3–12 percent recent drawdown; it does not test this weak-trend stabilization sequence.",
+      "additionalFields": "Daily OHLCV plus reliable historical ST/listing/delisting and action/reference-price evidence. An ex-rights raw-price discontinuity must not be silently interpreted as capitulation.",
+      "failureScenarios": ["A temporary rebound precedes another large decline.", "Accounting distress or delisting risk prevents recovery despite an attractive chart.", "The required recovery is brief or untradeable at the next opening attempt."]
+    },
+    {
+      "id": "breadthRepairRelativeStrengthDraft",
+      "priority": 3,
+      "hypothesis": "Stocks that resist a weak market may participate in a broader recovery when market breadth improves. This tests a market-transition event, not a permanent bull-market filter.",
+      "breadthPopulation": "U_t is the historically listed SH/SZ main-board population with at least the declared 120 calendar days since listing, known at t; do not use today's survivor status or impose stock-level liquidity ranking on the breadth denominator. Include historical ST names in breadth; individual entry eligibility remains separate. Freeze the population definition before a trial.",
+      "breadth": "P_t is the fraction of U_t with C_t>MA20_t. For known population size N, let a be observed-above count and u be required-price-unknown count: retain [a/N,(a+u)/N]. An explicit halted close may be used only as reported; never fabricate a missing bar. If historical population size itself is unknown, broad-market P_t is unknown.",
+      "marketTrigger": "At T require the lower breadth bound >0.50 and the previous session upper bound <=0.50, with at least one session in T-10..T-1 whose upper bound <=0.25. This proves the transition despite bounded missing prices; do not choose the best later recovery day.",
+      "stockTrigger": "Require C_T>MA20_T and RS20=(C_T/C_(T-20))/(CSI300_T/CSI300_(T-20))-1>0. Among the predeclared eligible, evaluable cross-section, require RS20 in the first ceil(0.10*N) after descending RS20 then symbol. Retain excluded/unknown counts; a complete-case ranking is not represented as the entire historical market. Apply the common liquidity Top5 selection only after this filter.",
+      "distinction": "Existing momentumMarketUp uses ordinary 60-session absolute momentum with CSI300 above rising MA60. This proposal requires an oversold-to-recovery breadth crossing and positive stock return relative to the benchmark over twenty sessions.",
+      "additionalFields": "Daily historical population, listing dates and historical price observations for breadth; daily historical entry eligibility; aligned CSI300 closes and comparable price/action regime. Four membership snapshots or a current basic table cannot certify daily population.",
+      "diagnosticFallback": "A fixed covered-union breadth study would require a separate explicit diagnostic name and registration, report its exact population, and retain certification=false. This draft does not authorize substituting it for market-wide breadth.",
+      "failureScenarios": ["A short bear-market rebound expands breadth without a durable recovery.", "Previously strong names are crowded and lag the rebound's weakest-stock rally.", "Changing coverage or survivor-only membership manufactures a breadth crossing.", "Few recovery episodes make many same-day stock signals look like more independent evidence than they are."]
+    }
+  ],
+  "validationConstraints": {
+    "sample": "2022–2023 is development data; previously accessed 2024+ periods are not pristine holdouts. New sources/symbols must be selected without outcome screening and must receive a separate versioned snapshot before results are seen.",
+    "partialAcquisition": "The missing-history series currently has complete responses for 56 of 125 fixed missing securities; 69 were not queried after an authentication timeout. This is a data-acquisition partition, not a performance-selected sample or complete historical universe. The all-security-basic probe returned no market rows.",
+    "attemptLedger": "Retain the seven previously inspected candidates, the separate unexecuted strict sequence, these three draft proposals, and every later executed variation. Do not count this draft as three completed trials. Do not omit losing rules, failed runs or missing-data exclusions.",
+    "multiplicity": "Run at most the single declared version of an approved hypothesis. Preserve every comparison and use date/security clustering, with recovery episodes also treated as dependence units for breadth. Same-day hash controls are descriptive, not randomized causal evidence.",
+    "timeToTarget": "Report predeclared 5/10/20/40/60/120/250-session mature-cohort net +30 opening-proxy frequencies with each denominator, missing-result bounds, right-censoring, failed entries and waiting durations. Different mature cohorts must not be connected as one cumulative success curve; a time curve needs a common cohort or an explicitly justified censoring method.",
+    "risk": "Report target-before-observed -10/-20 percent risk boundaries, risk-first then recovery, unresolved ordering, terminal marked loss and adverse excursion. These observations introduce no stop order. Entry-day T+1 risk stays visible; do not use lows after a target-opening exit.",
+    "independentEvidence": "After a rule is chosen, separately justify genuinely untouched time validation or prospectively record frozen-rule signals. High mean return, a few winners, or the best of many inspected horizons cannot establish a very high probability of executable +30.",
+    "beforeAnyRun": "Resolve exact evidence scope and eligibility/ranking coverage, register one chosen version, freeze code/data/parameters/control policy and resource bounds, then conduct independent implementation review."
+  },
+  "certified": false,
+  "targetAchieved": false
+}

@@ -1,0 +1,55 @@
+{
+  "schema": "leader-incremental-prediction-protocol-v1",
+  "family": "leader-incremental-prediction-v1",
+  "question": "Does adding the original leader's known daily return improve next-session member-return predictions beyond the member itself, its fixed peers and the index?",
+  "objective": "Research empirical small-loss/larger-win strategies without fixed profit, win-rate, payoff or holding-duration acceptance gates. This bounded diagnostic selects the next mechanism to investigate; it does not substitute prediction accuracy for executable trading profit.",
+  "source": {
+    "parentFamily": "leader-amount-handoff-v1",
+    "previousFamily": "leader-pullback-retention-v1",
+    "periods": ["2022-2023", "2024-2025"],
+    "boards": ["main", "chinext", "star"],
+    "population": "Retain every parent formation record. Only parent status formed creates its original 20 ordered member episodes. Locked/notFormed records remain in formation counts and create no artificial member slots. Do not condition on initial member amount, Top5 rank, later breakout, retention, actual entries or realized outcomes.",
+    "selection": "The 20 peers were selected at F by prior synchronous correlation; the anchor event is triggered at A=F+10. This is conditional prediction after A on already selected events, not identification of future A events at F.",
+    "calendar": "Use exact source-calendar slots including warmup; numeric source access ends at the period end. No gap compression, partial-peer denominator, imputation or individual-stock repair.",
+    "validity": "Keep the frozen research_leader_lag._Series raw OHLCV, envelope and known-status validity. Return r(d)=close(d)/close(d-1)-1 is simple decimal raw-price return, not log return. Nonfinite derived values are unknown. Benchmark is sh000300."
+  },
+  "training": {
+    "featureSlots": "Exactly 60 source slots d=F-60..F-1; y=r_member(d+1), so last label ends at F. This requires 62 raw price slots F-61..F. Do not replace missing pairs or shorten to 59.",
+    "baseline": ["own", "peerMean", "index"],
+    "augmented": ["own", "peerMean", "index", "anchor"],
+    "peerMean": "Arithmetic mean of all other 19 original fixed peer returns at d, excluding the predicted member and excluding the anchor. All 19 must be known; never reduce the denominator.",
+    "commonSupport": "All 60 feature/target pairs required by the augmented model must be complete and finite. Otherwise both fits are fitUnknown, while preserving known-pair counts and every unavailable pair/reason. Both models use exactly the same rows, dates and targets.",
+    "standardization": "For each column use only its 60 training values: arithmetic mean and population std with divisor 60. An exactly constant column has scale zero and is mapped to zero during training and prediction. Do not threshold near-constant columns, scale y, clip returns or tune parameters.",
+    "objective": "For each model separately minimize sum_i (y_i-alpha-z_i dot beta)^2 + 1.0*sum_j beta_j^2. Intercept is unpenalized y mean. Solve (Z^T Z+I) beta=Z^T(y-yMean). This is sum loss, not mean loss; no cross-validation or lambda selection.",
+    "frozenAfterF": "Training means, scales, coefficients and intercept never update after F. Current features are available at each forecast close. A structural numeric solve failure is explicit fitUnknown for both models, not an alternate fit."
+  },
+  "forecast": {
+    "slots": "Exactly five planned forecast offsets 0..4: d=A..A+4, target source slot d+1. All formed event/member slots survive even when dates exceed the period end. Never access numeric bars beyond end.",
+    "status": "Keep fitStatus, featureStatus, predictionStatus, targetStatus and scoreStatus separately. A known prediction survives an unknown or censored target. Shared predictions require a known common fit and all four current features. Targets require the member's two exact adjacent valid bars.",
+    "scoreStatusPriority": ["forecastBeyondEnd", "fitUnknown", "featureUnknown", "targetBeyondEnd", "targetUnknown", "numericUnknown", "scored"],
+    "errors": "Only jointly predicted rows with a known target are scored. Record baseline/augmented squared and absolute error, and augmented-minus-baseline paired deltas. Also record zero-forecast squared/absolute error as a fixed descriptive benchmark, not a third fitted model. Unknown scores remain null.",
+    "dateMeaning": "All calendar and narrative slices use forecast date d. A 2024-09-23 forecast whose label realizes on 2024-09-24 remains in the pre slice; keep the cross-boundary flag. Censored forecast dates remain in overall planned-slot counts and an unassigned-date count."
+  },
+  "aggregation": {
+    "primary": "Within each requested slice, first average paired errors across scored members at event x forecastDate; then average those date means equally within event; then average available event means equally in each cohort. Preserve every layer's coverage. Events with no scored rows have null metrics and remain in the denominator.",
+    "overlapSensitivity": "Within each slice average errors/deltas across events for each identical member x forecastDate, then across unique members within date, then equally across dates. Never choose one owner, average predictions before squaring, or describe this as independent evidence.",
+    "metrics": "Baseline, augmented and zero MSE/MAE; augmented-minus-baseline deltas; improvement=-delta. Show MSE improvement in basis-points-squared (decimal-return squared times 1e8), MAE in basis points (decimal return times 1e4). Relative MSE improvement is null when baseline MSE is zero. Event improvement counts use an absolute 1e-15 numerical tie tolerance; no statistical significance or economic acceptance threshold.",
+    "segments": "Six cohort totals; all four calendar years x three boards; eight half-years x three boards; 16 frozen atlas phases x three boards; 2024-2025 before/from 2024-09-24 x three boards. Keep empty slices with null scores. Recompute weights within each slice; slice event counts/means are not additive. Also retain all event rows and row-weighted means as descriptive context.",
+    "boundaries": "Full formation/status, member episode, designed-slot, common-fit, feature/prediction/target and score counts; unique member/date, member, anchor, event and forecast-date counts; unavailable and period-end states; parent and prediction source hashes. No pooled all-board performance claim."
+  },
+  "validation": {
+    "beforeData": "Freeze protocol, executable source hashes and meaningful synthetic test receipts before new fits, coverage or prediction errors. No account is executed.",
+    "independent": "Reconstruct raw returns, fixed19 peer averages, all exact training pairs and forecast rows independently; solve ridge with an independent linear-algebra implementation; verify coefficients, predictions, statuses, errors, denominators, both weighting paths and all slices. Do not use the production builder for the independent reference.",
+    "cases": "Training cutoff F and missing F-61, no use of F+1 in fit, common missing anchor support, fixed19 denominator, leave-self-out, exact constant and collinear columns, sum-vs-mean penalty, label-only unknown retains prediction, future target perturbation does not alter earlier prediction, source-end censorship, locked/notFormed preservation, no mutation, event/date/member weights, duplicate member/date sensitivity, empty/zero-error slices and forecast-vs-target boundary attribution."
+  },
+  "trialAccounting": {"newDiagnosticBatches": 1, "fittedModelSpecifications": 2, "newAccounts": 0, "reusedAccounts": 0, "legacyCompletedBatchCounterBefore": 45, "counterMeaning": "The legacy completedFixedCandidateTrials field counts completed research batches; this batch is explicitly a prediction diagnostic, not a tested trading candidate."},
+  "limitations": [
+    "All 2022-2025 source history has already informed development. No untouched holdout; 2026 is not used.",
+    "Raw historical cohorts, price basis and status coverage remain inherited. No investor identity, capital-flow ownership or market-wide causal leadership inference.",
+    "Fixed peers, selected anchor events, overlapping training/evaluation dates and repeated members remain dependent. The planned rows and events are not independent replications.",
+    "An incremental one-day predictive relation need not preserve large winners or yield executable net trading profits. No trading cost or fill model is relevant to this zero-account error diagnostic, and none is claimed.",
+    "Adding a correlated column to ridge changes penalty allocation even at the same lambda; duplicating an existing predictor can change fitted predictions without adding information. This experiment measures the change in the fixed model specification after adding the anchor column, not isolated independent anchor information. No interpretation may promote improved error to independent information, causal leadership or a trading edge."
+  ],
+  "methodSources": ["https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html", "https://www.davidhbailey.com/dhbpapers/backtest-prob.pdf"],
+  "targetAchieved": false
+}

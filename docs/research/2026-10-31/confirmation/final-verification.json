@@ -1,0 +1,234 @@
+{
+  "schema": "dual-confirmation-final-independent-verification-v1",
+  "passed": true,
+  "plan": {
+    "path": "artifacts/strategy-search/profitability-review-20261031/experiment/execution-plan.json",
+    "sha256": "ab801561a8d29775ec806cf52e5c339c97555c72392bd4713f869394807f12ef"
+  },
+  "hypothesis": {
+    "path": "artifacts/strategy-search/profitability-review-20261031/hypothesis-plan.json",
+    "sha256": "6ae0f8acdf54c69feb847e6333a6a1906126942bf8eddeaf4efd915201103ce7"
+  },
+  "readout": {
+    "path": "artifacts/strategy-search/profitability-review-20261031/readout.json",
+    "sha256": "a33969abf06ed03f6406621a52efeff608a626caa6550350b797103561204919"
+  },
+  "auditorSource": {
+    "path": "artifacts/strategy-search/profitability-review-20261031/independent-final-audit.py",
+    "sha256": "2336d4c90e82bb78256acf6e9005b4c7c3ad51fb6206b7fd307b02e2d4b2b859"
+  },
+  "formation": {
+    "proof": {
+      "path": "artifacts/strategy-search/profitability-review-20261031/experiment/independent-confirmation-formation.json",
+      "sha256": "13db64db4c8d893231f88360d08da92c40bae181567ad7ef767b24fe3d6c9bc7"
+    },
+    "streams": 4,
+    "parentOpportunities": 333,
+    "candidateSignals": 89
+  },
+  "cashReaudit": {
+    "accounts": 10,
+    "fills": 606,
+    "dailyCurves": 2358,
+    "rows": [
+      {
+        "job": "development__complete__10bps",
+        "passed": true,
+        "fills": 260,
+        "dailyCurves": 309,
+        "closedCycles": 130,
+        "result": {
+          "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/development/complete/normal/result.json.gz",
+          "sha256": "e6e75f400f0082b19578aee19576d81e06e296282da7ada3aeb1cdc69301731a"
+        }
+      },
+      {
+        "job": "development__Bonly__10bps",
+        "passed": true,
+        "fills": 132,
+        "dailyCurves": 309,
+        "closedCycles": 66,
+        "result": {
+          "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/development/Bonly/normal/result.json.gz",
+          "sha256": "c6ad53e5b66f4cb2a0144fe8a1c5e873669267477b5b3e28ae2f60a63485bbd9"
+        }
+      },
+      {
+        "job": "development__confirmComplete__10bps",
+        "passed": true,
+        "fills": 36,
+        "dailyCurves": 309,
+        "closedCycles": 18,
+        "result": {
+          "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/development/confirmComplete/normal/result.json.gz",
+          "sha256": "305f7be1b5d422478d8ac1b5f200bbe74cb89edbd1325305ca22baf2027615f8"
+        }
+      },
+      {
+        "job": "development__confirmBonly__10bps",
+        "passed": true,
+        "fills": 20,
+        "dailyCurves": 309,
+        "closedCycles": 10,
+        "result": {
+          "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/development/confirmBonly/normal/result.json.gz",
+          "sha256": "2fefcdfb12be7c7f3369fe79348e8b28b50bf600d4d7a37f3020d625efafb7a7"
+        }
+      },
+      {
+        "job": "reusedTemporalCheck__complete__10bps",
+        "passed": true,
+        "fills": 86,
+        "dailyCurves": 187,
+        "closedCycles": 43,
+        "result": {
+          "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/reusedTemporalCheck/complete/normal/result.json.gz",
+          "sha256": "c41916d06bfca33230a10e3c2a258764f79ce09e74f47ef61633798a8fcab6ca"
+        }
+      },
+      {
+        "job": "reusedTemporalCheck__Bonly__10bps",
+        "passed": true,
+        "fills": 40,
+        "dailyCurves": 187,
+        "closedCycles": 20,
+        "result": {
+          "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/reusedTemporalCheck/Bonly/normal/result.json.gz",
+          "sha256": "70639b9d1aec0886139e77ec4493c903809083f51068c126c74d4443bcb11e76"
+        }
+      },
+      {
+        "job": "reusedTemporalCheck__confirmComplete__10bps",
+        "passed": true,
+        "fills": 10,
+        "dailyCurves": 187,
+        "closedCycles": 5,
+        "result": {
+          "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/reusedTemporalCheck/confirmComplete/normal/result.json.gz",
+          "sha256": "d1861050d9ac767797c6b6aeb870d2d7d97deb02fa2f3c3bcd94e2a326cb12ec"
+        }
+      },
+      {
+        "job": "reusedTemporalCheck__confirmComplete__35bps",
+        "passed": true,
+        "fills": 10,
+        "dailyCurves": 187,
+        "closedCycles": 5,
+        "result": {
+          "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/reusedTemporalCheck/confirmComplete/stress/result.json.gz",
+          "sha256": "ea901c5e0e5da7799de2d2812970dbbcd03a8c329042fec6da236d0241fa3647"
+        }
+      },
+      {
+        "job": "reusedTemporalCheck__confirmBonly__10bps",
+        "passed": true,
+        "fills": 6,
+        "dailyCurves": 187,
+        "closedCycles": 3,
+        "result": {
+          "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/reusedTemporalCheck/confirmBonly/normal/result.json.gz",
+          "sha256": "6a77a2145cd6f7492978e4338502f807110c0b0d62bcddbdbebc2faefdbbb351"
+        }
+      },
+      {
+        "job": "reusedTemporalCheck__confirmBonly__35bps",
+        "passed": true,
+        "fills": 6,
+        "dailyCurves": 187,
+        "closedCycles": 3,
+        "result": {
+          "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/reusedTemporalCheck/confirmBonly/stress/result.json.gz",
+          "sha256": "73319d56599d83b83f3c691d257e90e6f683640236a7a6187c5862d0b02873a3"
+        }
+      }
+    ]
+  },
+  "confirmationClock": {
+    "accounts": 6,
+    "buyFills": 44,
+    "rows": [
+      {
+        "job": "development__confirmComplete__10bps",
+        "passed": true,
+        "buyFillClocksChecked": 18
+      },
+      {
+        "job": "development__confirmBonly__10bps",
+        "passed": true,
+        "buyFillClocksChecked": 10
+      },
+      {
+        "job": "reusedTemporalCheck__confirmComplete__10bps",
+        "passed": true,
+        "buyFillClocksChecked": 5
+      },
+      {
+        "job": "reusedTemporalCheck__confirmComplete__35bps",
+        "passed": true,
+        "buyFillClocksChecked": 5
+      },
+      {
+        "job": "reusedTemporalCheck__confirmBonly__10bps",
+        "passed": true,
+        "buyFillClocksChecked": 3
+      },
+      {
+        "job": "reusedTemporalCheck__confirmBonly__35bps",
+        "passed": true,
+        "buyFillClocksChecked": 3
+      }
+    ]
+  },
+  "baselinePrefixEquivalence": {
+    "proof": {
+      "path": "artifacts/strategy-search/profitability-review-20261031/experiment/development-prefix-equivalence.json",
+      "sha256": "a19743781c5f6571761ed23801f175d4b7d21867f73b8497be6d1a7f20db937f"
+    },
+    "accounts": 2,
+    "fieldsExactlyEqual": 9814
+  },
+  "readoutMetricsReconciled": true,
+  "frozenDecisionConditionsReconciled": true,
+  "bootstrapIndependentlyRecomputed": [
+    {
+      "period": "development",
+      "case": "confirmComplete",
+      "passed": true,
+      "pairedSessions": 309,
+      "intervalCrossesZero": true,
+      "unit": "basis-points-of-mean-daily-return-difference"
+    },
+    {
+      "period": "reusedTemporalCheck",
+      "case": "confirmComplete",
+      "passed": true,
+      "pairedSessions": 187,
+      "intervalCrossesZero": true,
+      "unit": "basis-points-of-mean-daily-return-difference"
+    },
+    {
+      "period": "development",
+      "case": "confirmBonly",
+      "passed": true,
+      "pairedSessions": 309,
+      "intervalCrossesZero": true,
+      "unit": "basis-points-of-mean-daily-return-difference"
+    },
+    {
+      "period": "reusedTemporalCheck",
+      "case": "confirmBonly",
+      "passed": true,
+      "pairedSessions": 187,
+      "intervalCrossesZero": true,
+      "unit": "basis-points-of-mean-daily-return-difference"
+    }
+  ],
+  "historicalScreenPassCount": 0,
+  "newAccountsExecutedByAudit": 0,
+  "newPriceSegmentAfter20261015Read": false,
+  "limitations": [
+    "Arithmetic/timing verification is not a profitability certification.",
+    "Historical selection exposure, incomplete PIT/actions and modeled opening execution remain.",
+    "Block intervals describe retrospective paired daily differences, not independent discovery confidence."
+  ]
+}

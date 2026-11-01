@@ -1,0 +1,166 @@
+{
+  "schema": "integrated-market-sector-stock-account-hypothesis-v1",
+  "status": "First complete-system hypothesis fixed before any system account outcomes; implementation and account source registration pending",
+  "origin": "Human-directed strong market, strong sector, strong stock and rotation framework of2026-10-18",
+  "framework": "docs/market-sector-stock-system-v1.md",
+  "researchUnit": "One whole decision system and continuous shared-cash portfolio; no threshold sweep",
+  "completeSystemValidated": false,
+  "numericSuccessTargetsHumanConfirmed": false,
+  "parametersAreResearchAssumptions": true,
+  "sourceFoundation": "artifacts/strategy-search/market-sector-stock-system-v1/published-snapshot-foundation-v3/validation.json",
+  "priceMatrix": "artifacts/strategy-search/market-sector-stock-system-v1/price-matrix-v1/validation.json",
+  "universe": {
+    "scope": "All4999 previously fixed surviving local main,ChiNext andSTAR source stocks together; no board-specific choice of best outcomes",
+    "classification": "CAPCO exact major-industry codes from six publication-dated original snapshots",
+    "availability": "First independent-calendar session strictly after publication; publication date itself excluded",
+    "replacement": "Latest known complete snapshot replaces prior map; absent source codes remain unknown for new entry",
+    "stateIdentity": "Snapshot-specific classification identity; confirmation and leader histories do not bridge a snapshot replacement",
+    "industryFeatures": "At each T close use only members known at T and their already observed past prices. These are current-known-member historical features, not a retrospectively tradable industry NAV.",
+    "noCrosswalk": "Do not join TDX sector indices or ambiguous SW historical revisions into this industry classification",
+    "themes": "First executable version uses reproducible industries. Theme-specific extension requires its own dated membership evidence."
+  },
+  "periods": {
+    "primary": {
+      "startDate": "2024-09-24",
+      "endDate": "2026-10-15",
+      "initialCapital": 500000,
+      "annualReset": false
+    },
+    "weakMarketStress": {
+      "startDate": "2024-04-08",
+      "endDate": "2024-09-23",
+      "initialCapital": 500000,
+      "profitTargetRequired": false,
+      "scope": "Begins at earliest verified snapshot availability; does not claim complete earlier bear-market coverage"
+    },
+    "missingLatestSession": "2026-10-16",
+    "historyAlreadyExposed": true,
+    "pristineHoldoutClaim": false
+  },
+  "featureDefinitions": {
+    "windows": "Trading-calendar slots, never compressed across missing or invalid bars. ReturnK needs K+1 full valid price slots; MAk needs k; prior windows exclude T unless explicitly inclusive.",
+    "priceValidity": "Finite positive OHLCV, consistent OHLC envelope, declared raw basis; amount requires separate positive finite evidence",
+    "meanNtr20AtT": "Inclusive21 valid raw bars ending T;20 true-range/reference terms, arithmetic mean, not Wilder ATR",
+    "broadTurnover": "Frozen sh000001 plus sz399106 amount proxy in CNY; not the sum of research stocks",
+    "industryReturn": "Equal-weight mean member close-to-close return over20 or60 slots, with valid member count and fixed-cohort denominator retained",
+    "industryBreadth60": "Fraction of price-valid known cohort members above their inclusive60-day close mean",
+    "industryParticipation": "Industry same-observable-member summed mean5 amount / summed preceding20 mean amount, divided by the same broad-market amount ratio; activity proxy, not identified net inflow",
+    "industryRelativeReturn": "Industry member mean return minus same-window sh000300 price return, in percentage points",
+    "percentile": "Midrank: (strictly lower count plus half equal count)/known count; stable lexical code order only breaks equal final ordering"
+  },
+  "marketLayer": {
+    "admitNewRiskWhen": [
+      "T broad turnover at least1000000000000 CNY",
+      "Inclusive5-day mean turnover at least0.8 times preceding20-day mean",
+      "Both SH andSZ composite closes above inclusiveMA60 and MA20 aboveMA60",
+      "More than half of observed fixed-cohort stocks aboveMA60; at least95percent of cohort has a valid60-slot breadth input"
+    ],
+    "unknown": "No new entry; unknown data does not count as a negative regime observation",
+    "marketRiskExit": "Both broad composites close below their ownMA60 for3 consecutive known calendar sessions; queue all held positions for next-open risk exit",
+    "liquidityFailureAlone": "Stops new risk admission; does not itself force liquidation"
+  },
+  "sectorLayer": {
+    "minimumCohortMembers": 5,
+    "minimumValidFeatureCoverage": 0.95,
+    "rawStrongWhen": [
+      "Relative20 and relative60 returns both positive",
+      "Breadth60 above0.5",
+      "Industry participation at least1"
+    ],
+    "confirmationSessions": 3,
+    "rankingScore": "Equal average of cross-industry midrank relative20,relative60 and participation, among feature-valid industries; weights fixed1/3 each",
+    "admission": "Choose at most3 highest-score confirmed industries at each close, stable sector code tie break",
+    "concentration": "At new-risk admission, held plus reserved industry exposure cannot exceed40percent equity. Appreciation beyond the cap stops further purchases but does not alone force profit-taking.",
+    "sectorRiskExit": "For a held known industry, rawStrong is false for3 consecutive known closes; queue its holdings for next-open exit. Unknown does not advance this counter.",
+    "snapshotReplacement": "Reset confirmation, failure and role histories for the new snapshot identity; no earlier membership state is rewritten"
+  },
+  "stockLayer": {
+    "sharedAdmission": [
+      "Current valid price and amount; full required windows",
+      "Positive60-slot own return and close aboveMA60",
+      "Close not above MA20 plus2 times meanNtr20AtT times current close"
+    ],
+    "leaderDefinition": "Within the currently known industry,60-slot return midrank at least0.8 and own return above industry mean60",
+    "leaderBreakout": "Leader closes above preceding20-session high; prior close was not above its corresponding preceding20-session high",
+    "leaderReclaim": "Leader T low below preceding20-session low and T close above that support",
+    "catchup": "Own20-slot return no greater than industry mean20 and own within-industry20-return midrank in[0.2,0.8). First close above prior5-session high with T amount above preceding20 mean. A distinct leader identified exactly5 calendar sessions earlier in the same snapshot identity still closes above its currentMA20.",
+    "precedence": [
+      "leaderBreakout",
+      "leaderReclaim",
+      "catchup"
+    ],
+    "withinSectorOrder": "Pattern precedence, then descending own60-return midrank, then descending prior20 amount, then symbol",
+    "candidateSchedule": "First order industries by fixed sector score, then choose one highest-priority new candidate per selected industry per close, at most5 global candidates. Freeze their order before execution; no T+1 backfill.",
+    "rotationMeaning": "Catchup follows an already observed leader inside a persistent mainline. New independently confirmed industries can receive available cash as prior industries weaken; daily top-rank changes alone do not force a sale."
+  },
+  "portfolioAndExecution": {
+    "maximumPositions": 5,
+    "maximumStockWeight": 0.2,
+    "plannedEquityRiskPerNewStock": 0.01,
+    "initialFailurePriceAtT": "Maximum of preceding10-session low and0.95 times current close. Must be strictly below current close.",
+    "sizing": "Minimum of20percent equity budget, remaining40percent industry capacity, available cash, and1percent equity divided by planned per-share price risk; reserve model fees and slippage and round down to source-board lot rules",
+    "decisionClock": "All candidates, risk floors, budgets and quantities use T-close known information",
+    "executionClock": "One next-calendar-session opening attempt; planned quantity may be reduced by actual cash, lot, documented capacity and actual opening-price risk relative to the fixed failure floor, never increased.",
+    "openingGuard": "Reject new buy if opening price is at or below its fixed structural failure level, or above T close times(1+meanNtr20AtT). No chase or delayed entry.",
+    "salePriority": "Inherited pending/forced risk sells have priority; blocked sells remain pending, are not canceled by later market or sector improvement",
+    "cash": "Do not reserve hypothetical proceeds of a future sale or borrow cash",
+    "noAdds": true,
+    "partialExitAndConstraints": "Keep inherited sell capacity, dated model fees, price-limit and lot constraints, T+1 and partial-fill bookkeeping",
+    "costModel": "Use the same explicit inherited LegacyFeePolicy and frozen account fee/slippage/participation configuration for every matched account; no fee-free or zero-slippage promotion",
+    "unknownHeldIndustry": "Keep original industry reservation for concentration until classified again; do not manufacture sector deterioration or free capacity from a missing classification",
+    "maximumStockWeightMeaning": "20percent is a new-entry budget cap; price appreciation does not alone force a sale.",
+    "actualOpeningRiskSizing": "At opening, reduce quantity if necessary so planned1percent T-close-equity price-risk budget is not increased by an adverse opening gap. Use the maximum of the fixed T structural floor and inherited5percent actual-entry-price backstop. Fees, future gaps and blocked sells can still make realized losses larger."
+  },
+  "exits": {
+    "initialPriceFailure": "Queue next-open exit when a valid close reaches the entry plan's fixed structural failure price; inherited5percent entry-price stop remains a backstop",
+    "profitProtection": "Keep the already audited3-times-prior20 normalized-TR close-time ratchet semantics and persistent next-open execution; no fixed take-profit cap",
+    "additionalRisk": [
+      "marketRiskExit",
+      "sectorRiskExit"
+    ],
+    "noTerminalForcedSale": true,
+    "openPositionsSeparateFromClosedPayoff": true,
+    "priceTriggersAreNotGuaranteedLossCaps": true
+  },
+  "matchedPrimaryAccounts": [
+    {
+      "id": "completeSystem",
+      "scope": "All layers and three stock entry branches"
+    },
+    {
+      "id": "withoutMarketAdmission",
+      "scope": "Disable only new-entry market admission; common risk exits, source data and budgets stay identical"
+    },
+    {
+      "id": "withoutSectorAdmission",
+      "scope": "Disable only strength/confirmation/top3 sector admission; stock roles still use known industry peers, and common risk exits/concentration stay identical"
+    },
+    {
+      "id": "withoutCatchupEntry",
+      "scope": "Disable catchup new-entry branch; keep leader breakout/reclaim, shared portfolio rules and risk exits"
+    },
+    {
+      "id": "sectorLiquidRepresentative",
+      "scope": "Same market and sector admission, use highest prior20-amount stock per selected industry instead of stock-pattern/strength admission; same structural sizing, exits and costs. Tradable industry-selection representative control, not a passive complete industry index."
+    }
+  ],
+  "controlInterpretation": "Admission/entry interventions change whole cash paths. They do not remove common safety exits and are not additive causal attribution of entire conceptual layers.",
+  "additionalStressAccounts": [
+    "completeSystem weakMarketStress only"
+  ],
+  "benchmarks": [
+    "Same-date sh000300 price return, without dividend reinvestment or index trading costs",
+    "Matched sectorLiquidRepresentative account; report its limitations"
+  ],
+  "requiredValidation": [
+    "Freeze complete source/code/account configuration before any account outcome",
+    "Independently rebuild all market, industry, role, confirmation and entry dates from source calendar windows",
+    "Future-poison earlier decisions, snapshot transitions and missing-window tests",
+    "Risk-budget and industry-capacity planning, gap rejection and pending-sell persistence tests",
+    "Independent every-held-day structural/ratchet/market/sector exit audit",
+    "Closed-net payoff/PF, continuous curve, cash/fees/open-PnL reconciliation and annual slices",
+    "Keep all5 primary accounts plus the weak-market stress path, failed attempts and all rejected opportunities"
+  ],
+  "evaluation": "Judge the complete system's net closed payoff,PF,continuous account excess,loss tails,drawdown,exposure,turnover,concentration and cross-year persistence together. Numerical screens remain research proposals. No success claim from one indicator or one selected listing-board subgroup.",
+  "permissionBoundary": "Isolated local research only; preserve user workspace, no real orders, commit,push,packaging or publication"
+}

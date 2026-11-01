@@ -19,6 +19,8 @@ def main():
     market_error = None
     research_service = None
     research_error = None
+    experimental_service = None
+    experimental_scan_service = None
     mode = sys.argv[2] if len(sys.argv) > 2 else "all"
     try:
         if mode not in ("market", "research"):
@@ -54,7 +56,21 @@ def main():
                 method = request["method"]
                 if not isinstance(method, str):
                     raise ValueError("请求格式无效")
-                if method.startswith("research."):
+                if method.startswith("research.experimental.scan."):
+                    if mode not in ("all", "research"):
+                        raise ValueError("实验选股请求须通过研究服务")
+                    if experimental_scan_service is None:
+                        from service.experimental_scan_service import ExperimentalScanService
+                        experimental_scan_service = ExperimentalScanService(Path(sys.argv[1]))
+                    data = experimental_scan_service.dispatch(method, request.get("payload", {}))
+                elif method.startswith("research.experimental."):
+                    if mode not in ("all", "research"):
+                        raise ValueError("实验策略请求须通过研究服务")
+                    if experimental_service is None:
+                        from service.experimental_strategy_service import ExperimentalStrategyService
+                        experimental_service = ExperimentalStrategyService(Path(sys.argv[1]))
+                    data = experimental_service.dispatch(method.removeprefix("research."), request.get("payload", {}))
+                elif method.startswith("research."):
                     if mode not in ("all", "research"):
                         raise ValueError("研究请求须通过研究服务")
                     if research_error:
@@ -87,6 +103,10 @@ def main():
             if startup_error and market_error:
                 break
     finally:
+        if experimental_scan_service is not None:
+            experimental_scan_service.close()
+        if experimental_service is not None:
+            experimental_service.close()
         if service is not None:
             service.close()
         if market_service is not None:

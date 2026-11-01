@@ -1,0 +1,39 @@
+{
+  "schema": "online-feedback-entry-v1",
+  "question": "Can strictly past realized outcomes from an unchanged shadow account improve entry permission, and do three causal market-environment features add value beyond recent average realized return?",
+  "periods": ["2022-2023", "2024-2025"],
+  "boards": ["main", "chinext", "star"],
+  "exits": ["trail10", "volatilityTrail"],
+  "candidates": ["intercept", "ridge"],
+  "trialAccounting": {"experimentBatches": 1, "newEntryPolicies": 2, "newAccounts": 24, "referenceAccountsReused": 12, "newExitDefinitions": 0, "newUniverseVariants": 0},
+  "clock": "Original UR signal forms at T close and attempts entry only at the original next independent session open. Environment X and training label availability stop at A=T-1. A is not a new signal-formation date. No date boundary enters the decision.",
+  "shadow": "Each period/board/exit has its own immutable previously completed baseline account. Only its actual entry episodes supply labels. Capacity-rejected and unfilled signals have no label. Candidate decisions never alter the shadow sample. This estimates feedback conditional on the baseline's admissions and completed exits, not all opportunities.",
+  "label": "Net return fraction of a fully closed episode: cumulative net sale proceeds divided by invested amount including entry fees, minus one. Only final exitDate<=A is available. Partial exits and positions still open at A supply no return label. No terminal mark or future exit date is disclosed as a known label.",
+  "window": {"exitAvailabilityCalendarSlots": 126, "includesAsOfDate": true, "minimumDistinctFormationDays": 20, "partialInitialWindow": "Use available prior calendar slots and disclose count; no extra time gate."},
+  "features": ["price20.positiveReturn20Breadth", "amount.medianRelativeToOwnPrior20", "retention.continuous.retentionLower"],
+  "training": "At every A independently select labels whose final exit is in the last 126 calendar slots and whose original formation-day feature vector is complete. For each currently represented formation day give total weight one, distributing weight equally across its currently eligible closed episodes. Fit each period/board/exit independently, with no cross-period or cross-exit pooling.",
+  "standardization": "Weighted training-only means and population standard deviations. A zero-variance feature becomes z=0. No clipping, return winsorization, interactions, phase labels, date variables or parameter search.",
+  "intercept": "Prediction equals the same weighted training net-return mean.",
+  "ridge": "Minimize sum(w_i*(y_i-alpha-beta*z_i)^2)/sum(w_i) + sum(beta_j^2). Lambda is exactly 1, intercept unpenalized. Three raw environment features, three standardized slopes, deterministic linear solve.",
+  "admission": "When there are at least 20 distinct eligible formation days and the current feature vector is complete, preserve all original same-day Top5 signals only if the model predicts strictly positive net return. Zero or negative rejects that day's signals. Both candidates use the same eligible training population and support rule; otherwise both preserve the entire original schedule. Never rerank, replace an individual stock, backfill a rejected order or change exits.",
+  "execution": "Every candidate gets a separate full cash/position/lot/cost replay using the original 500000 capital, five positions, 20 percent entry budget and inherited exit policy. Fees and 10bp-per-side slippage are inherited exactly. Historical raw-price, eligibility and opening-capacity limitations remain. No reconstructed deletion of baseline PnL stands in for execution.",
+  "diagnostics": [
+    "All source days: train episode count, distinct formation days, label IDs/weights, model means/scales/coefficients, support/fallback, predictions and permissions.",
+    "Unmatured shadow episode counts and ages at A, separating delayed closure from known loss. Track labels excluded for unknown formation features.",
+    "Each candidate buy marked against whether its original formation was actually entered by the fixed shadow. Report candidate-only entries and their result separately, without retroactively excluding them.",
+    "Full-period net return, drawdown, exposure, costs, closed net-return distribution, win/loss magnitude, open positions and profit concentration; keep all six sources and both exits.",
+    "Year and inherited phase/9.24 cuts use carried account equity; they are descriptive cuts only. No phase reset or hindsight phase selection."
+  ],
+  "contrasts": ["intercept minus original baseline", "ridge minus original baseline", "ridge minus intercept"],
+  "interpretation": "This is one predeclared developmental feedback experiment with two entry policies, not proof of generalization. Economic zero is a decision rule, not a searched success criterion. No annual/single-trade/average-winner target or win-rate/payoff cutoff is used to select the result.",
+  "limitations": [
+    "All 2022-2025 histories have already informed research; none is an untouched holdout. 2026 is excluded.",
+    "Fixed surviving source cohorts are not historical complete-market universes.",
+    "Closed-only labels can overrepresent fast losses and omit slow winners. Formation-day weights address same-day multiplicity, not serial dependence or maturity selection.",
+    "Candidate-only entries apply baseline-derived feedback outside the baseline's actually entered sample; report that shift rather than calling the model an all-opportunity forecast.",
+    "Market-volume features do not identify main-force, retail or quantitative traders."
+  ],
+  "certified": false,
+  "holdoutClaim": false,
+  "targetAchieved": false
+}

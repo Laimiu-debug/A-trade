@@ -1,0 +1,39 @@
+{
+  "schema": "common-support-switch-v1",
+  "question": "Does retaining the original admission on dates without jointly fitted feedback preserve useful strong-market participation, while allowing the broader population to act only on common fitted dates?",
+  "periods": ["2022-2023", "2024-2025"],
+  "boards": ["main", "chinext", "star"],
+  "exits": ["trail10", "volatilityTrail"],
+  "models": ["intercept", "ridge"],
+  "candidateIds": ["commonSupport__intercept", "commonSupport__ridge"],
+  "trialAccounting": {"experimentBatches": 1, "newEntryPolicies": 2, "newAccounts": 24, "referenceAccountsReused": 60, "comparisonAccounts": 84, "newExitDefinitions": 0, "newUniverseVariants": 0},
+  "predecessor": "The immutable completed all-opportunity-feedback-v1 experiment and its audited originalEntered and allExecutable daily decisions from independent-shadow-labels-v1. Reuse all 60 existing account artifacts byte-for-byte. Do not refit forecasts, rerun label paths or reinterpret prior fallback decisions.",
+  "admission": "For each original formation date T and each fixed model, inspect the originalEntered and allExecutable decision statuses. If BOTH statuses are fitted, select allExecutable's existing Boolean allow. Otherwise select originalEntered's existing Boolean allow. Preserve original signal identity, date, rank and within-day order; keep original per-population fallbacks exactly as frozen. Freeze and independently validate all 24 new schedules before the first account execution.",
+  "supportStates": ["bothFitted", "originalOnlyFitted", "allOnlyFitted", "neitherFitted"],
+  "supportEvaluation": "Report target-day and original-opportunity counts for every support state, including zero cells. Independently prove that new versus original admissions can differ only in bothFitted, and new versus all admissions can differ only outside bothFitted. Describe the resulting whole-account differences without assigning additive causal profit to individual switched signals.",
+  "clock": "Original signals form at T close and attempt entry at the original next source-session open. Both frozen decisions use only information available at A=T-1. The inherited 126 source-calendar slots, 20 eligible formation days, formation-day equal weighting, model features, training-only standardization, lambda=1 and closed-label maturity are unchanged. No new forecast is calculated.",
+  "execution": "Run 24 complete shared-cash accounts with the inherited initial capital 500000, five positions, 20 percent close-time budget, original lots/opening capacity/T+1/partial exits, 10bp-per-side slippage, original typed historical fee policies and unchanged fixed or volatility trailing exit. Reuse 60 original result, checkpoint, summary and schedule references without mutation.",
+  "contrasts": [
+    "commonSupport minus originalEntered within each model, source and exit: 24 whole-account contrasts.",
+    "commonSupport minus allExecutable within each model, source and exit: 24 whole-account contrasts."
+  ],
+  "accountEvaluation": [
+    "All 84 continuous account returns, drawdowns, fees, exposure, actual admissions and failed entries; all 48 new contrasts remain visible.",
+    "Closed net return distributions, ordinary and tail losses, average and median wins and losses, payoff ratio, profit factor, losing streak and profit concentration.",
+    "Separate closed and open realized and unrealized PnL, retaining every open holding and valuation qualification.",
+    "Calendar-year, half-year, inherited narrative-phase and descriptive before/from 2024-09-24 account intervals. Carry equity and positions across boundaries; do not restart accounts.",
+    "Support counts, switched admissions, actual candidate entries and original opportunity denominators. Reuse prior complete prediction diagnostic evidence; do not create another error study or claim new forecast fitting."
+  ],
+  "decisionScope": "This is a bounded mechanism diagnostic following the prior broad-feedback failures. It does not authorize a parameter grid. Use the completed evidence to decide whether broad mean/environment feedback remains worth pursuing or whether to close this branch and move to individually observable leadership persistence, relative strength and pullback hypotheses.",
+  "fixedBoundaries": [
+    "2022-2025 are repeatedly viewed development data; no independent holdout, untouched interval or 2026 result is claimed.",
+    "2024-09-24 is an interpretive policy-event boundary, never a date-coded admission or model switch. Technology and market-participant identities are not established by OHLCV.",
+    "No fixed annualized return, individual gain, mean winner, win rate, payoff ratio or holding-time acceptance hurdle. Evaluate observed small-loss/large-win behavior and its limitations.",
+    "Preserve inherited universe, raw-price and execution assumptions. Do not expand into individual-stock discontinuity research.",
+    "No live trades, user-workspace imports, commits, pushes, builds, deployments or external publication."
+  ],
+  "parameterSearch": false,
+  "holdoutClaim": false,
+  "certified": false,
+  "targetAchieved": false
+}

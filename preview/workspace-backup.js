@@ -6,7 +6,7 @@
 })(typeof globalThis!=='undefined'?globalThis:this,()=>{
   'use strict';
   const FORMAT='a-trade.interface-state',SCHEMA_VERSION=1,MAX_FILE_BYTES=6*1024*1024;
-  const fields=['version','goal','stages','startCapital','account','compact','reduced','largeText','sidebarCollapsed','concurrency','tasks','taskTrash','watch','notes','reports','customTrades','effects','milestoneEvents','businessReviewDrafts','fees','positionRules','feesNeedsReview','positionRulesNeedsReview','ruleA','ruleB','marketPreferences','analysisPresets'];
+  const fields=['version','goal','stages','startCapital','account','compact','reduced','largeText','sidebarCollapsed','concurrency','tasks','taskTrash','watch','notes','reports','customTrades','effects','milestoneEvents','businessReviewDrafts','fees','positionRules','settingsRuleDrafts','feesNeedsReview','positionRulesNeedsReview','ruleA','ruleB','marketPreferences','analysisPresets'];
   const required=['version','goal','stages','startCapital','tasks','watch','notes','reports'];
   const object=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
   const text=value=>typeof value==='string';

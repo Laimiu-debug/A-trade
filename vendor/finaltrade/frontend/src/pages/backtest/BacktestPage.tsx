@@ -32,6 +32,7 @@ import { Link, useLocation } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { ApiError } from '@/shared/api/client'
 import { denseRiskGrid, gridSummary, numericAxis } from '@/shared/utils/plateauGrid'
+import { restoreBacktestSymbolLimit, formatBacktestSymbolLimit } from '@/shared/utils/backtestUniverse'
 import { isLegacyRhythmResult, plateauRecommendation, resolvePlateauAxes } from '@/shared/utils/plateauSafety'
 import { isApiNotFoundError } from '@/shared/api/errors'
 import {
@@ -134,7 +135,7 @@ const TRADE_BACKTEST_DEFAULTS = {
   enforceT1: true,
   entryDelayDays: 1,
   delayInvalidationEnabled: true,
-  maxSymbols: 120,
+  maxSymbols: 0,
   enableAdvancedAnalysis: true,
   defaultLookbackDays: 180,
 }
@@ -313,6 +314,7 @@ type BacktestFormDraft = {
   entry_delay_days: number
   delay_invalidation_enabled: boolean
   max_symbols: number
+  stock_limit_enabled?: boolean
   enable_advanced_analysis: boolean
   trades_page_size: number
 }
@@ -788,7 +790,7 @@ function buildPlateauTradeExportWorkbookBuffer(
     { 参数项: '止损(%)', 参数值: Number((effectiveRunRequest.stop_loss * 100).toFixed(2)) },
     { 参数项: '止盈(%)', 参数值: Number((effectiveRunRequest.take_profit * 100).toFixed(2)) },
     { 参数项: '高位回撤(%)', 参数值: Number(((effectiveRunRequest.trailing_stop_pct ?? 0) * 100).toFixed(2)) },
-    { 参数项: '最大股票数', 参数值: effectiveRunRequest.max_symbols },
+    { 参数项: '回测股票范围', 参数值: formatBacktestSymbolLimit(effectiveRunRequest.max_symbols) },
     { 参数项: 'TopK/日', 参数值: effectiveRunRequest.priority_topk_per_day },
     { 参数项: '执行路径偏好', 参数值: effectiveRunRequest.execution_path_preference ?? 'legacy' },
     { 参数项: '事件语义版本', 参数值: effectiveRunRequest.matrix_event_semantic_version ?? 'aligned_wyckoff_v2' },
@@ -1964,7 +1966,7 @@ function formatBacktestRunRequestSummary(payload: BacktestRunRequest): string {
     dailyLabel,
     `pos=${payload.max_positions}`,
     `单笔=${(Number(payload.position_pct) * 100).toFixed(1)}%`,
-    `标的=${payload.max_symbols}`,
+    `标的=${formatBacktestSymbolLimit(payload.max_symbols)}`,
     `费率=${payload.fee_bps}bp`,
   ].filter((item): item is string => Boolean(item))
   return parts.join(', ')
@@ -2039,6 +2041,9 @@ function loadBacktestDraft(): BacktestFormDraft {
     if (!raw) return defaults
     const parsed = JSON.parse(raw) as Partial<BacktestFormDraft>
     const merged = { ...defaults, ...parsed }
+    // Older drafts saved the former automatic 120-stock default. Preserve all
+    // other settings, while only restoring an explicitly enabled new limit.
+    merged.max_symbols = restoreBacktestSymbolLimit(parsed)
     const mergedStrategyId = String(merged.strategy_id || '').trim() || 'wyckoff_trend_v1'
     if (!dayjs(merged.date_from).isValid()) merged.date_from = defaults.date_from
     if (!dayjs(merged.date_to).isValid()) merged.date_to = defaults.date_to
@@ -3105,6 +3110,7 @@ const plateauColumns: ColumnsType<BacktestPlateauTableRow> = [
     key: 'max_symbols',
     dataIndex: ['params', 'max_symbols'],
     width: 78,
+    render: (value: number) => Number(value) === 0 ? '全部' : value,
     sorter: (left, right) => compareSortableNumbers(left.params.max_symbols, right.params.max_symbols),
   },
   {
@@ -3560,6 +3566,7 @@ export function BacktestPage() {
       entry_delay_days: entryDelayDays,
       delay_invalidation_enabled: delayInvalidationEnabled,
       max_symbols: maxSymbols,
+      stock_limit_enabled: maxSymbols > 0,
       enable_advanced_analysis: enableAdvancedAnalysis,
       trades_page_size: tradePageSize,
     }
@@ -4454,7 +4461,7 @@ export function BacktestPage() {
       position_pct_list: positionPctList.map((item) => Number((item / 100).toFixed(6))),
       max_symbols_list: parseNumericList(plateauMaxSymbolsListRaw, {
         integer: true,
-        min: 20,
+        min: 0,
         max: 2000,
       }),
       priority_topk_per_day_list: parseNumericList(plateauTopKListRaw, {
@@ -6574,7 +6581,7 @@ export function BacktestPage() {
     <Space data-research="page" data-view={plateauView ? "plateau" : "backtest"} orientation="vertical" size={16} style={{ width: '100%' }}>
       <PageHeader title="策略回测" subtitle="回放历史信号，评估策略收益、回撤与执行质量。" />
 
-      {plateauView ? <Card data-research="shared-summary" size="small"><Space wrap><strong>当前回测设置</strong><Tag>{selectedStrategy?.name || strategyId}</Tag><span>{range[0].format('YYYY-MM-DD')} 至 {range[1].format('YYYY-MM-DD')}</span><span>{mode === 'trend_pool' ? '趋势池' : '全市场'} · {maxSymbols}只股票上限</span><Button size="small" onClick={() => setShowSharedConfig(value => !value)}>{showSharedConfig ? '收起设置' : '调整回测设置'}</Button></Space></Card> : null}
+      {plateauView ? <Card data-research="shared-summary" size="small"><Space wrap><strong>当前回测设置</strong><Tag>{selectedStrategy?.name || strategyId}</Tag><span>{range[0].format('YYYY-MM-DD')} 至 {range[1].format('YYYY-MM-DD')}</span><span>{mode === 'trend_pool' ? '趋势池' : '全市场'} · {formatBacktestSymbolLimit(maxSymbols)}</span><Button size="small" onClick={() => setShowSharedConfig(value => !value)}>{showSharedConfig ? '收起设置' : '调整回测设置'}</Button></Space></Card> : null}
 
       <Card data-research="backtest-config" hidden={plateauView && !showSharedConfig} title="回测设置">
         <Row data-research="fields"><Col xs={24} md={6}>
@@ -6721,15 +6728,17 @@ export function BacktestPage() {
           </Col>
           <Col xs={24} md={6}>
             <Space orientation="vertical" style={{ width: '100%' }}>
-              <span>最大股票数</span>
-              <InputNumber
-                min={20}
-                max={2000}
-                step={20}
-                value={maxSymbols}
-                onChange={(value) => setMaxSymbols(Number(value || TRADE_BACKTEST_DEFAULTS.maxSymbols))}
-                style={{ width: '100%' }}
-              />
+              <span>回测股票范围</span>
+              <strong data-testid="backtest-universe-label">{formatBacktestSymbolLimit(maxSymbols)}</strong>
+              <Space>
+                <Switch aria-label="限制回测股票数量" checked={maxSymbols > 0}
+                  onChange={(enabled) => setMaxSymbols(enabled ? 120 : 0)} />
+                <span>手动限制数量</span>
+              </Space>
+              {maxSymbols > 0 ? <InputNumber aria-label="回测股票数量上限"
+                min={1} max={2000} step={20} value={maxSymbols}
+                onChange={(value) => setMaxSymbols(Math.max(1, Number(value ?? 120)))}
+                style={{ width: '100%' }} /> : null}
             </Space>
           </Col>
           <Col xs={24} md={6}>
@@ -7066,8 +7075,8 @@ export function BacktestPage() {
                     }
                     description={
                       poolRollMode === 'position'
-                        ? '该模式更贴近“卖出后再补仓”的实盘节奏；仍建议控制回测区间与最大股票数。'
-                        : '该模式计算量较大，建议缩短区间或降低“最大股票数”，并通过任务进度面板观察执行状态。'
+                        ? '使用所选范围中的全部股票；可查看任务进度，或主动启用数量限制。'
+                        : '默认计算所选范围中的全部股票。可查看任务进度；需要加快试跑时可主动启用数量限制。'
                     }
                   />
                 </Col>
@@ -7356,10 +7365,10 @@ export function BacktestPage() {
                 </Col>
                 <Col xs={24} md={6}>
                   <Space orientation="vertical" style={{ width: '100%' }}>
-                    <span>最大股票数列表（max_symbols）</span>
+                    <span>股票数量上限列表（0 表示全部）</span>
                     <Input
                       value={plateauMaxSymbolsListRaw}
-                      placeholder="如: 80,120,200"
+                      placeholder="留空沿用当前范围，如: 0,120,200"
                       onChange={(event) => setPlateauMaxSymbolsListRaw(event.target.value)}
                     />
                   </Space>

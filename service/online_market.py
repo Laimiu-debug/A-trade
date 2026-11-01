@@ -214,7 +214,7 @@ class OnlineMarket:
             raise ValueError("请选择有效板块")
         entry = next((item for item in self.sectors()["items"] if item["id"] == identifier or item["name"] == identifier), None)
         if entry is None:
-            raise ValueError("当前通达信目录中没有这个板块，请刷新列表")
+            raise ValueError("此指数不在当前 MCP 成分股目录中，可能是旧指数或另一套分类。请返回板块列表选择当前目录中的板块；重复刷新不会补出对应成分。")
         result = self.call("tdx_sector_stocks", {"sector": entry["name"]})
         items = [{"symbol": symbol, "code": symbol[2:], "name": self.security_name(symbol)} for symbol in result.get("symbols", [])]
         return {**result, "id": identifier, "name": entry["name"], "items": items, "provider": "tdx_mcp", "asOf": None, "receivedAt": now()}

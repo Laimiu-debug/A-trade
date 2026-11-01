@@ -1,0 +1,86 @@
+{
+  "schema": "market-sector-stock-base-system-v2-hypothesis",
+  "status": "hypothesis-fixed-before-implementation-and-v2-account-outcomes",
+  "researchUnit": "Whole market-sector-stock-rotation portfolio system",
+  "parentProtocol": {
+    "path": "docs/market-sector-stock-account-v1.json",
+    "sha256": "0a25c23277afa5f16e7f1f8c2d4629330621e940fe3eecb1bdc42448c1b3707d"
+  },
+  "parentAccountValidation": {
+    "path": "artifacts/strategy-search/market-sector-stock-accounts-v1/attempt-001/validation.json",
+    "sha256": "ef0b64d8cb13415f46f678621ca4d4751f462af828d9be12a5d88c294e217c0f"
+  },
+  "rationale": {
+    "observed": "V1 complete system loses money. Leader-breakout branch has 44 closed episodes, signal NTR20 median 7.276491029481135 percent and initial failure distance median 0.6977686076639527 NTR. Stop exits dominate realized losses. Sector exits are net positive as a conditional actual-episode group.",
+    "inference": "The first entry definition may select volatile late strength without a prepared support base. This is a hypothesis, not a causal finding or proof that another exit would improve returns.",
+    "priorNegativeEvidence": "A separate historical NTR<=5percent cap experiment failed; a volatility ceiling alone is not proposed as the solution.",
+    "newHypothesis": "A dated leadership relationship followed by a support retest, contracting range/turnover and renewed demand can improve the complete system's realized payoff and account outcome.",
+    "thresholdSearch": false
+  },
+  "unchangedLayers": [
+    "All V1 point-in-time industry maps, observation coverage, market admission and market risk exit",
+    "All V1 sector strength, three-session confirmation, top-three ordering and sector risk exit",
+    "Same 4999 raw stock sources, continuous 500000 CNY capital, periods, fees, slippage, calendar and model quality controls",
+    "One candidate per industry close, at most five globally, original frozen ranking, no backfill or adds",
+    "Same 20percent new-stock, 40percent industry and 1percent planned equity price-risk budgets",
+    "Same persistent next-open exits, inherited stop5, structural failure and prior20NTR three-times ratchet, no terminal liquidation"
+  ],
+  "causalSequence": [
+    "T-5: Establish leader roles using the then-published same industry snapshot",
+    "T-10 through T-1: Observe a two-block ten-session preparation path, with no unknown session compressed",
+    "T close: Confirm market, sector, role, support retest, contraction and first renewed-demand breakout",
+    "T close: Reserve actual cash and fees, stock and industry capacity, quantity and price risk",
+    "Next calendar-session open: One attempt, reduce quantity only, reject incoherent price/support distance",
+    "Holding: Apply common persistent risk exits and allow ratcheted winners without fixed profit ceiling"
+  ],
+  "stockRoles": {
+    "leaderBase": "Candidate is a V1 industry leader both at T-5 and T, same published snapshot, currently above MA20; positive60 return and other V1 candidate health remain required",
+    "catchup": "Preserve V1 catchup current-return ranks and distinct healthy leader identified exactly T-5 in same snapshot; additionally apply the same preparation and support rules as leaders",
+    "disabledBranchControl": "Remove catchup new entries only; common account rules and leaderBase entries remain",
+    "leaderReclaim": "No separate one-candle reclaim entry; all leader entries must complete the dated base sequence"
+  },
+  "baseDefinition": {
+    "calendarBlocks": {"earlier": "T-10 through T-6", "recent": "T-5 through T-1"},
+    "completeDataRequired": "All ten raw OHLC/amount observations valid; recent five MA20/MA60 and all feature endpoints valid; otherwise no candidate",
+    "trendPreserved": "Every recent-five close above its same-day MA60",
+    "supportRetest": "At least one recent-five low <= its same-day MA20",
+    "rangeContraction": "max(high[T-5:T-1])-min(low[T-5:T-1]) strictly less than the corresponding earlier-five range",
+    "turnoverContraction": "Recent-five mean amount <= prior20 mean amount ending T-1",
+    "renewedDemand": "T close > preceding-five highs; T-1 close <= its own preceding-five highs; T amount > prior20 mean amount ending T-1",
+    "healthAndOverextension": "Retain V1 positive60 return, close>MA60, close<=MA20+2*NTR20*close and valid positive prior20 amount",
+    "failurePrice": "Actual minimum low across T-5 through T-1; do not replace a distant observed support with an artificial 95percent-of-close floor",
+    "signalRiskCoherence": "One inclusive-T mean NTR20 <= (T close - failurePrice)/T close <= 0.05; positive NTR required",
+    "openingRiskCoherence": "Using modeled actual opening buy price including slippage, one signal NTR20 <= (modeledPrice - fixedFailurePrice)/modeledPrice <= 0.05; reject otherwise",
+    "existingOpeningCeiling": "Retain raw open>fixedFailurePrice and raw open<=signalClose*(1+signalNTR20); no retry",
+    "interpretation": "Risk coherence plus a complete prepared base is the hypothesis. The implied NTR<=5percent is not standalone evidence or a separate searched threshold. Actual losses may exceed 5percent under close-confirmed next-open execution."
+  },
+  "ordering": {
+    "sector": "Unchanged V1 exact composite percentile rank and sector-code tie break",
+    "withinSector": ["leaderBase before catchup", "prior20 average amount descending", "current industry60-return midrank descending", "symbol ascending"],
+    "intent": "Choose liquid members among prequalified role-and-base candidates rather than mechanically selecting the largest current60-return rank"
+  },
+  "newAccountsPlanned": [
+    {"period": "primary", "policy": "completeSystem"},
+    {"period": "primary", "policy": "withoutMarketAdmission"},
+    {"period": "primary", "policy": "withoutSectorAdmission"},
+    {"period": "primary", "policy": "withoutCatchupEntry"},
+    {"period": "weakMarketStress", "policy": "completeSystem"}
+  ],
+  "reusedEvidence": "All six immutable V1 accounts retained; primary industry-liquid-representative is an unchanged reference, not rerun. V1 complete also provides the matched prior full-method reference.",
+  "validationPlan": [
+    "Pin new implementation and plan before all V2 schedules and before all V2 accounts",
+    "Independently rebuild preparation windows, dated roles, support, ordering and all decision-day schedules from direct source slices",
+    "Check future-data perturbation, snapshot changes, missing calendar sessions, opening gap rejection, cash and industry constraints",
+    "Run all five new accounts even if early results fail; preserve all failed attempts",
+    "Independently replay held-day risk, changed opening guard and actual cash/fees/closed episodes; source/config identity matched",
+    "Evaluate full after-2024-09-24 account, net realized payoff, PF, loss tails, drawdown, samples, exposure, annual stability, excess and profit concentration together",
+    "If no signals or insufficient closed samples, report non-evaluable opportunity coverage; do not relax conditions after seeing outcomes within this hypothesis"
+  ],
+  "numericTargetsHumanConfirmed": false,
+  "numericScreen": "Reuse V1 proposed research screen only; do not label it a human-confirmed hard target",
+  "holdoutClaim": false,
+  "certified": false,
+  "targetAchieved": false,
+  "corporateActionResearchExpansion": false,
+  "permissionBoundary": "Local isolated research only; no real orders, commits, pushes, packaging or publication"
+}

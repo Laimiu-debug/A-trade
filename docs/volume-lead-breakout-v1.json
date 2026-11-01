@@ -1,0 +1,58 @@
+{
+  "schema": "volume-lead-breakout-protocol-v1",
+  "family": "volume-lead-breakout-v1",
+  "strategyId": "volumeLeadBreakoutV1",
+  "candidateIds": ["priceBreakout", "volumeLead"],
+  "exits": ["trail10"],
+  "objective": "Observe whether executable net gain/loss distributions and continuous accounts support repeatable small ordinary losses and larger wins. Human corrections supersede stale annual30/net30 and3-10day goal text. No profit, win-rate, payoff, average-winner or holding-duration outcome hurdle.",
+  "question": "Within a common first rolling-price-breakout queue after a rising previous day, does a preceding-session direction-volume high improve the complete account path?",
+  "previousCompletedBatch": 48,
+  "previousTurnClassification": "progress: all18 new historical-strength admission accounts were executed, independently reconciled and sealed; removing the gate worsened five of six returns and all six drawdowns, while no stable strategy was established.",
+  "source": {
+    "periods": ["2022-2023", "2024-2025"],
+    "boards": ["main", "chinext", "star"],
+    "records": "Use all securities and exact source-calendar slots in the six raw accountData cohorts bound by batch48. No old strength candidates, leader ranks or F filters restrict this population.",
+    "proof": "Pin and rehash batch48 delivery and all members, plan, account validation, readout validation and decision; reuse exactly its sourceData, sourcePlan, fee contract and configurations except strategy identity.",
+    "history": "All2022-2025 history is repeatedly inspected development.2026 is already exposed and unused here. Fixed surviving local cohorts and raw prices/status/rights are not complete historical all-A data."
+  },
+  "signals": {
+    "clock": "T is the observed decision close. Use exact source slots T-22 through T inclusive; missing dates never compress the window. Earliest buy is one attempt at the immediately following source-calendar open.",
+    "completeWindow": "Both arms require all23 bars with finite strictly positive open/high/low/close/volume/amount and low<=min(open,close)<=max(open,close)<=high. Invalid or absent observations are commonUnknown, never a failed volume gate. These numerical checks do not verify actual historical suspension or corporate actions. No new halt, status, basis, ST, listing-age or price-discontinuity filter is added.",
+    "commonPrice": "Require close[T]>max(high[T-20:T-1]), close[T-1]<=max(high[T-21:T-2]), and close[T-1]>close[T-2]. The previous false rolling-breakout predicate distinguishes an onset of this rolling condition, not a stock's first lifetime breakout or first emerging leader.",
+    "queue": "Rank all complete commonPrice candidates by mean(amount[T-20:T-1]) descending and symbol ascending. Freeze at most first5 before any volume condition. Preserve original ranks; exclusions or failed buys never backfill.",
+    "volume": "Set OBV[T-22]=0. For j=T-21 through T-1 add sign(close[j]-close[j-1])*volume[j], with zero on equal closes. volumeLead passes only when OBV[T-1] strictly exceeds max(OBV[T-21:T-2]); the20 comparison levels exclude the arbitrary baseline and T-1. The baseline cannot affect this strict comparison. Only one preceding session is tested; no lead-window or lookback grid.",
+    "policies": {
+      "priceBreakout": "Buy every common Top5 candidate.",
+      "volumeLead": "On the same Top5 queue, buy only volumeLead-passed candidates."
+    },
+    "unknown": "Common window unknowns are explicitly counted across the full daily cohort before candidate ranking and excluded from both arms. Selected candidates have complete volume evidence, so their volume status is passed or failed; an unknown selected state is not fabricated. CommonUnknown and known-notTriggered are separate populations.",
+    "evidence": "Retain full calendar including zero-signal dates, all common candidates including rank>5, each selected opportunity's23 dates, price and OBV evidence, two policy dispositions, and five-field originalRank schedules. Shared signalId=volumeLeadBreakoutV1:T:symbol; generic formationStatus means this volume predicate, not the prior batch's historical-strength F.",
+    "interpretation": "This is an admission comparison within a shared previous-day-up price-breakout population. OBV is a price-sign-weighted volume proxy, not identifiable main-force/retail flow, unique causal volume information or ownership. Price breakout itself is already studied; the proposed increment is the fixed volume-before-price timing condition."
+  },
+  "account": {
+    "matrix": "12 freshly executed accounts =2 arms x2 periods x3 boards x1 exit;0 reused. All12 schedules must be frozen and independently verified before any account.",
+    "exit": "Unchanged trail10:5% initial close stop and10% close trailing stop; no take-profit or fixed holding deadline. Exit thresholds are execution rules, not required outcomes.",
+    "capital": "500000 independent initial capital,5 positions maximum,20% initial entry budget at signal close, original common ranks, no averaging or topups.",
+    "execution": "Unchanged FixedSignalAccount and execute_account: next-source opening attempt, lot and T+1 restrictions, sell-before-buy cash, bands/capacity, persistent failed sell orders, held/pending/same-day-sold handling, no buy carry or backfill. Stop trigger percentages are not guaranteed loss caps.",
+    "fees": "Same inherited dated2022-2023 and Legacy2024-2025 fee profiles, commission0.03%,minimum5,10bp each-side slip and existing stamp/transfer schedules. Retain typed integer5 dated-contract identity. These are model assumptions rather than actual broker receipts.",
+    "valuation": "Carry actual modeled equity and holdings through all slices; preserve unresolved/stale flags and open PnL. Never force a terminal liquidation to improve statistics."
+  },
+  "readout": {
+    "absolute": "All12 account return/drawdown/exposure/costs, ordinary closed gain/loss means and medians, expectancy, payoff, PF, tails, concentration and open PnL. Unknown ratios remain null.",
+    "comparison": "Six volumeLead-minus-priceBreakout complete-account comparisons. Different later cash and held positions prevent additive signal attribution or causal effect claims.",
+    "time": "24 annual,48 halfyear,96 narrative-phase and12 continuous9.24 epoch rows;180 subintervals plus12 overall. Keep all periods/boards including zero trades, with capital/holdings carried across slices, no date buy switch and no annualization of unequal windows.",
+    "coverage": "Six input coverage and12 account coverage rows; full universe commonUnknown/known-notTriggered/candidate, rank exclusions, selected volume states, scheduled/notEntered/closed/open all reconciled. Entry-date and continuous-equity interval views remain distinct.",
+    "decision": "Judge the whole gain/loss path across all cohorts, not a chosen board or a fixed minimum average winner. Positive-tail dependence is a descriptive limitation, not an automatic rejection cutoff."
+  },
+  "validation": {
+    "freeze": "Freeze protocol, inputs and analytical/presentation sources before schedule preparation. Synthetic tests precede preparation; separate raw reconstruction precedes accounts. Exclusive claims, no automatic account retries.",
+    "independent": "Independently reconstruct all raw common predicates, ranking, OBV timing, unknown populations and exact schedules without importing production feature code. Reuse the frozen separate cash/fill/fee/exit oracle and separate raw-fill/interval readout arithmetic; neither audit executes another account.",
+    "tests": "Strict ties, previous-up shared control, price and volume exact windows, equal-close zero increments, missing-slot noncompression, ranking before volume filtering, no refill, duplicate identity rejection, future suffix invariance, no input mutation, proof chronology, fee identity and closed-versus-open summaries."
+  },
+  "trialAccounting": {"newSetupMechanisms":1,"newEntryPolicies":2,"newAccounts":12,"referenceAccountsReused":0,"newUniverseVariants":0,"completedResearchBatchesAdded":1},
+  "parameterSearch": false,
+  "profitHurdles": null,
+  "holdoutClaim": false,
+  "certified": false,
+  "targetAchieved": false
+}

@@ -4,9 +4,11 @@ from __future__ import annotations
 import datetime as dt
 import json
 import math
+from pathlib import Path
 import time
 
 from . import tdx
+from .sector_daily import SectorDaily
 
 
 def now():
@@ -17,6 +19,7 @@ class SectorHistory:
     def __init__(self, owner):
         self.owner = owner
         self.catalogues = {}
+        self.daily = SectorDaily(owner)
         owner.db.execute("CREATE TABLE IF NOT EXISTS sector_history_cache (source TEXT NOT NULL, symbol TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(source,symbol))")
         owner.db.commit()
 
@@ -39,13 +42,17 @@ class SectorHistory:
         return cached[1][symbol]
 
     def history(self, payload):
-        if not isinstance(payload, dict) or set(payload) - {"id", "limit", "refresh"}:
+        if not isinstance(payload, dict) or set(payload) - {"id", "limit", "refresh", "basis", "asOf"}:
             raise ValueError("板块走势参数无效")
         market, code = tdx.symbol_parts(payload.get("id"))
         symbol = market + code
         limit, refresh = payload.get("limit", 250), payload.get("refresh", False)
         if type(limit) is not int or not 2 <= limit <= 1000 or type(refresh) is not bool:
             raise ValueError("板块走势数量须为 2 至 1000 的整数")
+        if payload.get("basis") == "daily":
+            return self.daily.history(payload, now())
+        if payload.get("basis") not in (None, "live") or payload.get("asOf") not in (None, ""):
+            raise ValueError("选择截至日期请使用板块日线口径")
         source = self.owner.online.source()
         saved = self.owner.db.execute("SELECT data FROM sector_history_cache WHERE source=? AND symbol=?", (source, symbol)).fetchone()
         saved = json.loads(saved[0]) if saved else None
@@ -95,3 +102,28 @@ class SectorHistory:
                     "receivedAt": None, "provider": "tdx_mcp", "sourceRoot": source,
                     "sourceName": "通达信板块指数日线", "cached": False, "stale": False,
                     "status": "unavailable", "warnings": [warning]}
+
+    def snapshot(self, payload):
+        self.daily.validate_snapshot(payload)
+        root = self.daily.source()
+        online = self.owner.online
+        catalogue, warnings = None, []
+        if online.config()["enabled"]:
+            if Path(online.source()).resolve() != root:
+                warnings.append("本地日线与 MCP 使用不同目录，不能将两个来源的板块成分混配。")
+            else:
+                source = online.source()
+                cached = self.catalogues.get(source)
+                try:
+                    if not cached or payload.get("refresh") or time.monotonic() - cached[0] > 300:
+                        result = online.sectors()
+                        self.remember(source, result.get("items", []))
+                        cached = self.catalogues[source]
+                    catalogue = list(cached[1].values())
+                    if not catalogue:
+                        raise ValueError("MCP 尚未提供可核对的成分股目录")
+                except ValueError:
+                    catalogue = None
+                    self.catalogues.pop(source, None)
+                    warnings.append("本次未读到 MCP 成分股目录；保留本地指数日线，连接恢复后刷新即可查看成分。")
+        return self.daily.snapshot(payload, now(), member_catalogue=catalogue, catalogue_warnings=warnings)

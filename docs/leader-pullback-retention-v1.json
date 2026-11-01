@@ -1,0 +1,68 @@
+{
+  "schema": "leader-pullback-retention-protocol-v1",
+  "strategyId": "leaderPullbackRetentionV1",
+  "candidateIds": ["control", "retained"],
+  "decision": "Within the same original member first-breakout opportunities, after the original leader's first adjacent close decline has already occurred, does retaining the member's own pre-decline closing-price level improve empirical account and trade outcomes?",
+  "objective": "Empirical repeatable small-loss/larger-win research. Human corrections override stale annual30/per-trade30 and3-10-day goal wording. No profit, payoff, win-rate, average-winner or holding-duration acceptance hurdles. Preserve every fixed comparison and sparse/null outcome.",
+  "novelty": "A first adjacent price decline followed by a member's own fixed-level retention before its existing first breakout. Earlier local succession used persistentQ, two-day numerical rank overtake and anchorQ failure. This does not require Q failure, relative rank overtake, traded-value crossover, pseudo-anchor or market-date admission.",
+  "source": {
+    "rawFamily": "board-coverage-reclaim-v1",
+    "opportunityFamily": "leader-amount-handoff-v1",
+    "previousCompletedFamily": "leader-matched-anchor-v1",
+    "periods": ["2022-2023", "2024-2025"],
+    "boards": ["main", "chinext", "star"],
+    "inheritance": "Bind all six unchanged raw datasets and the43 passing formation/Top5/account proof chain. Inherit all parent formations and ALL original Top5 opportunities, including parent T-amount unknowns. Do not inherit43 control schedule or44 common subset. No rebuilding parent lock, peer membership, first breakout T, owner or originalRank.",
+    "initialAmountSelection": "The43 parent began observing members only when known M3(member,A)<=M3(anchor,A). This selection remains inherited. Removing T-amount masks does not make this a pure-price full-cohort experiment. Old43 control summaries are population context only, not reused accounts.",
+    "limitations": "Fixed surviving local cohorts, raw prices and incomplete historical status. Board-local statistical groups are not verified themes or market-wide leadership.2022-2025 has repeatedly informed development; no2026 or untouched holdout claim."
+  },
+  "validity": {
+    "calendar": "Exact ordered unique source-calendar slots including warmup, numeric reads at or before registered end. No compressed gaps.",
+    "bar": "Frozen research_leader_lag._Series raw positive OHLCV/envelope/status validity; no new amount requirement, liquidity filter, per-stock repair or investor-identity inference.",
+    "required": "For the anchor, exact adjacent prices from A until the first known down-close or first required unknown or T. After a first down-close is proven, later anchor bars are not required. Member retention requires every exact valid slot P-1..T-1; its T breakout is inherited and checked against raw evidence."
+  },
+  "clock": {
+    "AandT": "A and T retain their parent meaning. T is the parent's first close strictly above its preceding five exact highs within A+1..A+5. Never search a later member breakout to obtain a desired sequence.",
+    "firstDown": "For EACH original opportunity separately, scan source slots d=A+1..T in order. At each d require valid raw anchor bars at d-1,d. First strict close_d<close_d-1 establishes P; equality is not a decline. Stop at this P. If a required pair is unknown before P, stop with firstDownUnknown; do not skip unknowns to pick a later decline. If all pairs through T are known and none declines, noDownThroughT.",
+    "prefix": "The result uses only the opportunity's A..T prefix. Never compute a final A+5 state and backfill an earlier T. A known P remains fixed if the anchor later becomes unknown; those later bars are irrelevant to this event definition.",
+    "ordering": "P<T gives a prior down-close event. P=T is sameDayDown and does not qualify. T=A+1 cannot have a strictly prior down-close. NoDownThroughT and sameDayDown are known non-admissions, not censored. Parent members without an original T remain in inherited lifecycle dispositions; no new opportunity is synthesized.",
+    "terminology": "First adjacent close decline is not necessarily a material peak drawdown, sustained leader weakness or lost leadership. A first decline of any strictly negative size counts; no fitted amplitude threshold."
+  },
+  "retention": {
+    "reference": "For proven P<T use member close at exact P-1 as fixed reference R. Observe member closes on every exact slot P..T-1, excluding T. At least one observation follows from P<T; no extra duration gate.",
+    "known": "Both policies require complete valid member raw bars P-1..T-1. Preserve every readable close and independent unknown/breach evidence even when common support is unknown.",
+    "predicate": "retained iff every member close on P..T-1>=R; equality passes. A single strict breach fails permanently for this opportunity, even if the member recovers or breaks out on T. No tolerance, rounding, alternate reference, moving-average or threshold search.",
+    "diagnostics": "Keep first breach date, all known breach dates, observation length and elapsed A-to-P/P-to-T slots. These explain coverage only and never define new gates. If reference is unknown, breach comparisons remain unknown; do not impute."
+  },
+  "commonSupport": {
+    "exclusiveStatusPriority": ["firstDownUnknown", "noDownThroughT", "sameDayDown", "memberPathUnknown", "commonKnown"],
+    "control": "Admit every commonKnown original opportunity: proven P<T and complete member retention path, regardless of whether it retained the reference.",
+    "retained": "Same commonKnown original opportunities, additionally the retention predicate is true.",
+    "signals": "Exactly signalId,strategyId,symbol,signalDate,originalRank. New identity leaderPullbackRetentionV1:A:anchor:member; retain parentOpportunityId. Same ID across policies; unchanged T-close decision and next-source-open attempt. Preserve original gaps, owner and rank; no refill or rerank.",
+    "unknown": "Unknown required evidence excludes both policies but stays in the original denominator. Known missing ordering excludes both with its explicit reason. Parent T amount known/unknown and crossing do not affect either policy."
+  },
+  "account": {
+    "exits": ["trail10", "volatilityTrail"],
+    "execution": "Use the exact43 FixedSignalAccount / VolatilityTrailAccount configurations changing scorer identity only:500000 capital,max5 positions,20% entry budget,initial5% close stop,fixed10% close trail or3x prior20 normalized true-range trail. Preserve next-open fills, fees, capacity/bands, open holdings and quality flags. No take-profit, fixed holding deadline or noProgress5 exit.",
+    "fees": "Unchanged dated2022-2023 policy and2024-2025 LegacyFeePolicy; double-sided10bp slippage and typed integer5 minimum commission.",
+    "matrix": "All24 newly executed accounts=2policies*2exits*2periods*3boards;0 reused. No winner-only cohort or early stopping."
+  },
+  "readout": {
+    "primary": "All12 retained-minus-control account comparisons with full absolute metrics. Separately12 old43-control versus new-control context rows, labelled changed opportunity population; no reused execution or causal interpretation.",
+    "time": "All48 annual,96 half-year,192 existing narrative-phase and24 descriptive9.24 continuous-equity rows. Carry positions and capital; no resetting/annualizing unequal before-after slices or date-coded signals.",
+    "coverage": "Six source sequence-coverage rows retain parent formation/lifecycle counts, all originalTop5, all five statuses, commonKnown retained/lost split, schedules, observation-length distribution and first-breach/unknown evidence.24 policy account coverage rows and complete original-opportunity/actual-entry sidecars preserve notScheduled/notEntered/closed/open.",
+    "performance": "Net return, drawdown, exposure, costs, complete closed win/loss means/medians, expectancy/payoff/PF, streaks/tails/profit concentration, realized/open unrealized PnL and valuation flags. Undefined ratios stay null; no-trade account actual net return remains its computed value.",
+    "conservation": ["parentFormations=formed+inheritedOther", "originalTop5=firstDownUnknown+noDownThroughT+sameDayDown+memberPathUnknown+commonKnown", "commonKnown=retainedKnown+lostKnown", "controlSignals=commonKnown", "retainedSignals=retainedKnown", "perPolicy originalTop5=scheduled+notScheduled", "scheduled=entered+notEntered"]
+  },
+  "validation": {
+    "freeze": "Freeze this protocol, source hashes and code before computing new real coverage or schedules. Complete all six source preparations and independent reconstruction before accounts. Preserve any failure and documented repair; never alter rules after seeing coverage or outcomes.",
+    "synthetic": "P=A+1<T, P=T, no prior down/equality, unknown prefix cannot be skipped, anchor unknown after P does not invalidate proven event, opportunity-specific prefix and future perturbation, no later T/P substitution, member reference equality, breach then recovery, T cannot repair breach, missing plus known breach preserved, original Top5 gaps/owners, parent amount-unknown still eligible by price, ending T next-open unavailable, no mutation.",
+    "independent": "Bind inherited formation/firstT/owner proof and separately reconstruct all new anchor-prefix and member-path evidence from raw bars without calling the new builder. Audit all24 account cash/holdings/cost/stop paths without new executions, then independently reconstruct all readout tables including tuple-key provenance maps.",
+    "interpretation": "This conditional strategy comparison cannot establish leader influence, main-force identity or leadership transfer. Shared-market moves, inherited initial amount selection, different participation, observation-length mix and correlated signals can explain differences. Repeated development data cannot certify stable future returns."
+  },
+  "trialAccounting": {"newSetupMechanisms": 1, "newEntryPolicies": 2, "newAccounts": 24, "referenceAccountsReused": 0, "newUniverseVariants": 0},
+  "profitHurdles": null,
+  "parameterSearch": false,
+  "holdoutClaim": false,
+  "certified": false,
+  "targetAchieved": false
+}

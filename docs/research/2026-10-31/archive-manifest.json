@@ -1,0 +1,90 @@
+{
+  "schema": "reviewed-research-evidence-git-archive-v1",
+  "archivedOn": "2026-11-01",
+  "timeZone": "Asia/Hong_Kong",
+  "scope": "Unmodified compact evidence for the two2026-10-31 studies. Original source paths and hashes inside copied files refer to locally retained artifacts.",
+  "rawMarketDataAndFullAccountFilesIncluded": false,
+  "rawMarketDataAndFullAccountFilesRetainedLocally": true,
+  "pristineOosPerformed": false,
+  "profitabilityProven": false,
+  "files": [
+    {
+      "original": "artifacts/strategy-search/profitability-review-20261031/hypothesis-plan.json",
+      "archive": "docs/research/2026-10-31/confirmation/hypothesis-plan.json",
+      "sha256": "6ae0f8acdf54c69feb847e6333a6a1906126942bf8eddeaf4efd915201103ce7",
+      "bytes": 6023
+    },
+    {
+      "original": "artifacts/strategy-search/profitability-review-20261031/readout.json",
+      "archive": "docs/research/2026-10-31/confirmation/readout.json",
+      "sha256": "a33969abf06ed03f6406621a52efeff608a626caa6550350b797103561204919",
+      "bytes": 14949
+    },
+    {
+      "original": "artifacts/strategy-search/profitability-review-20261031/final-verification.json",
+      "archive": "docs/research/2026-10-31/confirmation/final-verification.json",
+      "sha256": "1be51f559f71c7c68fd9a14372d321c7f1bcceb1dbf3fb3f05b54a392cc0131b",
+      "bytes": 8561
+    },
+    {
+      "original": "artifacts/strategy-search/profitability-review-20261031/closeout.json",
+      "archive": "docs/research/2026-10-31/confirmation/closeout.json",
+      "sha256": "16b5444ec55fde4c755aa82d1cb7c94b6f98c3dbf390eb358de320fbca7117e2",
+      "bytes": 4563
+    },
+    {
+      "original": "artifacts/strategy-search/profitability-review-20261031/historical-comparison.png",
+      "archive": "docs/research/2026-10-31/confirmation/historical-comparison.png",
+      "sha256": "170b7e4e3abbeab9572a113fe3ee2fbfda61b18aa8c1164569158d9c03ebce27",
+      "bytes": 121497
+    },
+    {
+      "original": "artifacts/strategy-search/profitability-review-20261031/oos-audit/audit.json",
+      "archive": "docs/research/2026-10-31/confirmation/oos-audit.json",
+      "sha256": "92cc68d6d4ce63408a93f0b911755981d5579bd3761bbd696e7306e3c086e93f",
+      "bytes": 44391
+    },
+    {
+      "original": "artifacts/strategy-search/ignition-selection-review-20261031/hypothesis-plan.json",
+      "archive": "docs/research/2026-10-31/ignition/hypothesis-plan.json",
+      "sha256": "46a7804a3f8f875f21b3a82bd5c364faa94d33e71bb0531be3c5a982a8084c25",
+      "bytes": 10793
+    },
+    {
+      "original": "artifacts/strategy-search/ignition-selection-review-20261031/readout.json",
+      "archive": "docs/research/2026-10-31/ignition/readout.json",
+      "sha256": "4177d5ed471234ecda681baf6ec067e0ad78150cbd1ad4841d9f2147473ee037",
+      "bytes": 2032326
+    },
+    {
+      "original": "artifacts/strategy-search/ignition-selection-review-20261031/final-verification.json",
+      "archive": "docs/research/2026-10-31/ignition/final-verification.json",
+      "sha256": "5b359dc505c54392f2212c2aa4636b20033b8d3b55c79e6364794da76c6c0b1d",
+      "bytes": 4364
+    },
+    {
+      "original": "artifacts/strategy-search/ignition-selection-review-20261031/closeout.json",
+      "archive": "docs/research/2026-10-31/ignition/closeout.json",
+      "sha256": "d6d95b34049f1310269a1f55e07dd02788c54abec677357dbf9028e99bb8d5b4",
+      "bytes": 4584
+    },
+    {
+      "original": "artifacts/strategy-search/ignition-selection-review-20261031/historical-comparison.png",
+      "archive": "docs/research/2026-10-31/ignition/historical-comparison.png",
+      "sha256": "b9418e14aa57506c884e755ac061c2ff60a108c73a84fd29ce8567430eac6612",
+      "bytes": 234471
+    },
+    {
+      "original": "artifacts/strategy-search/ignition-selection-review-20261031/diagnostics/diagnostic-conclusions.json",
+      "archive": "docs/research/2026-10-31/ignition/diagnostic-conclusions.json",
+      "sha256": "259c467b77cb8bdab7cb2e01bbb52c26ef434845727a6668a3da6994cc592cc7",
+      "bytes": 6824
+    },
+    {
+      "original": "artifacts/strategy-search/ignition-selection-review-20261031/oos-status.json",
+      "archive": "docs/research/2026-10-31/ignition/oos-status.json",
+      "sha256": "fbacb23e5716ac4c701414f1b239b7c3edb0d90c368d071185b16ebe03e49df7",
+      "bytes": 1829
+    }
+  ]
+}

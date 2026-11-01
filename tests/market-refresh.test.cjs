@@ -21,10 +21,10 @@ function runtime() {
         barsData={symbol:AT.state.stock,rows:[{date:'2026-10-08'},{date:'2026-10-09'}]}; selectedIndex=0;
         if (options.date) intradayDate=options.date;
         chartMode=options.mode || 'intraday';
-        if(options.sectors){sectorData={items:options.sectors};sectorKey='0|all';}
+        if(options.sectors){sectorBasis='live';sectorData={items:options.sectors};sectorKey='0|all|live|';}
       },
-      setDate(date){intradayDate=date;}, loadIntraday, ensurePage, listView, loadResearch, loadSnapshot, pollMarketJobs, cancelMarketJob, refreshVisible,
-      get(){return {intradayDate,intradayBusy,intradayKey,data:intradayData,sectorQuoteDone,sectorQuoteBusy,sectorQuotes:[...sectorQuotes.values()],researchBusy,snapshotBusy,researchError,snapshotError,researchData,snapshotData};},
+      setDate(date){intradayDate=date;}, loadIntraday, ensurePage, listView, sectorsView, changeSectorDate, loadSectors, loadResearch, loadSnapshot, pollMarketJobs, cancelMarketJob, refreshVisible,
+      get(){return {intradayDate,intradayBusy,intradayKey,data:intradayData,sectorBasis,sectorAsOf,sectorData,sectorBusy,sectorQuoteDone,sectorQuoteBusy,sectorQuotes:[...sectorQuotes.values()],researchBusy,snapshotBusy,researchError,snapshotError,researchData,snapshotData};},
       intradayHtml(rows){intradayData={date:'2026-10-09',rows,previousClose:10};return intradayChart(rows);}
     };
   })();`);
@@ -81,6 +81,38 @@ test('sector quotes repeat on the configured interval and pause outside the visi
   rt.document.hidden=true;rt.tick();assert.equal(rt.calls.length,2);
   rt.document.hidden=false;rt.AT.state.page='C01';rt.tick();assert.equal(rt.calls.length,2);
   rt.AT.state.page='M02';rt.tick();assert.equal(rt.calls.length,3);
+});
+
+test('sector page defaults to dated local index bars and never polls live quotes in daily mode',async()=>{
+  const rt=runtime();rt.api.setup();rt.AT.state.page='M02';
+  rt.api.ensurePage('M02');
+  assert.equal(rt.calls[0].method,'market.sectors');
+  assert.equal(rt.calls[0].payload.basis,'daily');
+  await rt.reply(0,{basis:'daily',asOf:'2026-10-09',items:[{symbol:'sh881115',name:'林业',return5:7}]});
+  assert.match(rt.api.sectorsView(),/实际日线截至 2026-10-09/);
+  rt.tick();assert.equal(rt.calls.length,1,'local daily mode does not blend in realtime prices');
+});
+
+test('rapid cutoff changes ignore late results from a different date in either completion order',async()=>{
+  for(const order of [[0,1],[1,0]]) {
+    const rt=runtime();rt.api.setup();rt.AT.state.page='M02';
+    rt.api.changeSectorDate('daily','2026-10-08');
+    rt.api.changeSectorDate('daily','2026-10-09');
+    assert.deepEqual(rt.calls.map(call=>call.payload.asOf),['2026-10-08','2026-10-09']);
+    for(const index of order) await rt.reply(index,{basis:'daily',asOf:rt.calls[index].payload.asOf,items:[]});
+    assert.equal(rt.api.get().sectorData.asOf,'2026-10-09');
+    assert.equal(rt.api.get().sectorBusy,false);
+  }
+});
+
+test('member metrics use the actual board date when the requested date has no downloaded bars',async()=>{
+  const rt=runtime();rt.api.setup();rt.AT.state.page='M02';
+  rt.api.changeSectorDate('daily','2026-10-12');
+  await rt.reply(0,{basis:'daily',asOf:'2026-10-09',items:[]});
+  rt.AT.state.page='M03';const pending=rt.api.loadSnapshot();
+  assert.equal(rt.calls[1].method,'market.snapshot');
+  assert.equal(rt.calls[1].payload.asOf,'2026-10-09');
+  await rt.reply(1,{asOf:'2026-10-09',items:[]});await pending;
 });
 
 test('stock lists use a lightweight snapshot independently of the market-style research result',async()=>{

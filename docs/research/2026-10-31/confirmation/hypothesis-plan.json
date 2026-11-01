@@ -1,0 +1,116 @@
+{
+  "schema": "dual-confirmation-profitability-review-v1",
+  "registeredAt": "2026-10-31T17:24:50.749462+08:00",
+  "purpose": "Diagnose observed losses and test exactly two one-session confirmation hypotheses without relabeling previously used history as independent out-of-sample.",
+  "maxNewHypotheses": 2,
+  "newAccountsPlanned": 10,
+  "outcomeBasedParameterChangesAllowed": false,
+  "diagnosticSources": [
+    {
+      "path": "artifacts/strategy-search/profitability-review-20261031/diagnostics/loss-diagnostics.json",
+      "sha256": "abd2c5c82a272904f87032154a4565dc7a5edfb3b1224f98959b026a5f33dfc3"
+    },
+    {
+      "path": "artifacts/strategy-search/profitability-review-20261031/oos-audit/audit.json",
+      "sha256": "92cc68d6d4ce63408a93f0b911755981d5579bd3761bbd696e7306e3c086e93f"
+    }
+  ],
+  "frozenParentPlan": {
+    "path": "artifacts/strategy-search/guiyin-dual-path-system-v1/attempt-002/plan.json",
+    "sha256": "3fa9ead57795fa947054f84d80cc79e3a7988aec08ce554744a5067a29e1838a"
+  },
+  "parentInputs": {
+    "path": "artifacts/strategy-search/guiyin-dual-path-system-v1/attempt-002/input-validation.json",
+    "sha256": "3b2245b980de1bda9cd15d63b4bd114278843e07ea839039dc3e96b719c9eab6"
+  },
+  "hypotheses": [
+    {
+      "id": "confirmComplete",
+      "parentPolicy": "complete",
+      "mechanism": "Wait one full independent session for observable demand confirmation before committing cash."
+    },
+    {
+      "id": "confirmBonly",
+      "parentPolicy": "Bonly",
+      "mechanism": "Same confirmation on the existing pullback-only opportunity stream; evaluate against Bonly as well as complete."
+    }
+  ],
+  "confirmationRule": {
+    "clock": "Origin signal D close, confirmation only at next independent session D+1 close, earliest attempted fill D+2 open. D and D+1 must both fall in the evaluation period. No retry/backfill.",
+    "price": "D+1 has complete positive valid OHLCV/amount; close > open and close >= original signalClose and close > original failurePrice.",
+    "context": "D+1 market admission remains true; the original industry remains selected; the stock still belongs to the same industry in the contemporaneously available snapshot.",
+    "ranking": "Retain originalRank and original parent opportunity population; never refill rejected ranks.",
+    "metadata": "Keep original signalClose, structural floor and meanNtr20 for reservation, opening extension cap and sizing; update decision date/contextCutoff/snapshotId to D+1 and retain origin identity.",
+    "risk": "All original complete-policy exits, T+1, suspension/limit gates, cash/lot/sector/gross/risk caps, prior-volume participation proxy and next-open execution retained."
+  },
+  "periods": {
+    "development": {
+      "start": "2024-09-24",
+      "end": "2025-12-31",
+      "label": "Previously exposed development history"
+    },
+    "reusedTemporalCheck": {
+      "start": "2026-01-05",
+      "end": "2026-10-15",
+      "label": "Previously exposed temporal recheck; NOT pristine out-of-sample"
+    }
+  },
+  "accounts": {
+    "initialCapitalYuan": 500000,
+    "resetAtPeriodStart": true,
+    "policies": [
+      "complete",
+      "Bonly",
+      "confirmComplete",
+      "confirmBonly"
+    ],
+    "normalSlippageBpsEachSide": 10,
+    "stressSlippageBpsEachSide": 35,
+    "stressCases": "confirmComplete and confirmBonly only, reusedTemporalCheck",
+    "fees": "Exactly parent frozen LegacyFeePolicy and baseConfig; explicitly disclose dated stamp-duty and unadjusted-price source limits."
+  },
+  "decisionRule": {
+    "historicalCandidateScreen": [
+      "positive net account return in BOTH periods",
+      "net return exceeds matched parent in BOTH periods",
+      "closed-trade profit factor > 1 in BOTH periods",
+      "at least 30 closed trades in EACH period",
+      "maximum drawdown <= 20% in BOTH periods",
+      "positive reusedTemporalCheck return under 35bps each-side slippage"
+    ],
+    "benchmark": "Report cash 0% and same-date CSI300 price return for context; no claim of dividend-inclusive investable benchmark.",
+    "uncertainty": "Paired daily-return moving-block bootstrap, fixed block length 20 sessions, 2000 draws, seed 20261031; interval is retrospective and does not correct the entire historical selection process.",
+    "noWinner": "If neither passes, reject both for promotion; do not select the less-negative variant or change thresholds after results."
+  },
+  "oos": {
+    "status": "Not yet available at a sufficient independent length",
+    "exposedThrough": "2026-10-15",
+    "laterScanExposureThrough": "2026-10-23",
+    "twoDaysWithoutLocatedUse": [
+      "2026-10-26",
+      "2026-10-27"
+    ],
+    "localMissing": [
+      "2026-10-28",
+      "2026-10-29",
+      "2026-10-30"
+    ],
+    "newSegmentConsumption": "Do not consume the two remaining days to advertise a powerless profitability test.",
+    "prospectiveStartNotBefore": "2026-11-02",
+    "minimumCompletedIndependentSessions": 60,
+    "minimumClosedTrades": 30,
+    "requires": "Rules/code/input identity frozen before observing that session; append-only simulated records; no real orders; verify published trading calendar; no parameter reselection from forward outcomes.",
+    "automationCreated": false,
+    "profitabilityProven": false
+  },
+  "limits": [
+    "Surviving/raw-price source and incomplete historic trade-status/actions remain.",
+    "Single-open execution and prior-volume capacity are approximations, not opening-auction fill evidence.",
+    "Two candidates add to prior adaptive research; ordinary p-values/Sharpe are not proof of discovery."
+  ],
+  "methodReferences": [
+    "https://www.davidhbailey.com/dhbpapers/backtest-prob.pdf",
+    "https://www.davidhbailey.com/dhbpapers/deflated-sharpe.pdf"
+  ],
+  "executionLock": "Pin implementation and test code plus all input references after synthetic checks and before any new account; preserve all results and failures."
+}

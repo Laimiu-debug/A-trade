@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "registeredAt": "2026-10-15T12:15:40.049133+00:00",
+  "status": "reviewed-implementation-frozen-no-real-market-trial",
+  "candidateId": "breakoutQuietRetestRenewedStrength",
+  "rulesVersion": "sequence-breakout-retest-renewal-v1",
+  "parametersSearched": false,
+  "objective": "Single-position net +30 percent after signal, with very high probability and observed time-to-target; no fixed holding deadline",
+  "formation": {
+    "breakout": "B close above prior 40 highs, above rising MA80, volume at least 1.2 times prior 40-session mean; complete 81-session comparable history",
+    "anchor": "A=prior40 maximum high; anchor date, price and volume frozen once",
+    "retest": "First R at B+1..B+9 with A<=low<=1.02*A, close<close_B, volume<=0.8*volume_B",
+    "renewal": "First T after R and by B+10 with close>high_R, close>prior-session close, volume>=volume_B",
+    "invalidate": "Low<A takes priority; known ineligibility or effective action invalidates; unknown evidence aborts separately; known halts consume formation deadline",
+    "formationDeadlineSessions": 10,
+    "holdingDeadlineSessions": null,
+    "sequenceAfterSignal": "Reset detector idle at T; earliest reanchor next session; external positions do not suppress raw pattern observations"
+  },
+  "selection": "Rank all same-day raw sequences by close_T/A-1 ascending, then symbol; mark Top5 before active-event exclusion, never backfill rank6",
+  "execution": "Separate existing next-session-open single-attempt entry and net +30 opening-price proxy; T+1 sell lock and full-position execution evidence remain external",
+  "strictEvidence": "Independent calendar, historical eligibility and explicitly verified comparable price/action regime. Empty factors or unchanged preclose do not certify absence of actions.",
+  "currentPublicDataSatisfiesStrictActionProof": false,
+  "futurePriceOnlyDiagnostic": "Must be separately named and preregistered, preserve unknowns, and cannot claim to implement verified action eligibility or certify the goal",
+  "realMarketSequenceOutcomesCalculated": false,
+  "syntheticTestsPassed": 20,
+  "independentReview": "artifacts/strategy-search/signal-sequence-v1-independent-review.json",
+  "implementation": {
+    "service/signal_sequence.py": "d8a4e08ab0c888e1c7276732edff559231ae1b872d796580fa03f58f2ee6e17e",
+    "tests/test_signal_sequence.py": "2a95ae244342447bf8aa6e89ad7e3dc12af1ed2dcddaf7982ed7dc78ab7f09d9",
+    "service/signal_evidence.py": "814dffc2996e0211f046fadbde9591fa05060d9ee0d76b5da13257d0f95b01df",
+    "tests/test_signal_evidence.py": "63e0528f7eb903d81e4007d477b1cd200ef015c9146d2148680cd3e6073eab9a",
+    "service/signal_path_risk.py": "b05ee35cec2251f536f5c73dbb29e0a7103bd3294bc4f55a2efc21d0b87e8cea",
+    "tests/test_signal_path_risk.py": "427d090e1bb8eed649a6cb7d96538d4b9d73dd594f8bdacc9deb23e68d6d88ef",
+    "scripts/supplement-strategy-evidence.py": "cc53ede88d435c9c32ebcbb57e015f0bf9bad5e301314dafddbd1a608c30876d",
+    "scripts/audit-signal-path-risk.py": "9b01ed9507948a80aaf8fe0c51febb4aa8ba3cb90c3db3acdd63ffe7576fdb56",
+    "artifacts/strategy-search/evidence-supplement-v1/normalization-recipe.py": "0b4e62dc2eaeb9b05dd7ec5715cb34cf3ff5968f7c648f2389eca972c0b7be26",
+    "artifacts/strategy-search/reconcile_supplement_prices.py": "50dab067fdc9b18c79fb1db5709006164639f85c5780bb6aa6c6e2c506be8026"
+  },
+  "certified": false,
+  "targetAchieved": false
+}

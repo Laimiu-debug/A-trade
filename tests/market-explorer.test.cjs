@@ -20,6 +20,29 @@ function explorer(savedState = {}) {
 }
 const codes = html => [...html.matchAll(/data-stock="([^"]+)"/g)].map(match => match[1]);
 const sectors = html => [...html.matchAll(/data-market-sector="([^"]+)"/g)].map(match => match[1]);
+
+test('dated sector tables expose sortable five and twenty day returns and actual bar dates',()=>{
+  const ui=explorer(),payload={basis:'daily',asOf:'2026-10-09',items:[
+    {id:'a',name:'林业',date:'2026-10-09',return5:7,return20:12,changePercent:2},
+    {id:'b',name:'旧板块',date:'2026-10-08',older:true,return5:null,return20:null,changePercent:null}
+  ]};
+  const html=ui.sectorView(payload);
+  assert.match(html,/5 日涨幅/);assert.match(html,/20 日涨幅/);
+  assert.match(html,/\+7\.00%/);assert.match(html,/日线截至 2026-10-09/);
+  assert.match(html,/缺少观察日日线/);assert.match(html,/2026-10-08/);
+  assert.match(html,/同日日线 1/);
+  assert.match(ui.sectorView({basis:'daily',items:[]}),/所选日期前暂无已下载的板块指数日线/);
+  ui.click({explorerSort:'return5'},'sectors:all');
+  assert.deepEqual(sectors(ui.sectorView(payload)),['a','b']);
+  assert.doesNotMatch(ui.sectorView({items:payload.items}),/5 日涨幅/);
+});
+
+test('a local index without verified MCP membership has no misleading member link',()=>{
+  const html=explorer().sectorView({basis:'daily',items:[{id:'sh880363',name:'林业',membershipAvailable:false}]});
+  assert.doesNotMatch(html,/data-market-sector="sh880363"/);
+  assert.match(html,/仅指数日线/);
+  assert.match(html,/尚未核对对应成分股目录/);
+});
 const base = {asOf: '2026-10-09', items: [
   {symbol:'sh600001',name:'主板甲',code:'600001',board:'main',kind:'stock',date:'2026-10-09',close:12,amount:100,changePercent:2,volumeRatio5:1.7,aboveMA20:true},
   {symbol:'sz300001',name:'创业乙',code:'300001',board:'chinext',kind:'stock',date:'2026-10-09',close:20,amount:200,changePercent:-3,volumeRatio5:2,aboveMA20:false},

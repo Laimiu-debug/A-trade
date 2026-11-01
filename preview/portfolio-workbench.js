@@ -795,7 +795,7 @@
     return '<p class="rs-help" data-pf-identifiability>不同成交与净值路径：'+n(v.distinctBehaviorCount,0)+'；'+(v.inactiveAxes?.length?'未生效参数：'+E(v.inactiveAxes.map(parameterLabel).join('、')):'未发现已完成扫描中完全未生效的轴')+'。相同路径不重复计作有效参数宽度。</p>';
   }
   function metricTable(results) {
-    return table(['方案','累计收益','年化','最大回撤','夏普','完整持仓波段胜率','换手','费用（元）','滑点（元）','成本 / 初始资金'],results.map(([label,r])=>{const m=r?.metrics||{};return `<tr><td>${E(label)}</td><td>${p(m.totalReturnPct)}</td><td>${p(m.annualizedReturnPct)}</td><td>${p(m.maxDrawdownPct)}</td><td>${n(m.sharpe ?? m.sharpeRatio)}</td><td>${p(m.winRatePct)}<small>${numeric(m.closedTradeCount)?n(m.closedTradeCount,0)+' 个已关闭波段':'暂无关闭波段数'}</small></td><td>${p(m.turnoverPct)}</td><td>${n(m.totalFees ?? m.totalCosts)}</td><td>${n(m.totalSlippage)}</td><td>${p(m.costRatioPct)}</td></tr>`;}))+`<p class="rs-help pf-metric-note">胜率按完整关闭的持仓波段统计；费用与滑点均计入净收益，成本占比为两者合计除以初始资金，滑点已包含在成交价中。</p>`;
+    return table(['方案','累计收益','年化','最大回撤','夏普','完整持仓波段胜率','换手','费用（元）','滑点（元）','成本 / 初始资金'],results.map(([label,r])=>{const m=r?.metrics||{};return `<tr><td class="pf-metric-name">${E(label)}</td><td>${p(m.totalReturnPct)}</td><td>${p(m.annualizedReturnPct)}</td><td>${p(m.maxDrawdownPct)}</td><td>${n(m.sharpe ?? m.sharpeRatio)}</td><td>${p(m.winRatePct)}<small>${numeric(m.closedTradeCount)?n(m.closedTradeCount,0)+' 个已关闭波段':'暂无关闭波段数'}</small></td><td>${p(m.turnoverPct)}</td><td>${n(m.totalFees ?? m.totalCosts)}</td><td>${n(m.totalSlippage)}</td><td>${p(m.costRatioPct)}</td></tr>`;}))+`<p class="rs-help pf-metric-note">胜率按完整关闭的持仓波段统计；费用与滑点均计入净收益，成本占比为两者合计除以初始资金，滑点已包含在成交价中。</p>`;
   }
   function configuration(config,selection={},poolOnly=false){
     if(!config)return '';

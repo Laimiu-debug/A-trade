@@ -1,0 +1,337 @@
+{
+  "schemaVersion": 1,
+  "status": "design-only-not-registered-not-executed",
+  "createdAt": "2026-10-15T15:17:27.377278+00:00",
+  "title": "全样本市场状态与昨日强势队列角色变化研究设计",
+  "objective": {
+    "targetSinglePositionNetGainPct": 30,
+    "annualizedReturnTarget": null,
+    "fixedHoldingDeadline": null,
+    "meaning": "服务于用户寻找单笔可实现净收益达到 +30% 的高概率信号这一长期目标。本文件只设计市场状态和角色证据，不报告达到目标、胜率或收益。"
+  },
+  "executionBoundary": {
+    "newPolicyRegistered": false,
+    "newStrategyExecuted": false,
+    "newMarketPanelExtracted": false,
+    "futureLabelsCreated": false,
+    "returnsCalculated": false,
+    "ninthTrialBoundary": "本文件不读取正在运行的第九次试验中间候选或收益，不依其结果选择阈值；不修改其登记、协议、代码、源数据或产物。",
+    "authorizedWork": "仅新增本设计文档，依据已有代码和设计核对可用能力。没有调用行情服务、主题列表接口、网络、用户 SQLite 或策略执行器。",
+    "nextArtifact": "后续先另行登记纯观察提取任务，生成市场日级证据表与全样本角色变化表；不是立即新增收益试验。"
+  },
+  "sampleAndClock": {
+    "proposedBasis": "复用已经冻结并独立审计的 leadership-panel-v1，而不是重新扫描当前行情目录或按未来涨幅挑股。",
+    "panelDirectory": "artifacts/strategy-search/leadership-panel-v1",
+    "panelRegistration": "docs/signal-leadership-panel-v1.json",
+    "panelRegistrationSha256": "b18a19345c287eb9a6eb4c94752395bb96e43e33eb1dc649d7c8fbabbe679fd3",
+    "featureVersion": "daily-leadership-raw-v1",
+    "fixedSymbolCount": 3141,
+    "targetStart": "2022-01-01",
+    "targetEnd": "2023-12-31",
+    "targetSessions": 484,
+    "featureRows": 1520244,
+    "sampleMeaning": "固定本地历史样本，不是完整历史全市场。所有固定证券/日期保留，不能附加仅已补齐的退市股票或删掉后来失败的股票。",
+    "baseEligibility": "市场广度、描述性强势角色与特征总体独立于 legacy baseEligibility；资格作为单独字段保留。若未来交易政策需要资格过滤，应在入场选择阶段明确登记，不能静默重排过去横截面。",
+    "asOfBoundary": "特征与市场状态在 T 收盘形成，只可读取交易所日历中不晚于 T 的槽位。T-1 指前一交易所交易日，不能用某股上一根可用 bar 代替。",
+    "retrievalVersusAvailability": "如今保存的 2022–23 历史日线能够支持按截至日期重算的诊断；未证明当年系统实际取得时间、所有历史版本或经济复权真实性。",
+    "warmup": "当前冻结 features 文件只输出 2022–23 目标期，早期排名暖启动已嵌入行内。新五日比较在缺少 T-5 输出行时保持未知；昨日角色在首目标日没有已冻结前日角色时标 previousCohortUnavailable，不追认 2021 角色。若需要暖启动角色，须单独登记新提取，不能暗中生成。"
+  },
+  "panelDirectMetrics": [
+    {
+      "id": "medianAbsoluteReturn20",
+      "inputs": [
+        "return20",
+        "completeness.security20",
+        "featureReasons.return20"
+      ],
+      "population": "E20(T) 为固定 3141 行中完整有效 security20 窗口且 return20 有限的证券；不按未来完整度、排名或交易资格过滤。",
+      "formula": "median(return20_i,T), i in E20(T)",
+      "units": "比例；展示百分数时乘 100。",
+      "meaning": "过去 20 个交易间隔的绝对收盘收益中位数，不是当日中位涨幅。",
+      "coverage": [
+        "fixedPopulation=3141",
+        "evaluableCount=|E20(T)|",
+        "coverage=evaluableCount/3141",
+        "unavailableCount=3141-evaluableCount",
+        "missing/invalid/halt/unknownStatus 分开计数且不擅自互斥化重叠原因"
+      ]
+    },
+    {
+      "id": "positiveReturn20Breadth",
+      "inputs": [
+        "return20",
+        "completeness.security20"
+      ],
+      "population": "与 E20(T) 完全相同。",
+      "formula": "sum(return20_i,T > 0)/|E20(T)|；零收益计入分母、不计上涨；空分母返回 null。",
+      "units": "比例",
+      "meaning": "20 日正收益广度，不能命名为当日上涨家数。RS 分位数排前 10% 的占比接近由定义固定，不能代替市场走强广度。"
+    },
+    {
+      "id": "matchedBreadthChange5",
+      "inputs": [
+        "T 与 T-5 的 return20、security20 有效性和 symbol"
+      ],
+      "population": "I(T)=E20(T)∩E20(T-5)。两端均用这一固定交集，不直接相减不同总体的全样本广度。",
+      "formula": "100*(sum_i_in_I[return20_i,T>0]/|I|-sum_i_in_I[return20_i,T-5>0]/|I|)",
+      "units": "百分点",
+      "coverage": [
+        "pairedCount=|I|",
+        "pairedCoverageToday=|I|/|E20(T)|",
+        "pairedCoverageEarlier=|I|/|E20(T-5)|",
+        "pairedCoverageFixed=|I|/3141",
+        "两端原始 N 与不能配对的证券/原因"
+      ],
+      "meaning": "过去五个交易日内，20 日正收益面的同队列变化；它不是五日股票收益。空交集或缺历史端点返回未知。"
+    },
+    {
+      "id": "matchedMedianReturnChange5",
+      "inputs": [
+        "同一 I(T) 两端 return20"
+      ],
+      "formula": "median(return20_i,T for i in I)-median(return20_i,T-5 for i in I)",
+      "units": "比例差，若乘 100 展示为百分点",
+      "meaning": "同队列 20 日收益分布位置的变化，不把它称作五日投资回报。可作为连续观察，不必立即加入状态分类器。"
+    },
+    {
+      "id": "independentAmountParticipation",
+      "inputs": [
+        "amountToday",
+        "prior20MeanAmount",
+        "amountRelativeToOwnPrior20",
+        "knownAmountSessions20",
+        "completeness.amountToday",
+        "completeness.amountPrior20"
+      ],
+      "population": "EA(T) 为当日及此前 20 个日历槽位成交额证据满足冻结 amount 规则、比值有限且为正的证券；OHLC 的单独缺陷不自动抹除独立有效成交额。",
+      "formula": "median(amountRelativeToOwnPrior20_i,T), i in EA(T)；逐股分母是 T-20..T-1，不含 T。",
+      "units": "倍数",
+      "coverage": [
+        "amountEvaluableCount",
+        "amountCoverageFixed=amountEvaluableCount/3141",
+        "knownAmountSessions20 分布与不可用原因"
+      ],
+      "meaning": "相对自身历史的成交额参与，不是资金净流入、换手率、全市场总额同比或机构行为。金额样本分母独立于 E20；若将金额与价格联动，须另外显式登记共同样本及覆盖。"
+    },
+    {
+      "id": "strengthPersistenceAndPath",
+      "inputs": [
+        "meanStrengthPercentile20",
+        "minimumStrengthPercentile20",
+        "relativeReturn60Percentile",
+        "trailing20DailyStrengthPercentiles",
+        "trailing20StrengthCrossSectionCounts",
+        "closePathMaxDrawdown20",
+        "signedPathEfficiency20",
+        "positiveCloseReturnSessions20",
+        "closeAboveMA20Sessions20"
+      ],
+      "meaning": "这些字段可直接作为队列定义和描述证据，并保留各自完整性与原每日排名 N。不能用今天的样本重排历史排名；closeAboveMA20Sessions20 是过去 20 日计数，不能推断 T 当日是否在 MA20 之上。"
+    }
+  ],
+  "requiresBoundRawObservations": [
+    {
+      "metric": "当日上涨/下跌/平盘广度及昨日强势队列今日溢价",
+      "minimumInputs": "T-1,T 两个相邻交易所槽位的原始 OHLCV、日期/价格基准、已知停牌状态；来自现有绑定原始历史，raw61 已足够容纳。",
+      "formula": "r1=C_T/C_(T-1)-1；两端有效才可观察。昨日队列中的缺失和停牌仍占 eligible，独立计 unknown，不用存活股替换。",
+      "notRecoverableFromPanel": "不能用 return20 的差分或其正负值伪造一日收益。"
+    },
+    {
+      "metric": "5 日收益、T 当日 MA20/MA60 广度",
+      "minimumInputs": "分别需要完整 6/20/60 个槽位；raw61 足够，均按冻结价格有效规则。",
+      "notRecoverableFromPanel": "面板的 return20/60 与 20 日 MA 比较计数不足以唯一恢复这些数值。"
+    },
+    {
+      "metric": "基准一日方向、短期实现波动",
+      "minimumInputs": "原始 benchmark61；先另注册窗口、收益类型、方差估计、单位和有效性，不从横截面排名反推。",
+      "meaning": "不新增网络源即可从已绑定基准计算，但属于新派生字段，需单独冻结提取定义。"
+    },
+    {
+      "metric": "修复的结构高低点、跌破/收复时间",
+      "minimumInputs": "先注册结构定义和形成期限，再读取截至当前日的原始高低收；若窗口不超过 60 个间隔可用 raw61。",
+      "meaning": "目前面板的路径最大回撤不包含每个结构锚点，不能从最终回撤数值倒推出所有先后路径。"
+    },
+    {
+      "metric": "准确历史涨停梯队、主题跟风、实际竞价成交",
+      "minimumInputs": "raw61 单独不够；还需要历史身份/限价参考/公司行动，PIT 题材资料，或相应分钟/竞价容量证据。",
+      "meaning": "不得因为 raw61 可读就声称以上字段已有。"
+    }
+  ],
+  "frozenYesterdayCohort": {
+    "strongDefinition": "提取前登记一个固定、三值的描述性强势判据 Q(i,T)∈{true,false,unknown}，要求明确必要证据、边界和优先级。可讨论沿用已登记的五项强势/路径门槛作为唯一锚，去掉交易突破条件；本文件不自动登记这一变体或启动阈值搜索。",
+    "leaderMeaning": "L(T)={i:Q(i,T)=true} 是持续价格强势观察队列，可以为空、可以并列。不是市场影响者、实际控制者或必须唯一的总龙头。交易 Top5 和持仓不能反过来定义这个完整观察队列。",
+    "yesterdayFreeze": "在 T-1 收盘保存 L(T-1) 全名单、判据值/版本、source hashes、证据未知和资格旁表；T 的回报反馈、延续率和失效率只能从这一固定名单计算。",
+    "exclusivePriorMemberStates": [
+      {
+        "state": "continued",
+        "definition": "i∈L(T-1)，且 Q(i,T)=true。"
+      },
+      {
+        "state": "observedFailure",
+        "definition": "i∈L(T-1)，必要证据足以判定 Q(i,T)=false。保存实际失败的条件，不将缺 bar、未知身份或缺证据当作观察到的价格失效。"
+      },
+      {
+        "state": "unknown",
+        "definition": "i∈L(T-1)，但 Q(i,T)=unknown。保留原队列成员身份并单列未知，不能删除后提高延续率。"
+      }
+    ],
+    "accounting": "continued+observedFailure+unknown 必须等于昨日 eligibleCount。observedCount=continued+observedFailure；条件延续率=continued/observedCount，另列 coverage=observedCount/eligibleCount。保守/乐观计数边界可按 continued/eligibleCount 与 (continued+unknown)/eligibleCount 同时列出；这些是当日角色可观测性边界，不是最终净 +30 概率。空分母返回 null。",
+    "challengers": "Q(i,T)=true 且昨日已知 Q(i,T-1)=false 者记 knownNewChallenger；昨日 Q 未知或没有前日记录者单列 priorStateUnknownEntrant，不能冒充刚刚启动。当前所有强势成员仍全部保留。",
+    "eventLedger": "分别记录已知退出、未知中断、重新满足、首次可见、并列集合变化及真实确认日期。缺失不可拼接成连续延续；未知中断后重现不是自动修复。",
+    "repairAndReplacement": "曾记录强势→已知分歧/失效→后来重新满足可形成修复观察；旧队列已知衰退并有新挑战者可形成更替观察。必须另注册结构失效、形成期限、确认天数、重置/未知处理与冲突优先级后才允许变成交易规则。新强者出现但旧强者仍有效时，可以共存，不能自动宣称卡位成功。",
+    "noForcedLeader": "明确保留 noClearLeader；弱市、快速轮动或多人并列不强制给每日唯一总龙头，不为保证有信号而补位。"
+  },
+  "marketStateDesign": {
+    "firstOutput": "先输出各维连续证据和未知原因，不合成已验证风险分、龙头分或交易状态。市场状态与个股角色是两个轴，避免把新强者出现直接等同于市场转强。",
+    "candidateLabels": [
+      "unknownMarketState",
+      "priceBreadthExpansion",
+      "priceBreadthContraction",
+      "weakMarketRepairObservation",
+      "divergenceObservation"
+    ],
+    "coverage": "各维都有独立 N。最低有效样本/覆盖阈值以及交集两端覆盖门槛必须先登记；不能未经登记复制现有 UI 的 1000 只/70% 或按结果调整。已观察到零强者属于 noClearLeader，不等于数据不足的 unknownMarketState。",
+    "numericAndPriorityBoundary": "强弱的中位收益边界、广度变化边界、量能是否参与、确认天数、阶段延续/到期、未知与停牌处理、状态重叠优先级均尚未登记。先制定固定确定性规则，再评估；不能看每段未来收益后挑当时最赚钱的状态。",
+    "proposedRoleMapping": "可讨论：未知/收缩时不新增，扩张时考察延续，预先记录的分歧之后仅在修复确认日考察修复，旧队列衰退与挑战者确认后考察更替。这只是政策草图；跟随接力因分组证据不足暂不启用。",
+    "executionTiming": "若 T 收盘确认市场与角色，最早影响另行规定的 T+1 执行。两日确认不能回填到第一天，状态切换不默改旧持仓退出规则。",
+    "comparisonNeeded": "未来单独比较固定原角色信号与使用固定市场状态筛选后的同一角色信号，保留被筛掉的全部信号；不能同时改角色定义、样本、排序和费用后声称收益差来自择时。"
+  },
+  "pointInTimeThemes": {
+    "clocks": {
+      "effectiveFromAndTo": "成员关系在业务上的生效/结束时间。它回答何时属于某组，不单独回答何时公开可知。",
+      "originalPublishedAt": "可验证的原始公开发布时间及来源版本，决定该信息最早能进入当时可用的信息集合。",
+      "retrievedAtOrCreatedAt": "本系统取得或保存资料的时间，必须保留审计，但不与原始公开时间混同。"
+    },
+    "lateRetrievalAllowed": "createdAt>T 不意味着一律禁止历史 PIT 使用。若现在取得的原始公告/历史成分文件能验证内容、当年 originalPublishedAt≤T 的决策截止、适用成员日期和未被后来修订覆盖，可作为后来取得的历史当时公开证据；保留原件/来源/哈希和核查过程。",
+    "effectiveDateNotEnough": "仅 effectiveFrom≤T，或今天手填一个历史日期，均不能证明当时可知。没有原始公开证据的事后手工题材和当前 TDX 成分只能用于事后描述或取得后的前瞻观察。",
+    "publicationAfterCutoff": "若真实原始公开时间晚于 T 的决策截止，即使追溯生效日期早于 T，也不能进入 T 特征。若只有发布日期而无时分，需预先登记保守可用时间政策，不能默认开盘前已知。",
+    "versions": "同时保存成员 effective 区间、信息版本/发布日期、取得时间、来源定位/哈希和修订链；不能把后来更正的最终成分作为原始版本倒填。多个快照同名不自动代表连续有效且互不冲突的题材。",
+    "existingImplementation": "emotion_cycle 的历史读取只按 effectiveFrom 截断；manual 可以回填并标 historicalAnnotation，createdAt 被保留但没有原始 publishedAt 的可用性核验。因此 dated themes 是观察存档能力，不是已经完成的 PIT 研究数据源。",
+    "availabilityConclusion": "本次没有读取用户主题库，不能宣称用户没有任何历史记录；只确认当前代码和冻结面板没有提供可直接认证完整 2022–23 PIT 题材成员的证据链。"
+  },
+  "followersAndDisplacement": {
+    "separateHypotheses": "跟风接力、预测关联和卡位更替都须未来分别定义并检验，不能把价格排名冠军自动视为影响市场者。",
+    "groupRequirement": "题材跟随需要 T 前已知且在事件时适用的分组。没有该证据时将 followerRelay 标 unavailable，不拿后来一起上涨的股票倒建题材。",
+    "statisticalFallback": "可另注册只用形成时点以前历史收益的统计共同波动组，提前冻结成员/方法/更新日；明确命名统计组，不冒充行业题材。滞后、共同市场控制、自身动量控制和全部候选检验次数先锁定，禁止全股票对和多滞后挖出最佳关系后只报赢家。",
+    "causalLimit": "日线先后关联不能证明盘中带动、资金控制、实际控制人或市场因果影响。封板先后、回封、竞价卡位和实际可卖成交需要相应历史日内证据。"
+  },
+  "labelsAndEvaluation": {
+    "futureTrendLabels": "若以后创建未来 20 日趋势标签，必须在市场/角色特征冻结后由独立任务生成，覆盖所有证券日期及负例、缺失和右删失；特征任务不得获得标签路径或由标签筛出的证券列表。",
+    "noWinnerFirst": "不先选未来持续上涨一个月的赢家，再研究其共同特征。事后持续上涨标签与事前可观察价格强势队列分开。",
+    "net30Separation": "未来 20 日收盘收益/路径标签不等于交易利润，也不设置 20 日强制持仓期限。单笔净 +30 仍需单独执行、费用、权益与不利路径评价，不能用日线 high 触达代替实赚。",
+    "dependenceAndMultiplicity": "完整记录新阈值、状态规则、角色、窗口、组与滞后尝试；按日期、证券和领导力阶段考虑依赖，重叠标签和同一龙头的多只跟随不是独立观测。",
+    "sampleUse": "2022–23 仍是已反复研究的开发区间，不能称独立验证。旧 2024+ 使用记录也不能因本设计而消失；未来验证需另有来源和使用记录或前瞻冻结信号。"
+  },
+  "registrationChecklist": [
+    "绑定现有 panel manifest/completion/independent audit、所有输入文件哈希、固定 3141×484 日历样本和不可变源代码。",
+    "逐指标锁定窗口、单位、有限值/未知规则、独立总体及最小覆盖阈值；同队列比较必须保留两端 N 与交集。",
+    "明确只用 panel 的字段与需要新 raw61 派生的字段；后者冻结 raw source/basis/停牌处理，禁止未声明的复权和 amount fallback。",
+    "锁定三值强势判据、昨日全队列、首日/暖启动政策、挑战者/未知入队分类及角色形成期限与重置语义。",
+    "先登记状态的全部数值、重叠优先级、确认/延续/到期和固定状态→角色映射；不自动继承 UI 观察规则。",
+    "如果进入交易试验，另登记入场时点、排序/并列、TopN、active 去重与补位规则、控制组、费用、退出和目标分母。",
+    "主题/行业必须明确 effective、originalPublishedAt、retrievedAt 和版本校验；没有证据的字段保留 unknown。",
+    "独立验证追加未来数据不改 T 输出；检查所有固定行、昨日队列失效/未知对账、排名 N、覆盖骤降、零队列、首日以及状态不能提前确认。",
+    "先保留纯观察提取与独立复算，再单独登记策略评估；成功/失败产物均不可覆盖，不因稀疏或表现差而静默调参。"
+  ],
+  "reviewedCodeEvidence": [
+    {
+      "path": "service/market_research.py",
+      "startLine": 73,
+      "endLine": 104,
+      "sha256": "c9751e2c67e62bc87b7a699b707eef1e37b728109862b0ce203d40734a20a77e",
+      "evidence": "按 asOf 截断原始日线；这约束价格日期，不证明当时已经取得该文件。"
+    },
+    {
+      "path": "service/market_research.py",
+      "startLine": 477,
+      "endLine": 540,
+      "sha256": "c9751e2c67e62bc87b7a699b707eef1e37b728109862b0ce203d40734a20a77e",
+      "evidence": "分析样本从当前 securities 目录读取；历史价格可回看，历史全市场成分并未因此认证。"
+    },
+    {
+      "path": "service/analysis_service.py",
+      "startLine": 265,
+      "endLine": 291,
+      "sha256": "9355916f4deeade81c76e578caf7d8d4e4c9a79d25211165154cbee4278967cf",
+      "evidence": "sentiment 的当前/历史观察入口、覆盖和来源信息；不能直接当作已注册的交易状态。"
+    },
+    {
+      "path": "service/analysis_service.py",
+      "startLine": 326,
+      "endLine": 344,
+      "sha256": "9355916f4deeade81c76e578caf7d8d4e4c9a79d25211165154cbee4278967cf",
+      "evidence": "ladder 候选按当前名称过滤 ST，图表与候选有不同总体，必须保留原分母语义。"
+    },
+    {
+      "path": "service/leader_research.py",
+      "startLine": 15,
+      "endLine": 39,
+      "sha256": "062bcfc8c1a46cc8cbb6ae5cde31e151a987a23e5f1a93740838df5f21c5bfb2",
+      "evidence": "近似涨跌停使用前收、板别和当前名称识别 ST；缺历史身份、除权参考与特殊上市规则时不是交易所名单。"
+    },
+    {
+      "path": "service/leader_research.py",
+      "startLine": 65,
+      "endLine": 93,
+      "sha256": "062bcfc8c1a46cc8cbb6ae5cde31e151a987a23e5f1a93740838df5f21c5bfb2",
+      "evidence": "先冻结昨日队列，再统计今日晋级、断板和未知；这种队列时序可复用，未知不算失败。"
+    },
+    {
+      "path": "service/leader_research.py",
+      "startLine": 164,
+      "endLine": 201,
+      "sha256": "062bcfc8c1a46cc8cbb6ae5cde31e151a987a23e5f1a93740838df5f21c5bfb2",
+      "evidence": "晋级分母、昨日高标与最高板集合更替的可解释观察，可参考其证据展示，不等于影响力验证。"
+    },
+    {
+      "path": "service/emotion_cycle.py",
+      "startLine": 38,
+      "endLine": 91,
+      "sha256": "033b863e14a6284f62d33e81f48524d4e7379f9f63173a4300426b5e2dc923c1",
+      "evidence": "已有情绪阶段及连续确认/到期规则是产品观察规则，本设计不自动将其变成交易政策。"
+    },
+    {
+      "path": "service/emotion_cycle.py",
+      "startLine": 94,
+      "endLine": 125,
+      "sha256": "033b863e14a6284f62d33e81f48524d4e7379f9f63173a4300426b5e2dc923c1",
+      "evidence": "题材只按 effectiveFrom 截断；当前名称过滤仍影响历史观察，未核查原始公开时间。"
+    },
+    {
+      "path": "service/emotion_cycle.py",
+      "startLine": 185,
+      "endLine": 232,
+      "sha256": "033b863e14a6284f62d33e81f48524d4e7379f9f63173a4300426b5e2dc923c1",
+      "evidence": "题材保存 source/effectiveFrom/createdAt/historicalAnnotation；当前 TDX 快照禁止回填，事后手工标注仍可保存。"
+    },
+    {
+      "path": "service/signal_leadership_features.py",
+      "startLine": 118,
+      "endLine": 256,
+      "sha256": "530f6b7eae3460ae94211d2893327c09dea8c5d98dffaed34ddcca1c85716eb5",
+      "evidence": "冻结特征按完整日历窗口计算；收益、路径、均线计数与独立成交额有效性分开。"
+    },
+    {
+      "path": "service/signal_leadership_features.py",
+      "startLine": 325,
+      "endLine": 354,
+      "sha256": "530f6b7eae3460ae94211d2893327c09dea8c5d98dffaed34ddcca1c85716eb5",
+      "evidence": "历史每日强度排名和各自 N 逐槽保留，20 槽齐全才计算均值/最小值。"
+    },
+    {
+      "path": "docs/signal-leadership-research-v1.json",
+      "startLine": 109,
+      "endLine": 164,
+      "sha256": "6fbaad2374e1c429281b9069a17ba353cfae09a0a790f239b8d84c011e24621b",
+      "evidence": "未来趋势标签隔离、主题/共同波动组、四类角色与待登记状态映射的既有设计约束。"
+    }
+  ],
+  "limitations": [
+    "旧 sentiment/ladder 可展示历史观察，但其当前目录、当前名称 ST、未复权前收和名义限价不足以认证历史全市场涨停。",
+    "冻结面板支持因果价格/成交额诊断，不支持识别资金控制、真实机构行为、完整 PIT 题材或可执行竞价容量。",
+    "金额有效样本与价格有效样本有意独立；缺失不能无声删除，也不能用共同幸存者解释总体改善。",
+    "当前文件只是设计，没有新提取结果、角色名单、收益、胜率、参数搜索或市场影响验证。"
+  ],
+  "certified": false,
+  "targetAchieved": false
+}

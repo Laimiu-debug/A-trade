@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "status": "design-awaiting-panel-audit-and-registration",
+  "stage": "single-candidate-design;not-registered-or-executed",
+  "candidateId": "rawPersistentPriceLeaderBreakoutDiagnostic",
+  "title": "持续价格相对强势后的五日向上突破",
+  "candidateCount": 1,
+  "registeredAt": null,
+  "objective": {
+    "targetSinglePositionNetGainPct": 30,
+    "annualizedReturnTarget": null,
+    "fixedHoldingDeadline": null,
+    "meaning": "Test whether persistent observed price leadership followed by another upward breakout supplies useful evidence for the user's very-high-probability net +30 signal objective. Price leadership is not demonstrated influence over other stocks.",
+    "probabilityScreenPct": 80,
+    "probabilityScreenStatus": "Existing assistant-proposed research screen, not an observed probability, user guarantee or sufficient acceptance criterion."
+  },
+  "researchAccounting": {
+    "previousCompletedCandidates": 8,
+    "additionalCompletedTrialsFromThisDocument": 0,
+    "strategyOutcomesCalculatedForThisCandidate": false,
+    "parametersSearched": false,
+    "thresholdMeaning": "These are one fixed, falsifiable first hypothesis, not proven optimal thresholds. Do not scan nearby percentiles, drawdowns, efficiencies, breakout lengths or ranking weights and keep the best result.",
+    "adaptiveResearch": "Eight earlier candidate outcomes have already been inspected. This new hypothesis is adaptive research on the same 2022-2023 development interval, not a pristine holdout or independent validation.",
+    "designReferences": ["docs/signal-leadership-research-v1.json", "docs/signal-leadership-panel-v1.json"],
+    "nextResearchScope": "This first rule addresses only price-leader continuation. Continue the separately specified leaderContinuation, leaderRepair, leadershipReplacement and followerRelay research directions; this document does not replace them with one permanently fixed strategy. Each later role, group or observable-state mapping needs its own causal definition and registration."
+  },
+  "registrationPrerequisites": {
+    "panelDirectory": "artifacts/strategy-search/leadership-panel-v1",
+    "requiredPanelManifest": "artifacts/strategy-search/leadership-panel-v1/manifest.json",
+    "requiredPanelCompletion": "artifacts/strategy-search/leadership-panel-v1/completion.json",
+    "requiredActualPanelAudit": "artifacts/strategy-search/leadership-panel-v1/independent-verification.json",
+    "panelManifestSha256": null,
+    "panelCompletionSha256": null,
+    "actualPanelAuditSha256": null,
+    "requiredAuditResult": {"passed": true, "failureCount": 0},
+    "pendingMeaning": "Null hashes mean this candidate is not registered and must not run. Bind the completed panel's manifest, completion, features and coverage hashes and the actual raw-source verification report before registration. The earlier verifier-code review is not actual-panel acceptance.",
+    "executionFreeze": "The root coordinator must freeze this final rule, the complete executable source archive and transitive dependencies, normalized execution configuration, raw snapshot/calendar identity and panel/audit hashes before any candidate evaluation. Preserve original files and every failed attempt; refuse reuse when a successful artifact or registered dependency changes.",
+    "preRunValidation": "Pass synthetic causal, exact-threshold, raw-five-session-breakout, ranking/control, no-backfill, missing/unknown, T+1/cost and immutable-output lifecycle tests, then independent review. This draft neither starts evaluation nor authorizes a silent change of the eight completed-trial count."
+  },
+  "sample": {
+    "signalStart": "2022-01-01",
+    "signalEnd": "2023-12-31",
+    "latestPermittedObservation": "2023-12-31",
+    "warmupStart": "2021-08-02",
+    "expectedFullSnapshotFingerprint": "226fcb48c6729c7ee1784eb871ff124ac921733f339b9e2fbe78cb3e592a9014",
+    "expectedFullSecurities": 3141,
+    "expectedFullBars": 1796835,
+    "expectedScoredSessions": 484,
+    "expectedFeatureRows": 1520244,
+    "source": "The unchanged original local SH/SZ main-board snapshot and audited daily leadership panel, benchmark sh000300. No additional security, new date range, current-name filter, maximum-symbol pilot or recovered-only subset is permitted.",
+    "warmupPolicy": "Pre-2022 observations and archived daily ranks supply indicators only. Emit no warmup signals. Candidate detection has no pattern state or active-event input.",
+    "coverageLimit": "This fixed local-file sample is not a certified historical whole-market universe. The 125 absent securities and the separate 56-stock completed supplementary package remain outside this fixed trial; do not append available or successful names only.",
+    "holdoutClaim": false
+  },
+  "featureEvidence": {
+    "featureVersion": "daily-leadership-raw-v1",
+    "clock": "Read the panel row identified by (symbol,T). Its features and archived ranks use only observations at or before T. Validate contributing windows against the frozen exchange calendar; never substitute the last available bars for missing slots.",
+    "priceBasis": "Unadjusted security.bars and raw sh000300 observations. Do not use series.signal_bars or introduce an unverified action adjustment. This is a raw-price diagnostic, not an economic-profit or corporate-action certificate.",
+    "requiredWindow": {"startOffset": -60, "endOffset": 0, "sessions": 61},
+    "requiredPriceObservation": "For every stock and benchmark slot T-60..T: matching date/raw-unadjusted basis, finite positive OHLC with low <= min(open,close) <= max(open,close) <= high, finite positive volume and no explicit halt. Missing or invalid slots are unevaluable. Positive-volume/explicit-halt contradictions remain unknown; unknown daily status is recorded, not upgraded to verified trading.",
+    "requiredPanelCompleteness": ["security60", "benchmark60", "security20", "benchmark20", "path20"],
+    "persistence": "Require knownStrengthRankSessions20=20 and twenty finite archived relativeReturn20 percentiles for T-19..T with their original date-specific cross-section counts. Mean/minimum are the audited panel values; never recompute old ranks using today's eligible stocks or candidate set.",
+    "rankingPopulation": "The panel independently ranks each horizon across all fixed-sample rows with a finite relative return, before legacy trading qualification. Rank denominators and unknown rows remain as audited; do not rerank within base eligibility or only among candidate survivors.",
+    "otherFeatures": "Do not add a threshold on raw return, absolute relative return, amount ratio, MA count, theme, presumed controller, or unregistered top-quantile count. Amount and other panel descriptors may be logged without changing this rule."
+  },
+  "baseEligibility": {
+    "source": "The audited panel's separately recorded as-of baseEligibility state, with the registered existing DailyScorer pools_only rules and causal prefix fallback for a full-history load rejection. It affects candidate eligibility, never feature/rank construction.",
+    "strictHistory": false,
+    "explicitDiagnosticFlagRequired": true,
+    "excludeKnownHistoricalSt": true,
+    "minListingDays": 120,
+    "minAmount20": 50000000,
+    "minAmplitude20": null,
+    "listingHistorySemantics": "At least 120 observed-history bars; when a listing date is supplied, the existing scorer caps observed history by elapsed calendar days since listing. This is not 120 independently verified listing calendar days.",
+    "amountSemantics": "Keep the existing mean of the last twenty observed bars including T, normally T-19..T. It is separate from panel prior20MeanAmount over T-20..T-1; do not swap these definitions.",
+    "rejectionOrder": "Use the audited panel's frozen baseEligibility label without independently changing its rule. Missing/malformed qualification, invalidHistory, missingDailyBar and notObservedYet are unevaluable. Other explicit eligible=false labels are ineligible legacy diagnostic rejections; the label alone does not prove amount20 or observedDays is independently known because the compact panel sidecar does not store those values. Preserve the exact reason and unknown fields. Required price/benchmark/panel evidence failures are unevaluable, not observed failed patterns. Record every row's predicate evidence even when it cannot become a candidate.",
+    "unknownIdentity": "Missing ST, membership, listing or trade-status evidence stays unknown under the explicitly diagnostic fallback. Do not fill it from current names/status, future delisting or final membership. Empty corporate-action responses never prove no events."
+  },
+  "trigger": {
+    "combine": "all",
+    "numericComparison": "Finite Python binary floating point as emitted by the frozen feature implementation; comparisons below use the stated >=, <= or > directly, without epsilon, display rounding, threshold retuning or decimal reinterpretation. Unknown/nonfinite inputs never pass.",
+    "thresholds": [
+      {"field": "meanStrengthPercentile20", "operator": ">=", "value": 0.90},
+      {"field": "minimumStrengthPercentile20", "operator": ">=", "value": 0.80},
+      {"field": "relativeReturn60Percentile", "operator": ">=", "value": 0.90},
+      {"field": "closePathMaxDrawdown20", "operator": "<=", "value": 0.10},
+      {"field": "signedPathEfficiency20", "operator": ">=", "value": 0.35}
+    ],
+    "rawFiveSessionBreakout": {
+      "referenceStartOffset": -5,
+      "referenceEndOffset": -1,
+      "referenceSessions": 5,
+      "reference": "prior5High=max(raw high at exactly T-5,T-4,T-3,T-2,T-1)",
+      "leftOperand": "raw close at T",
+      "operator": ">",
+      "rightOperand": "prior5High",
+      "currentSessionExcludedFromReference": true,
+      "missingPolicy": "The current bar and all five reference bars must be valid aligned raw price observations within the complete required 61-slot window. Never replace a missing prior day or include T's high. Equality is not a breakout."
+    },
+    "emission": "At T close, emit a raw candidate exactly when base eligibility, all required evidence, all five numeric gates and the five-session breakout pass. Evaluate every date independently: no first-breakout requirement, cooldown, retest state or holding-aware detector suppression. Repeated raw triggers remain in the record."
+  },
+  "selection": {
+    "ranking": [
+      {"field": "meanStrengthPercentile20", "direction": "descending"},
+      {"field": "relativeReturn60Percentile", "direction": "descending"},
+      {"field": "symbol", "direction": "ascending"}
+    ],
+    "rankingMeaning": "Lexicographic order over the complete same-day raw candidate set. Do not blend the two ranks into an unregistered weighted score. Any compatibility score field must not change this order.",
+    "topN": 5,
+    "activeExclusion": "Record complete ranks and select min(5,rawCandidateCount) first; only then exclude same-symbol same-group active events. Do not backfill rank six. A prior target exit at today's open releases that symbol for a new close signal.",
+    "controls": {
+      "groupId": "control_rawPersistentPriceLeaderBreakoutDiagnostic",
+      "seed": "a-trade-signal-same-day-base-pool-control-v1",
+      "pool": "Same-day base-eligible fixed-sample universe excluding the strategy's pre-active Top5; do not filter controls by candidate feature gates, future completeness, target outcomes or subsequent execution.",
+      "sort": "SHA256 UTF-8 of seed + ':' + T + ':' + candidateId + ':' + symbol, ascending hexadecimal digest, then symbol ascending",
+      "requestedCount": "The strategy's pre-active Top5 count on T",
+      "matchedCount": "min(requestedCount,eligibleControlPoolSize)",
+      "shortfalls": "Log pool size, requested/matched count, selected symbols and shortfall. No replacement after active exclusion or failed entry.",
+      "independentActiveExclusion": true,
+      "interpretation": "Descriptive same-day base-pool comparison only. Independent active suppression breaks date pairing; shared market/security episodes are correlated, and this is not randomized causal evidence."
+    }
+  },
+  "eventPolicy": {
+    "implementation": "Reuse the frozen SignalTargetStudy and PathRiskStudy execution/observation rules; freeze their complete dependencies and configuration at registration.",
+    "eventBudgetYuan": 100000,
+    "capitalMeaning": "Independent notional events, not one simultaneously funded portfolio or a portfolio-return estimate.",
+    "entry": "At T close freeze the lot-rounded quantity from T close, the existing nominal next-session price-limit reserve, fees and T volume participation cap. Attempt only T+1 exchange-session open; never enlarge an order using T+1 price/volume or defer an unfilled order.",
+    "mainBoardLot": {"minimumShares": 100, "incrementShares": 100},
+    "commissionRate": 0.0003,
+    "minimumCommissionYuanPerSide": 5,
+    "transferFeeRatePerSide": 0.00001,
+    "slippageBpsPerSide": 10,
+    "maximumParticipationRate": 0.01,
+    "stampDutyRateOverride": null,
+    "reusedEngineSellStampDuty": {"before2023_08_28": 0.001, "onOrAfter2023_08_28": 0.0005},
+    "feePolicyMeaning": "These are unchanged numerical assumptions of the frozen research engine, not a claim that every historical fee or auction execution has been independently certified. Preserve original limit/halt/missing/opening-capacity gates and later capacity audits.",
+    "sellLock": "No sale on entry day; the earliest sellable observation is the following exchange session.",
+    "targetNetGainPct": 30,
+    "targetDenominator": "Actual invested capital: filled quantity times entry fill price plus buy fees. Uninvested event cash is separate, not included in the position-level +30 denominator.",
+    "primaryOutcome": "nextOpenNet30: first sell-eligible full-position opening proxy whose proceeds after sell fees divided by invested capital minus one is at least 0.30, under the unchanged engine's finite comparison and execution gates.",
+    "separateDescriptiveOutcomes": ["rawHigh30", "netHigh30"],
+    "dailyHighIsExecutedProfit": false,
+    "stopLoss": null,
+    "trailingStop": null,
+    "holdingDeadline": null,
+    "forcedCutoffSale": false,
+    "cutoff": "Observe through 2023-12-31's last available registered exchange session. Keep unhit events, marks, data gaps and right-censoring; not hit by cutoff is not permanent failure.",
+    "knownEngineLimit": "The reused gate conservatively blocks a resumption opening after a known preceding halt. No correction or relaxation is introduced inside this comparative candidate."
+  },
+  "auditAndEvaluation": {
+    "evaluationPopulation": "Every one of the 3141 symbols on each of the 484 target sessions. Preserve ineligible, unevaluable, observed nontriggering and raw-triggering rows/counts; exclusive status totals must reconcile to 1520244. Do not discard failed lookalikes.",
+    "logs": "Retain daily coverage, all raw candidates and predicate values, archived-rank evidence and denominators, exact six breakout bars, full candidate ranking, Top5, control matching, selected signals, active suppression, all attempted events and all filled/unfilled/censored outcomes. Bind each row to frozen panel/source hashes.",
+    "comparisonHorizonsSessions": [5, 10, 20, 40, 60, 120, 250],
+    "cohortRule": "For each horizon, maturity uses potential calendar followup from entry, not early target success. Entry day is held session one; suspended sessions still count in the potential exchange-calendar followup. Missing-data and capacity audits stop at the earlier of the horizon and the main target exit, but an early hit cannot admit an otherwise immature recent event. Report denominator, valid-data subset, data-missing bounds and insufficient followup separately. Horizons have different cohorts and are not one unconditional cumulative probability curve.",
+    "timeToTarget": "Report observed first-hit session counts and their distribution together with unhit/right-censored counts. A median among successful events alone is not an expected waiting time or eventual success probability.",
+    "rawLowBoundariesPct": [-10, -20],
+    "pathRule": "Observe raw daily lows relative to entry fill, including entry-day T+1-locked risk. At a target opening exit use the exit observation and exclude that day's later low and all later prices. Report target without observed boundary, boundary then target, boundary still waiting, neither observed and data unresolved, at every fixed horizon and cutoff. These are not stop orders or realized net liquidation losses.",
+    "dependence": "Report distinct symbols, dates and repeated market episodes. Do not treat overlapping events as independent evidence; existing independent-observation confidence intervals are descriptive only.",
+    "failurePolicy": "Retain all failed/unfilled/unknown/censored cases and immutable failed attempts. Zero or sparse candidates is a possible falsifying/insufficient-evidence result, not permission to relax thresholds or change the sample.",
+    "decisionBoundary": "A completed development run cannot certify the target. Preserve this one rule's result before considering any later variant, and separately register any further hypothesis. Independent/prospective validation and stronger identity, rights and execution evidence remain necessary.",
+    "postRun": "Independently check registration and source hashes, panel linkage, causal predicates and five-bar breakout, full ranking/control selection, no-backfill active replay, next-session entry, fees, target/path timing and all cohort counts. Do not overwrite completed output or silently rerun a changed success."
+  },
+  "nonClaims": [
+    "No claim of identified controllers, manipulation, institutional positions or market-moving causal leadership.",
+    "No verified theme/industry grouping, follower influence, adaptive market-state policy or optimal threshold selection.",
+    "No independently validated net +30 probability, completed ninth experiment or newly untouched holdout."
+  ],
+  "strategyReturnsCalculated": false,
+  "candidateEvaluationExecuted": false,
+  "certified": false,
+  "targetAchieved": false
+}

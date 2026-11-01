@@ -1,0 +1,52 @@
+{
+  "schema": "leader-amount-handoff-research-context-v1",
+  "recordedAt": "2026-10-16T20:17:54.262068+00:00",
+  "sourceAuthority": "Frozen local raw caches and verified original event streams for execution; latest direct user corrections govern objective over old net30/annual30 protocol text.",
+  "priorTurn": "Verified progress: 24 new accounts completed, all265 delivery members unchanged, previous batch42 negative incremental finding retained.",
+  "reviewedPriorDefinitions": [
+    {
+      "path": "docs/signal-persistent-leader-price-proxy-v1.json",
+      "sha256": "29759eb2bdd157480c515e2bbcdcdde6e8f21ea675f7bc2841f025f0df6d5bbf"
+    },
+    {
+      "path": "docs/signal-leadership-replacement-v1.json",
+      "sha256": "d4cfafdcb56f4f8f606da39bf03260dd8a51fec550c2daaa19a31fe0291f76bd"
+    },
+    {
+      "path": "docs/signal-leader-follower-confirmation-v1.json",
+      "sha256": "b6f382b3edea4ae91ac197ac6b3286d24f2e6a0fb220e3b15e410c0d4b30ae3a"
+    },
+    {
+      "path": "docs/signal-leader-local-succession-v1.json",
+      "sha256": "41f06009a4ca61d64319d4a4c35fdbe24e61aeb1033c0226edc75faa5c7fb124"
+    },
+    {
+      "path": "docs/signal-leader-lag-followers-v1.json",
+      "sha256": "c5e969bdc0a6e012c9bc34440ee07a47f91833ae7a445efb34270fd02dbbd90f"
+    },
+    {
+      "path": "artifacts/strategy-search/peer-amount-persistence-v1/plan.json",
+      "sha256": "cef2279b5582bb06cc525c37c2df100f366adef4e809870818561bfd689537c7"
+    },
+    {
+      "path": "artifacts/strategy-search/peer-price-activity-alignment-v1/plan.json",
+      "sha256": "95ed93d9929b3eeaeb5dd8cf7c251f84f0a2cd5f1b7484eb41a908a1fced72ab"
+    },
+    {
+      "path": "artifacts/strategy-search/full-gap-retention-v1/decision.json",
+      "sha256": "e4b94d93899a80c7481ec87df2edaca382edfe5890fce3b2d8932f7a4104d285"
+    }
+  ],
+  "novelty": "Specific member-versus-frozen-anchor three-session traded-value crossover at member first price breakout, compared at same member/date against price-only control. Not prior group amount share, two-day price-rank overtake, Q recovery or directional-correlation gate.",
+  "reviewParticipants": [
+    "root",
+    "context_pressure_inputs",
+    "context_independent_audit",
+    "phase_readout_review"
+  ],
+  "causalClaim": "Observable activity proxy only. Own-volume expansion, size differences and common shocks remain plausible. No investor identity or causal main-force transfer claimed.",
+  "decisionFrame": "Test whether the fixed activity predicate adds useful executable account outcomes under two unchanged exits, on all six registered development cohorts. No performance or holding-time screening hurdle.",
+  "sourceLimits": "Local survivor coverage, raw-price/eligibility/valuation qualifications and repeated historical development retained; no2026 source or pristine holdout.",
+  "phaseUse": "User-specified2024-09-24 and existing phase atlas are descriptive continuous-account strata, never trading switches.",
+  "nextAction": "Freeze new code and definitions, generate all schedules, independently reconstruct their full state, then execute all24 accounts once."
+}

@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "registeredAt": "2026-10-15T12:20:23Z",
+  "stage": "development-diagnostic",
+  "candidateId": "rawPriceBreakoutRetestRenewalDiagnostic",
+  "status": "rules-frozen-before-first-real-sequence-price-outcomes",
+  "objective": "Investigate whether an ordered price-volume pattern is informative about a later net +30 percent opening-price proxy. The user's goal remains a genuinely executable, very-high-probability single-position net +30 percent signal, with no fixed holding deadline.",
+  "notTheStrictCandidate": "This separately named hypothesis deliberately uses unadjusted raw prices and diagnostic historical identity fallbacks. It neither supplies nor fabricates noEventsProven/bridged evidence to the frozen strict detector. It cannot certify corporate-action-adjusted economic profit or the user's goal.",
+  "parametersSearched": false,
+  "candidateCount": 1,
+  "priorResultsInspected": "Six earlier development candidates and their path risk have been inspected. This interval is development data. No real outcomes for this sequential price candidate have been calculated before this registration.",
+  "sample": {
+    "signalStart": "2022-01-01",
+    "signalEnd": "2023-12-31",
+    "latestPermittedObservation": "2023-12-31",
+    "source": "Same frozen local SH/SZ main-board sample as baseline",
+    "expectedFullSnapshotFingerprint": "226fcb48c6729c7ee1784eb871ff124ac921733f339b9e2fbe78cb3e592a9014",
+    "expectedFullSecurities": 3141,
+    "initialPatternState": "Idle at first development exchange session; pre-start bars provide indicator warmup but do not create a carried pattern or a 2021 signal",
+    "noNewSecurityOrPeriodSelection": true,
+    "noHoldoutClaim": true
+  },
+  "baseEligibility": {
+    "implementation": "Existing DailyScorer base eligibility on the same snapshot, configuration and day",
+    "excludeKnownHistoricalSt": true,
+    "minListingDays": 120,
+    "minAmount20": 50000000,
+    "strictHistory": false,
+    "explicitDiagnosticFlagRequired": true,
+    "unknownIdentityFields": "Retained as unverified; observed-history lower bound and local-membership fallback remain diagnostic assumptions",
+    "applies": "Evaluate every security every exchange session, including missing bars and ineligible states; do not prefilter before advancing a waiting pattern"
+  },
+  "pattern": {
+    "rawBasis": "TDX unadjusted OHLC and volume, not DailyScorer signal_bars; raw priceBasisId is a format label, not proof of comparable corporate-action regimes",
+    "breakout": "At B close, require complete positive-volume 81 aligned exchange sessions; close_B > maximum high of preceding 40, close_B > MA80_B > MA80_previous, volume_B >= 1.2 times mean volume of preceding 40",
+    "freezeAtBreakout": "A=prior40 maximum high, close_B, volume_B and original B calendar index; no later reanchoring while waiting",
+    "retest": "First R in B+1..B+9 with A<=low_R<=1.02*A, close_R<close_B and volume_R<=0.8*volume_B; freeze first R and high_R",
+    "renewal": "First T strictly after R and no later than B+10 with close_T>high_R, close_T>previous-session close, and volume_T>=volume_B",
+    "priority": "On a waiting observed session low<A invalidates before retest or renewal. No same-session invalidation and reanchor. Equality at A is allowed.",
+    "deadline": "Known suspensions consume the ten-session formation deadline; first R at B+10 cannot confirm. This is only a formation deadline, not a holding deadline.",
+    "knownSuspension": "Only explicit historical tradeStatus indicates a halt. It cannot trigger a pattern; a positive-volume contradiction is unresolved. Without a known close at the preceding suspended session, a subsequent renewal requiring that close is unresolved.",
+    "unknownData": "Missing/unobserved/invalid/strict-history-missing data or unexplained zero volume is unevaluable while idle and aborts a waiting pattern as unknown; it is not a known pattern failure",
+    "knownIneligibility": "Other known failed base-eligibility conditions invalidate a waiting pattern and do not reanchor on that day",
+    "actionPolicy": "No action-absence or adjusted-price comparability assertion. Corporate actions may affect both raw triggers and raw-price outcomes. Keep action/identity/execution certainty false throughout.",
+    "afterSignal": "Reset pattern detector to idle after T; earliest next anchor is next exchange session. Holdings never suppress raw pattern detection."
+  },
+  "selection": {
+    "ranking": "Among every completed raw sequence at T, close_T/A-1 ascending then symbol ascending; score is the negative distance solely to reuse descending-score event tooling",
+    "topN": 5,
+    "positionExclusion": "Rank and mark Top5 first; exclude still-active same-symbol same-group events afterward. No sixth-ranked replacement. An exit at today's open permits a new close signal that day.",
+    "controls": "Same-day base-eligible fixed-hash sample excluding that day's strategy Top5; same requested count; original control seed and cost/execution model",
+    "controlLimit": "Independently active-deduplicated descriptive comparison; event dates need not remain matched, no causal uplift or independent-observation claim"
+  },
+  "eventPolicy": {
+    "entry": "Frozen quantity from T close and volume with fee/limit reserve; one attempt at next exchange-session open, no delayed entry",
+    "budgetPerEvent": 100000,
+    "targetNetGainPct": 30,
+    "holdingDeadline": null,
+    "stopLoss": null,
+    "execution": "Reuse frozen SignalTargetStudy fees, slippage, T+1 sale lock, gates and capacity proxies unchanged",
+    "labels": ["rawHigh30", "netHigh30", "nextOpenNet30"],
+    "allLabelsAreProxies": true,
+    "terminal": "Observation cutoff right-censoring; no forced sale and no inference of eventual failure from an unfinished event"
+  },
+  "audit": {
+    "fullCandidateLog": "Every completed raw pattern with B/R/T facts and ranking, including non-Top5 and later active-suppressed candidates",
+    "transitions": "Every transition except idle notTriggered/unevaluable stored individually; omitted idle events counted by kind and reason for every date, with written/omitted counts reconciling to every security-session step. Waiting abortedUnknown/invalidated/expired/held never omitted.",
+    "cutoff": "Retain final pending pattern states and counts separately; unfinished pattern is not an entry or a failed trade",
+    "files": "Protocol, source snapshot, all selected signals and controls, candidates, coverage, transitions and result bound to completion hashes; corrupt completed output refuses resume",
+    "attempts": "Keep failed attempts; change code or rules only in a new version after any real outcome has been inspected",
+    "comparisonHorizonsSessions": [5, 10, 20, 40, 60, 120, 250],
+    "cohort": "Potential calendar followup defines mature cohorts independently of whether an early target was hit. Keep incomplete followup, missing outcomes, unfilled entries and active suppression visible.",
+    "risk": "Append fixed PathRiskStudy -10/-20 raw-price boundary observations without changing trades; include entry-day lows and exclude lows after target opening exit",
+    "dependence": "Report distinct symbols and signal dates; existing Wilson intervals assume independence and cannot support certification for overlapping events",
+    "review": "Verify source hashes and data fingerprint; synthetic causal and lifecycle tests plus independent code review before full run; inspect arithmetic, lineage and per-event timing after completion"
+  },
+  "certified": false,
+  "targetAchieved": false
+}

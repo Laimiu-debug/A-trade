@@ -1,0 +1,65 @@
+{
+  "schema": "volume-anchor-acceptance-protocol-v1",
+  "stage": "development-comparison-before-first-new-signals",
+  "strategyId": "volumeAnchorAcceptanceV1",
+  "question": "After a causal price-and-volume breakout event, does three-session price acceptance above event-anchored traded average add information beyond merely delaying entry?",
+  "novelty": "New event-anchored cumulative traded-average acceptance mechanism. Breakouts, volume confirmation and fixed-price pullbacks were previously studied; this is not their first study and does not identify investor ownership.",
+  "modes": ["immediate", "delay3", "accept3"],
+  "labels": {"immediate": "启动即入", "delay3": "等待三日", "accept3": "三日承接"},
+  "source": {
+    "family": "board-coverage-reclaim-v1",
+    "periods": ["2022-2023", "2024-2025"],
+    "boards": ["main", "chinext", "star"],
+    "reuse": "Reuse all six already frozen and independently verified board datasets without rebuilding, editing, adding or deleting securities or bars.",
+    "membership": "Same period-start local-file cohorts with at least61 valid strictly prior observations. No target-period new listings. Current surviving local coverage is not historical point-in-time coverage.",
+    "scope": "Every policy runs in every board and period, 18 fresh accounts. No selection of the previously best board, no2026 data, no holdout claim."
+  },
+  "barValidity": {
+    "calendar": "Use supplied independent exchange calendar and exact slots; never compress missing/zero-volume sessions. Ignore numerical bars after registered end.",
+    "price": "Finite positive open/high/low/close/volume with low <= min(open,close) <= max(open,close) <= high; explicit nontrading historical status is invalid. Unknown historical status is retained as unknown eligibility, not fabricated.",
+    "amount": "Finite positive amount, explicitly CNY; volume explicitly shares. Per-bar amount/volume must lie within [low-0.01, high+0.01]. One-cent tolerance accommodates cent OHLC rounding, not a trading threshold.",
+    "unknown": "Missing or invalid bar, amount or unit evidence is unknown. Record reason counts, do not infer a failed price pattern, repair the bar or silently remove the security."
+  },
+  "anchor": {
+    "priorWindow": 20,
+    "trigger": "At A close require all exact prior20 and current bars valid; close_A > max(high of prior20) AND volume_A > max(volume of prior20). Both comparisons are strict; no RS, moving-average, investor-identity, market-breadth or calendar-date filter.",
+    "ranking": "Rank every eligible anchor at A by arithmetic mean amount over prior20 descending, then symbol ascending. Select original Top5 before all later information; keep all candidates in daily evidence. No backfill, no rerank after later data or account rejection.",
+    "identity": "One opportunity per selected symbol and A. Repeated anchors on subsequent dates are allowed and remain distinct, even while an account is holding. Each anchor stays fixed; later volume peaks never replace it.",
+    "scope": "Only anchors inside the registered period; pre-start bars are indicator warmup and cannot create carried opportunities."
+  },
+  "acceptance": {
+    "delaySlots": 3,
+    "definition": "At each of A+1,A+2,A+3 closes compute cumulativeAmount=sum(amount_A..d), cumulativeShares=sum(volume_A..d), Q_d=cumulativeAmount/cumulativeShares. Acceptance means close_d*cumulativeShares >= cumulativeAmount at all three closes. Equality passes.",
+    "timing": "Each Q_d uses only data observable by that day's close. This is a close-time comparison, not a claim that the completed day's Q was known intraday.",
+    "meaning": "Q is the observed traded-average reference since A. It is not surviving-holder cost, main-force cost, net inflow, ownership or proof of support/manipulation.",
+    "immediate": "A-close decision for every original Top5 anchor; one next-exchange-open attempt under the unchanged account engine.",
+    "delay3": "A+3-close decision if all three exact post-anchor bars are valid, irrespective of acceptance. Do not recheck breakout or rerank.",
+    "accept3": "The same A+3 decision and same complete-data population as delay3, additionally requiring all three acceptance comparisons. No new candidate may replace a rejected anchor.",
+    "unknown": "If the scheduled three-session window is fully observed in-period but any required bar is missing/invalid, both delayed modes are unknown and produce no signal. Preserve each available step and all reasons, including known failures alongside unknown evidence.",
+    "cutoff": "If A+3 lies beyond the registered period, both delayed modes are right-censored and produce no signal. Retain every available step, unknown evidence and known acceptance failure so far; do not label the unfinished window an executed trade or eventual failure. Immediate opportunities remain unchanged.",
+    "ordering": "Schedules sort by signalDate, originalRank, symbol, signalId. The five signal fields remain signalId,strategyId,symbol,signalDate,originalRank."
+  },
+  "account": {
+    "startingCapital": 500000,
+    "positions": 5,
+    "entryWeight": 0.2,
+    "exitRule": "Same noProgress5 account adapter,5-percent close-trigger stop and10-percent close-trigger trailing rule. Next executable open, T+1 and board lot/limit gates unchanged. No profit cap and no holding deadline.",
+    "fees": "Same previously bound dated historical fee policy for2022-2023, legacy policy for2024-2025 and10bp slippage per side. Real opening capacity is not certified.",
+    "compatibility": "Retain original configs; minListingDays120/minAmount20 are not additional effective gates because FrozenSignalScorer bypasses DailyScorer. No changes to production execution or historical source-quality flags."
+  },
+  "comparison": {
+    "primary": "accept3 versus delay3 isolates the registered acceptance condition within the same three-session complete-data decision clock. It is a historical policy contrast, not randomized causal proof.",
+    "secondary": "delay3 versus immediate measures the combined waiting/known-data opportunity and execution-path difference. Do not attribute that whole difference to AVWAP acceptance.",
+    "readout": "All18 accounts,36 years,72 halves,144 atlas stages,18 event-boundary intervals; all original opportunities and rejection/nonentry/open status. Keep fees, exposure, realized/open profit, tails, losing streaks, concentration and original quality flags visible.",
+    "eventBoundary": "2024-09-24 is descriptive only. Preserve continuous equity and positions; never restart capital or feed phase labels into entry.",
+    "success": "No numerical profit or payoff hurdle, no best-board promotion, no stable-profit claim from already inspected development periods."
+  },
+  "validation": {
+    "beforeOutcomes": "Meaningful synthetic causal, strict-boundary, missing/invalid unit, no-reanchor, Top5-no-backfill, cutoff and future-invariance tests; source/code/protocol pins frozen before computing real schedules.",
+    "independent": "Independently reconstruct all anchor candidates/ranks, traded-average numerators/denominators, decisions and schedules; freeze all18 schedules before accounts. Audit complete saved ledgers and readouts without rerunning accounts.",
+    "attempts": "Exclusive writes, preserve failed attempts; no alteration of frozen strategy rules after real outcomes."
+  },
+  "otherIdeasNotExecuted": ["Prior directional lead-lag relation followed by a leader impulse before follower response", "Fixed peer basket surviving leader failure", "Persistent full upward gap lifecycle"],
+  "certified": false,
+  "targetAchieved": false
+}

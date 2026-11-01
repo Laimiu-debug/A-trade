@@ -1,0 +1,72 @@
+{
+  "schema": "fixed-signal-account-engineering-contract-v1",
+  "createdDate": "2026-10-16",
+  "status": "synthetic-engineering-contract-before-market-execution",
+  "goalStatus": "active",
+  "targetAchieved": false,
+  "certified": false,
+  "newMarketTrialsAuthorizedByThisDocument": 0,
+  "purpose": "Provide a cash-constrained chronological account for frozen daily signal opportunities and explicitly registered exits. This is necessary support for the user's small-loss/large-win discussion, not evidence that such a strategy works or that the original net30 objective has been achieved.",
+  "isolation": {
+    "newEngine": "service/research_fixed_signal_account.py",
+    "newFeeSupport": "service/research_account_fees.py",
+    "preserve": "All existing research implementations, protocols, results, portfolio modules and user workspace data remain unchanged. No global monkeypatch, actual trading, commit, push, packaging or deployment.",
+    "existingEngineSha256": "e00db3e5c9ccd67d808b3ac40bbbcd40bf8272db88f87f16bff2594d893a39c1",
+    "existingConfigSha256": "49873041d268f4fba606959e9c794df04a40bd8320af3d8511271800b0221f37",
+    "existingResearchFeeSha256": "4bb9a3f8716cd290a320802d3f9af48cb95ba6a0ff28c111e5fc714663efda72"
+  },
+  "scope": {
+    "supported": "One frozen signal stream, one independently funded account, explicit research fee policy, existing close-based percentage exit controls and chronological opening execution.",
+    "notYetImplementedByContract": "Structural exits, volatility-based R sizing, dynamic policy switching, parameter training, rotation/shadow accounts, market-data trial runners or profitability certification.",
+    "exitMeaning": "The inherited stopLossPct/trailingStopPct/takeProfitPct controls are price-based close triggers, not guaranteed realized net return. maxHoldingDays counts independent calendar sessions including the entry session as one, but the inherited check runs only on a present bar with positive volume; missing or suspended sessions do not pause the calendar clock and can defer the trigger. Each future market registration must state these limits and may define a separate net-profit exit if needed. No numerical exit threshold is chosen by this engineering document."
+  },
+  "signals": {
+    "fields": ["signalId", "strategyId", "symbol", "signalDate", "originalRank"],
+    "validation": "Require a single declared strategy, unique signal IDs and unique (date,symbol) and (date,rank), known symbol/calendar date within the configured interval, integer originalRank within 1..5. Copy and hash the complete schedule and reject unsupported/ambiguous input.",
+    "informationClock": "Rows are opportunities known at the completed signalDate close. Read only that date's rows. Preserve original ranks and gaps; never rescore, reuse yesterday's signal, expand beyond the frozen Top5, or manufacture historical eligibility.",
+    "futureMarketSource": "Trial17 pre-active signals and selection.slots are potential inputs after a separate registration. Old events/filled/attempted-only subsets are not complete opportunity streams. No market stream is selected or replayed by this contract."
+  },
+  "entryPolicy": {
+    "budget": "Each selected new opportunity receives entryWeight times signal-close marked equity, capped by the explicit configured entry stock-weight ceiling. entryWeight is common across candidates and supplied explicitly. The budget is frozen at the signal close; it is not increased from next-day prices or forecast sale proceeds.",
+    "quantity": "Freeze plannedQuantity at the signal close using that valid close increased by configured buy slippage and signal-date effective buy fees, respecting board lots. The next opening may reduce quantity for actual price, fees, cash or capacity, never increase it above the planned quantity.",
+    "slots": "At close, positions with an already pending forced exit can provisionally free a planned slot. Actual buys still require a genuinely free slot and available cash after opening sells. Keep only the highest original-rank eligible opportunities up to these planned slots; failed attempts do not admit another opportunity or a later retry.",
+    "excluded": "Do not add to an existing position, reenter a pending exit or reenter a symbol sold earlier that session. Original Top5 gaps stay gaps; there is no outside-pool backfill.",
+    "attempt": "Only the immediate next independent calendar session is eligible for the single opening attempt. Missing bars, untradable opens, insufficient cash, occupied slots or partial-fill remainder terminate that buy opportunity. At dataset cutoff with no next session retain explicit unattempted/censored status.",
+    "priority": "Use originalRank then symbol for all new buys. Do not let the inherited budget/score ordering silently replace the frozen rank. Report exactly the order used."
+  },
+  "exitsAndAccount": {
+    "ordering": "Retain inherited dated corporate actions first, then pending forced sells in inherited deterministic symbol order, then new buys in frozen rank order. Only actual net sale proceeds enter available cash.",
+    "persistentExit": "A close trigger first becomes executable on a later calendar session. Its pending state survives missing prices, suspension, price limits and partial sales until the holding is fully closed. No rebound cancels a triggered exit.",
+    "sellLock": "Reuse inherited lot dates, unlock dates, sellability, price gates and opening-capacity evidence. Do not infer intraday execution from OHLC extrema.",
+    "holdings": "Keep old quantities unchanged until an explicit exit; no rank rebalance, averaging or top-up. entryWeight constrains initial allocation, not automatic trimming of later appreciation.",
+    "valuation": "Reuse the continuous cash/share/rights ledger, dated marks and stale/unresolved flags. Do not manufacture a final sale or drop open positions. Slippage is already in fill prices and is not deducted a second time.",
+    "missingness": "Unknown history, rights or opening capacity remains unverified. A passing engineering test does not certify these market-data inputs."
+  },
+  "feePolicy": {
+    "profiles": ["legacy-engine-delegate-v1", "dated-transfer-assumption-v1"],
+    "legacy": "Delegate arithmetic exactly to the frozen PortfolioEngine._fees with its legal normalized config, including explicit zero stamp-duty overrides. This guarantees fee arithmetic compatibility only; the new fixed-signal order policy intentionally differs from the old selector and carry behavior.",
+    "dated": "Use the frozen research_fee_profile function with explicit SH/SZ ordinary-A-share/exchange-auction scope, commission and transfer inclusion assumptions. Supported decision/execution dates remain 2022-2023; unsupported dates or conflicting overrides fail closed.",
+    "context": "Every quote receives an explicit immutable context naming symbol, order-origin signal date, decision date, effective fee date, optional simulated execution date and purpose. The order-origin date is the original entry opportunity date for a buy and the first persistent exit-trigger date for a sell, matching fill.signalDate; the latter is not mislabeled as the original position-entry signal. executionSizing records the actual attempt date as decision/effective date with execution date null; a fillQuote includes that attempt's simulated execution date but is not a payment until committed. No shared current-symbol/current-order state or global hooks.",
+    "purposes": ["signalReserve", "executionSizing", "fillQuote"],
+    "paid": "Only a newly appended actual simulated fill books a paid-ledger record linked to that fill and its matching quote. Any number of partial fills is supported; probes and unfilled orders are never paid fees. Minimum commission remains per simulated fill, without a broker-specific aggregation claim.",
+    "evidence": "Record the fee assumption profile and breakdown, quote-vs-payment distinction, actual execution date and frozen dependency identities. Do not label them actual broker charges."
+  },
+  "implementation": {
+    "reuse": "Reuse the validated PortfolioEngine indexes and daily account progression through an isolated prepared/_shared instance with a frozen-signal scorer. Require explicit start/end and disable rotation; no actual strategy scorer may compute or select replacement signals.",
+    "overrides": "Own target selection, fixed-close sizing and one-attempt entry execution. A controlled copy of _execute_order may replace only explicit fee seams while preserving its cash/lot/fill arithmetic. Keep the inherited daily rights, valuation, risk-exit and reporting mechanisms wherever their declared semantics fit.",
+    "checkpoint": "Use a new envelope binding adapter version, normalized config, complete signal schedule, fee settings, source pins, entry policy, parent engine state and fee/research side state. Pass only parent engineState to the strict old restore path.",
+    "rollback": "A failed day must restore both inherited account state and every quote, paid fee, ID/counter and opportunity disposition added by the adapter. No external untracked cursor or ledger may survive rollback.",
+    "identity": "Reject config/policy/schedule/source drift, incompatible checkpoints and foreign owner context. Do not claim legacy whole-strategy parity when entry and continuation policies intentionally change."
+  },
+  "syntheticAcceptance": [
+    "Known-close decision and immediate-next-session execution; future close/high/low perturbations cannot alter the frozen plan.",
+    "Complete opportunity conservation, original rank/gap preservation, slot/cash exclusions, no same-day reentry and no buy carry after failed or partial attempts.",
+    "Persistent failed/partial sells, T+1 lot lock, actual sell-before-buy funding and maximum-position enforcement.",
+    "Signal-date sizing versus actual buy/sell fees across both historical fee boundaries, explicit zero overrides, per-fill minimum fee and no quote-as-payment contamination.",
+    "Cash, positions, cost basis, realized P&L, open marks and total fees reconcile against independently hand-computed small fixtures.",
+    "Chunked/checkpoint continuation equals a single run; injected failure after partial mutations rolls back all account and fee evidence.",
+    "Cutoff open positions and unattempted/failed exits remain visible, including stale or unresolved valuation; no automatic liquidation.",
+    "Controlled-copy comparison verifies no unregistered non-fee edits to inherited order arithmetic; original files stay byte-identical."
+  ],
+  "nextBoundary": "Only after the synthetic adapter and independent oracle pass, register the actual signal source, account parameters, a bounded set of exits, costs, comparison metrics and data-quality limits, then freeze and run a new complete market trial."
+}

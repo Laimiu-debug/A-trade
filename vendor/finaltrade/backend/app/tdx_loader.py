@@ -6,6 +6,7 @@ import json
 import os
 import struct
 import time
+from bisect import bisect_left, bisect_right
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError, as_completed
 from datetime import datetime
 from functools import lru_cache
@@ -71,6 +72,48 @@ def _akshare_cache_root(akshare_cache_dir: str = "") -> Path:
     return Path.home() / ".tdx-trend" / "akshare" / "daily"
 
 
+def market_source_revision(tdx_root: str, akshare_cache_dir: str | None = None) -> str:
+    """Version local inputs, including same-date corrections and pool membership.
+
+    File metadata is deliberately inspected anew for each research request. A
+    request may retain this token while running, but it must never be reused as
+    a process-wide TTL cache: corrections need not advance the last trade date.
+    """
+    root = Path(os.path.expandvars(os.path.expanduser(str(tdx_root)))).resolve()
+    data_root = root / "vipdoc" if (root / "vipdoc").is_dir() else root
+    base = _resolve_tdx_base_dir(str(data_root))
+    folders = [(data_root / market / "lday", {".day"}) for market in ("sh", "sz", "bj")]
+    folders.append((base / "T0002" / "hq_cache", {".tnf", ".dbf"}))
+    if akshare_cache_dir is not None:
+        folders.append((_akshare_cache_root(akshare_cache_dir).resolve(), {".csv"}))
+    entries: list[tuple] = []
+
+    def record(path: Path) -> None:
+        try:
+            stat = path.stat()
+            entries.append((str(path), stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns))
+        except FileNotFoundError:
+            entries.append((str(path), "missing"))
+        except OSError:
+            # An unreadable source must not validate a previously cached result.
+            entries.append((str(path), "unreadable", time.time_ns()))
+
+    for folder, suffixes in folders:
+        entries.append((str(folder), "directory"))
+        try:
+            with os.scandir(folder) as iterator:
+                for item in iterator:
+                    if Path(item.name).suffix.lower() in suffixes:
+                        record(Path(item.path))
+        except FileNotFoundError:
+            entries.append((str(folder), "missing"))
+        except OSError:
+            entries.append((str(folder), "unreadable", time.time_ns()))
+    record(base / "base.dbf")
+    raw = json.dumps(sorted(entries), ensure_ascii=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
 def _normalize_symbol(stem: str, market: str) -> str | None:
     raw = stem.lower()
     if raw.startswith(("sh", "sz", "bj")) and len(raw) >= 8:
@@ -97,7 +140,7 @@ def _tnf_file_for_market(market: str) -> str:
 
 
 @lru_cache(maxsize=16)
-def _cached_symbol_name_map_from_tnf(tdx_root: str, markets_key: tuple[str, ...]) -> dict[str, str]:
+def _cached_symbol_name_map_from_tnf(tdx_root: str, markets_key: tuple[str, ...], source_revision: str = "") -> dict[str, str]:
     return _load_symbol_name_map_from_tnf(tdx_root, list(markets_key))
 
 
@@ -264,6 +307,7 @@ def _load_float_shares_from_base_dbf(
 def _cached_float_shares_from_base_dbf(
     tdx_root: str,
     markets_key: tuple[str, ...],
+    source_revision: str = "",
 ) -> tuple[dict[str, float], str | None]:
     return _load_float_shares_from_base_dbf(tdx_root, list(markets_key))
 
@@ -280,7 +324,10 @@ def _is_a_share_symbol(symbol: str) -> bool:
     return False
 
 
-def _parse_day_file(file_path: Path, symbol: str, *, max_bars: int = 360) -> ParsedSeries | None:
+def _parse_day_file(
+    file_path: Path, symbol: str, *, max_bars: int = 360,
+    date_from: str | None = None, date_to: str | None = None, warmup_bars: int = 120,
+) -> ParsedSeries | None:
     try:
         size = file_path.stat().st_size
     except OSError:
@@ -291,7 +338,7 @@ def _parse_day_file(file_path: Path, symbol: str, *, max_bars: int = 360) -> Par
 
     total_bars = size // DAY_RECORD.size
     read_bars = min(total_bars, max(60, int(max_bars)))
-    start_offset = (total_bars - read_bars) * DAY_RECORD.size
+    start_record = total_bars - read_bars
 
     dates: list[str] = []
     open_list: list[float] = []
@@ -303,7 +350,27 @@ def _parse_day_file(file_path: Path, symbol: str, *, max_bars: int = 360) -> Par
 
     try:
         with file_path.open("rb") as fp:
-            fp.seek(start_offset)
+            if date_from is not None and date_to is not None:
+                # DAY records are date-ordered. Seek to the requested historical
+                # interval rather than retaining a tail relative to today's data.
+                def lower_bound(day: int) -> int:
+                    lo, hi = 0, total_bars
+                    while lo < hi:
+                        mid = (lo + hi) // 2
+                        fp.seek(mid * DAY_RECORD.size)
+                        raw_day = fp.read(4)
+                        if len(raw_day) != 4:
+                            raise OSError("Incomplete daily record")
+                        if struct.unpack('<I', raw_day)[0] < day:
+                            lo = mid + 1
+                        else:
+                            hi = mid
+                    return lo
+                first = lower_bound(int(date_from.replace('-', '')))
+                end = lower_bound(int(date_to.replace('-', '')) + 1)
+                start_record = max(0, first - max(60, int(warmup_bars)))
+                read_bars = max(0, end - start_record)
+            fp.seek(start_record * DAY_RECORD.size)
             raw = fp.read(read_bars * DAY_RECORD.size)
     except OSError:
         return None
@@ -341,7 +408,9 @@ def _parse_day_file(file_path: Path, symbol: str, *, max_bars: int = 360) -> Par
 
     return ParsedSeries(
         symbol=symbol,
-        total_bars=int(total_bars),
+        # Preserve the observed listing age at the selected cutoff. Future file
+        # records must not make an early historical candidate look older.
+        total_bars=int(start_record + read_bars),
         dates=dates,
         open=open_list,
         high=high_list,
@@ -369,6 +438,7 @@ def _load_candles_from_akshare_cache(
     symbol: str,
     window: int = 120,
     akshare_cache_dir: str = "",
+    *, date_from: str | None = None, date_to: str | None = None, warmup_bars: int = 120,
 ) -> list[CandlePoint] | None:
     root = _akshare_cache_root(akshare_cache_dir)
     if len(symbol) < 8:
@@ -428,6 +498,10 @@ def _load_candles_from_akshare_cache(
     if not rows:
         return None
     rows.sort(key=lambda item: item.time)
+    if date_from is not None and date_to is not None:
+        dates = [item.time for item in rows]
+        start = max(0, bisect_left(dates, date_from) - max(60, int(warmup_bars)))
+        return rows[start:bisect_right(dates, date_to)]
     start = max(0, len(rows) - max(window, 1))
     return rows[start:]
 
@@ -676,25 +750,27 @@ def load_candles_for_symbol(
     window: int = 120,
     market_data_source: str = "tdx_then_akshare",
     akshare_cache_dir: str = "",
+    *, date_from: str | None = None, date_to: str | None = None, warmup_bars: int = 120,
 ) -> list[CandlePoint] | None:
+    history = dict(date_from=date_from, date_to=date_to, warmup_bars=warmup_bars)
     if market_data_source not in {"tdx_only", "tdx_then_akshare", "akshare_only"}:
         market_data_source = "tdx_then_akshare"
     use_tdx = market_data_source in {"tdx_only", "tdx_then_akshare"}
     use_akshare = market_data_source in {"akshare_only", "tdx_then_akshare"}
     if not use_tdx:
-        return _load_candles_from_akshare_cache(symbol, window, akshare_cache_dir) if use_akshare else None
+        return _load_candles_from_akshare_cache(symbol, window, akshare_cache_dir, **history) if use_akshare else None
 
     root = Path(tdx_root)
     if not root.exists() or len(symbol) < 8:
         if use_akshare:
-            return _load_candles_from_akshare_cache(symbol, window, akshare_cache_dir)
+            return _load_candles_from_akshare_cache(symbol, window, akshare_cache_dir, **history)
         return None
 
     market = symbol[:2]
     market_dir = root / market / "lday"
     if not market_dir.exists():
         if use_akshare:
-            return _load_candles_from_akshare_cache(symbol, window, akshare_cache_dir)
+            return _load_candles_from_akshare_cache(symbol, window, akshare_cache_dir, **history)
         return None
 
     file_path = market_dir / f"{symbol}.day"
@@ -702,16 +778,16 @@ def load_candles_for_symbol(
         file_path = market_dir / f"{symbol[2:]}.day"
     if not file_path.exists():
         if use_akshare:
-            return _load_candles_from_akshare_cache(symbol, window, akshare_cache_dir)
+            return _load_candles_from_akshare_cache(symbol, window, akshare_cache_dir, **history)
         return None
 
-    parsed = _parse_day_file(file_path, symbol, max_bars=max(60, int(window)))
+    parsed = _parse_day_file(file_path, symbol, max_bars=max(60, int(window)), **history)
     if not parsed:
         if use_akshare:
-            return _load_candles_from_akshare_cache(symbol, window, akshare_cache_dir)
+            return _load_candles_from_akshare_cache(symbol, window, akshare_cache_dir, **history)
         return None
 
-    start = max(0, len(parsed["close"]) - window)
+    start = 0 if date_from is not None and date_to is not None else max(0, len(parsed["close"]) - window)
     points: list[CandlePoint] = []
     for i in range(start, len(parsed["close"])):
         points.append(
@@ -729,7 +805,7 @@ def load_candles_for_symbol(
     if points:
         return points
     if use_akshare:
-        return _load_candles_from_akshare_cache(symbol, window, akshare_cache_dir)
+        return _load_candles_from_akshare_cache(symbol, window, akshare_cache_dir, **history)
     return None
 
 
@@ -855,6 +931,7 @@ def _input_pool_runtime_cache_key(
     return_window_days: int,
     as_of_date: str | None,
     tdx_last_trade_date: str | None = None,
+    source_revision: str = "",
 ) -> str:
     payload = {
         "tdx_root": str(Path(tdx_root)),
@@ -862,6 +939,7 @@ def _input_pool_runtime_cache_key(
         "return_window_days": int(return_window_days),
         "as_of_date": str(as_of_date or "").strip() or "__latest__",
         "tdx_last_trade_date": str(tdx_last_trade_date or "").strip() or "__unknown__",
+        "source_revision": source_revision or market_source_revision(tdx_root),
     }
     raw = json.dumps(payload, sort_keys=True, ensure_ascii=True, separators=(",", ":"))
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:24]
@@ -920,7 +998,7 @@ def _parse_input_pool_day_file_to_row(
     float_shares: float | None,
     mapped_name: str | None,
 ) -> tuple[ScreenerResult | None, bool]:
-    if as_of_date and parse_bars < 3000:
+    if as_of_date:
         probed = _probe_day_file_bounds(file_path)
         if probed is None:
             return None, False
@@ -928,17 +1006,10 @@ def _parse_input_pool_day_file_to_row(
         if first_day and first_day > as_of_date:
             return None, False
 
-    parsed = _parse_day_file(file_path, symbol, max_bars=parse_bars)
-    if as_of_date and parse_bars < 3000:
-        need_retry_full = False
-        if not parsed:
-            need_retry_full = True
-        elif parsed["dates"]:
-            first_loaded = str(parsed["dates"][0]).strip()
-            if first_loaded and first_loaded > as_of_date:
-                need_retry_full = True
-        if need_retry_full:
-            parsed = _parse_day_file(file_path, symbol, max_bars=3000)
+    history = {} if not as_of_date else dict(
+        date_from=as_of_date, date_to=as_of_date,
+        warmup_bars=max(360, int(return_window_days) * 2 + 40))
+    parsed = _parse_day_file(file_path, symbol, max_bars=parse_bars, **history)
     if not parsed:
         return None, False
 
@@ -956,15 +1027,18 @@ def load_input_pool_from_tdx(
     return_window_days: int,
     as_of_date: str | None = None,
     load_timeout_sec: float | None = None,
+    *, source_revision: str | None = None,
 ) -> tuple[list[ScreenerResult], str | None]:
     normalized_markets = [str(market).strip().lower() for market in markets if str(market).strip()]
     tdx_last_trade_date = probe_tdx_latest_trade_date(tdx_root)
+    source_revision = source_revision or market_source_revision(tdx_root)
     cache_key = _input_pool_runtime_cache_key(
         tdx_root=tdx_root,
         markets=normalized_markets,
         return_window_days=return_window_days,
         as_of_date=as_of_date,
         tdx_last_trade_date=tdx_last_trade_date,
+        source_revision=source_revision,
     )
     if _input_pool_runtime_cache_enabled():
         cached = _load_input_pool_runtime_cache(cache_key)
@@ -976,8 +1050,8 @@ def load_input_pool_from_tdx(
         return [], "TDX_PATH_NOT_FOUND"
 
     markets_key = tuple(sorted(set(normalized_markets)))
-    symbol_name_map = _cached_symbol_name_map_from_tnf(tdx_root, markets_key)
-    float_shares_map, float_shares_error = _cached_float_shares_from_base_dbf(tdx_root, markets_key)
+    symbol_name_map = _cached_symbol_name_map_from_tnf(tdx_root, markets_key, source_revision)
+    float_shares_map, float_shares_error = _cached_float_shares_from_base_dbf(tdx_root, markets_key, source_revision)
     rows: list[ScreenerResult] = []
     missing_float_shares = 0
     parse_bars = _resolve_day_parse_bars(return_window_days, as_of_date)

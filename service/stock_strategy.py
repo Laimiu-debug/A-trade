@@ -1,6 +1,7 @@
 """Source-backed stock details shared by market and strategy entry points."""
 import re
 
+from service.force_statistics import prepare_force_statistics
 from service.strategy_integration import legacy_strategy_warning
 
 
@@ -17,6 +18,15 @@ def stock_research(integration, symbol):
     # This loader refuses missing real data. Never use get_analysis(), whose
     # generic fallback contains a demonstration conclusion and confidence.
     candles = store._ensure_candles(symbol)
+    # A-trade's strategy runtime selects tdx_only. CandlePoint preserves the
+    # .day stock volume in shares and amount in yuan; do not scale it again.
+    # This endpoint has observed bars, not an independent market calendar.
+    # Missing fields stay unknown rather than becoming invented zero values.
+    force_statistics = prepare_force_statistics([
+        {'date': candle.time, **{key: getattr(candle, key, None)
+                                for key in ('open', 'high', 'low', 'close', 'volume', 'amount')}}
+        for candle in candles
+    ], volume_unit='shares')
     signal = store._build_stock_signal_snapshot(symbol)
     descriptors = {item.strategy_id: item for item in store.list_strategies().items}
     sources = []
@@ -75,6 +85,7 @@ def stock_research(integration, symbol):
             'strategies': [{'strategy_id': sid, 'strategy_name': '纯评分排名V1' if sid == 'score_only_rank_v1' else item.name}
                            for sid, item in descriptors.items() if getattr(item, 'enabled', True)],
             'signal': signal.model_dump(mode='json') if signal else None,
+            'force_statistics': {key: force_statistics[key] for key in ('version', 'metadata', 'current')},
             'annotation': annotation.model_dump(mode='json') if annotation else None,
             'trades': sorted(trades, key=lambda row: (row['entry_date'], row['source_id']), reverse=True),
             'signals': sorted(signals, key=lambda row: (row['signal_date'], row['source_id']), reverse=True),

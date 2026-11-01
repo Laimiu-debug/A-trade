@@ -22,14 +22,33 @@ const windowEvent = name => new Promise((resolve, reject) => {
 });
 
 app.whenReady().then(async () => {
+  const { createAppWindow } = require('../desktop/app-window.cjs');
+  const loadingWindow = createAppWindow();
+  loadingWindow.webContents.setBackgroundThrottling(false);
+  await loadingWindow.loadFile(path.join(root, 'desktop/startup.html'));
+  assert.equal(await loadingWindow.webContents.executeJavaScript(
+    '!!document.querySelector("[role=status]") && typeof atradeDesktop === "undefined" && typeof require === "undefined"'
+  ), true, 'startup document renders before business bootstrap without exposing the bridge');
+  if (phase === 'write') {
+    await fs.mkdir(path.join(root, 'artifacts'), { recursive: true });
+    await loadingWindow.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+    const loadingPicture = await loadingWindow.webContents.capturePage(undefined, { stayHidden: true, stayAwake: true });
+    await fs.writeFile(path.join(root, 'artifacts/startup-window.png'), loadingPicture.toPNG());
+    const cancelled = createAppWindow();
+    await cancelled.loadFile(path.join(root, 'desktop/startup.html'));
+    const closed = new Promise(resolve => cancelled.once('closed', resolve));
+    await cancelled.webContents.executeJavaScript('document.querySelector("button").click()').catch(() => {});
+    await closed;
+  }
   const { createDesktop } = require('../desktop/runtime.cjs');
-  win = await createDesktop({ dataDirectory, show: false, onWindow(window) {
+  win = await createDesktop({ dataDirectory, show: false, window: loadingWindow, onWindow(window) {
     window.webContents.setBackgroundThrottling(false);
     window.webContents.on('console-message', event => {
       if (event.level === 'error') rendererErrors.push(event.message);
     });
     window.webContents.on('preload-error', (_event, _file, error) => rendererErrors.push(error.message));
   } });
+  assert.equal(win, loadingWindow, 'workspace replaces the startup document in the same window');
   await check('!!document.querySelector("#main h1")', '主页面完成渲染');
   await check('typeof require === "undefined" && typeof process === "undefined"', '页面无 Node 权限');
   await check('!!window.atradeDesktop && !window.atradeDesktop.send && !window.atradeDesktop.invoke', '受限桥接');

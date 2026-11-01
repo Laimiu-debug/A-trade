@@ -1,0 +1,132 @@
+{
+  "schema": "ignition-selection-final-independent-verification-v1",
+  "passed": true,
+  "plan": {
+    "path": "artifacts/strategy-search/ignition-selection-review-20261031/experiment/execution-plan.json",
+    "sha256": "4cde613f33da29393070630c16f02ebc92e525afc7357cb6e9278a9c86378948"
+  },
+  "hypothesis": {
+    "path": "artifacts/strategy-search/ignition-selection-review-20261031/hypothesis-plan.json",
+    "sha256": "46a7804a3f8f875f21b3a82bd5c364faa94d33e71bb0531be3c5a982a8084c25"
+  },
+  "formation": {
+    "path": "artifacts/strategy-search/ignition-selection-review-20261031/experiment/independent-formation-validation.json",
+    "sha256": "2c9c13ff3b0d4646c940a19a2d0241d8d760d410ae630cbf8137331ab378c343"
+  },
+  "accounts": {
+    "path": "artifacts/strategy-search/ignition-selection-review-20261031/experiment/independent-account-validation.json",
+    "sha256": "32e45352230478c6ca49b14834b5c37c70791d9e9aca1dfc08845762f8f6552c"
+  },
+  "readout": {
+    "path": "artifacts/strategy-search/ignition-selection-review-20261031/readout.json",
+    "sha256": "4177d5ed471234ecda681baf6ec067e0ad78150cbd1ad4841d9f2147473ee037"
+  },
+  "auditor": {
+    "path": "artifacts/strategy-search/ignition-selection-review-20261031/independent-readout-audit.py",
+    "sha256": "5f1d00046f33ba807f6887e647ccc42efe61edabc1f0bb8dcdc244b9cfc0d222"
+  },
+  "accountCount": 9,
+  "formationStreams": 6,
+  "cashFillsChecked": 1290,
+  "dailyCurvesChecked": 2049,
+  "d1BuyClocksChecked": 645,
+  "baselineFinancialFieldsExactlyEqual": 15659,
+  "readoutPathAndSlotCashAttributionReconciled": true,
+  "slotRowsChecked": 870,
+  "largestWinnerExclusionsRecomputed": true,
+  "pairedComparisons": [
+    {
+      "period": "development",
+      "cost": "normal",
+      "candidate": "selection",
+      "comparator": "baseline",
+      "passed": true,
+      "intervalCrossesZero": true
+    },
+    {
+      "period": "development",
+      "cost": "normal",
+      "candidate": "participation",
+      "comparator": "baseline",
+      "passed": true,
+      "intervalCrossesZero": true
+    },
+    {
+      "period": "development",
+      "cost": "normal",
+      "candidate": "participation",
+      "comparator": "selection",
+      "passed": true,
+      "intervalCrossesZero": true
+    },
+    {
+      "period": "reusedTemporalCheck",
+      "cost": "normal",
+      "candidate": "selection",
+      "comparator": "baseline",
+      "passed": true,
+      "intervalCrossesZero": true
+    },
+    {
+      "period": "reusedTemporalCheck",
+      "cost": "normal",
+      "candidate": "participation",
+      "comparator": "baseline",
+      "passed": true,
+      "intervalCrossesZero": true
+    },
+    {
+      "period": "reusedTemporalCheck",
+      "cost": "normal",
+      "candidate": "participation",
+      "comparator": "selection",
+      "passed": true,
+      "intervalCrossesZero": true
+    },
+    {
+      "period": "reusedTemporalCheck",
+      "cost": "stress",
+      "candidate": "selection",
+      "comparator": "baseline",
+      "passed": true,
+      "intervalCrossesZero": true
+    },
+    {
+      "period": "reusedTemporalCheck",
+      "cost": "stress",
+      "candidate": "participation",
+      "comparator": "baseline",
+      "passed": true,
+      "intervalCrossesZero": true
+    },
+    {
+      "period": "reusedTemporalCheck",
+      "cost": "stress",
+      "candidate": "participation",
+      "comparator": "selection",
+      "passed": true,
+      "intervalCrossesZero": true
+    }
+  ],
+  "decisions": [
+    {
+      "case": "selection",
+      "historicalScreenPassed": false,
+      "allFrozenChecksReconciled": true
+    },
+    {
+      "case": "participation",
+      "historicalScreenPassed": false,
+      "allFrozenChecksReconciled": true
+    }
+  ],
+  "historicalScreenPassCount": 0,
+  "newAccountsExecutedByAudit": 0,
+  "newPricesAfter20261015Read": false,
+  "limitations": [
+    "Historical raw-price/survivor cohort, incomplete historic status/actions and single-open capacity approximations remain.",
+    "Both historical periods have been used before; development hypothesis discovery is adaptive.",
+    "Two ranking experiments cannot establish a causal market mechanism.",
+    "No genuine OOS profitability is available; no real orders or production promotion."
+  ]
+}

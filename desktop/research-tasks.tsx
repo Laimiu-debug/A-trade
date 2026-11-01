@@ -25,7 +25,8 @@ export function ResearchTasks({ reports = false }: { reports?: boolean }) {
     const rows: any[] = [], errors: string[] = []
     if (outcomes[0].status === 'fulfilled') rows.push(...outcomes[0].value.items.map((row: any) => ({ ...row, transport: 'strategy' })))
     else errors.push(outcomes[0].reason.message)
-    if (outcomes[1].status === 'fulfilled') rows.push(...outcomes[1].value.tasks.map((row: any) => ({ ...row, transport: 'portfolio', date_from: row.config?.startDate || row.startDate, date_to: row.config?.endDate || row.endDate, created_at: row.createdAt, updated_at: row.updatedAt, progress: typeof row.progress === 'number' ? row.progress : row.progress?.percent || 0 })))
+    // Local research reports fractions; the unified table and strategy API use percentage points.
+    if (outcomes[1].status === 'fulfilled') rows.push(...outcomes[1].value.tasks.map((row: any) => ({ ...row, transport: 'portfolio', date_from: row.config?.startDate || row.startDate, date_to: row.config?.endDate || row.endDate, created_at: row.createdAt, updated_at: row.updatedAt, progress: typeof row.progress === 'number' ? row.progress * 100 : row.progress?.percent || 0 })))
     else errors.push(outcomes[1].reason.message)
     if(outcomes[2].status==='fulfilled')rows.push(...outcomes[2].value.items.map((row:any)=>({...row,id:row.report_id,name:row.source_file_name||'已保存报告',kind:row.has_plateau_result?'plateau':'backtest',transport:'report',status:'succeeded',progress:100,stats:{total_return:row.total_return,trade_count:row.trade_count}})))
     else errors.push(outcomes[2].reason.message)

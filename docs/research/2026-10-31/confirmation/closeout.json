@@ -1,0 +1,87 @@
+{
+  "schema": "profitability-research-closeout-v1",
+  "recordedAt": "2026-10-31T09:42:02.090104+00:00",
+  "scope": "Loss attribution and two preregistered one-day-confirmation hypotheses on already exposed historical periods.",
+  "newHypotheses": 2,
+  "completedAccounts": 10,
+  "syntheticTestsPassed": 22,
+  "independentVerificationPassed": true,
+  "historicalScreenPassCount": 0,
+  "profitabilityProven": false,
+  "pristineOosPerformed": false,
+  "oosStatus": "Insufficient independently unexposed observations; two locally available sessions without located prior use are inadequate. No post-2026-10-15 price segment was consumed in this study.",
+  "decision": "Reject both candidates for promotion. Preserve frozen protocol and evidence; do not tune thresholds against these outcomes.",
+  "periodsAreIndependentColdStartAccounts": true,
+  "visualQa": {
+    "artifact": "figure",
+    "reviewed": true,
+    "result": "No clipping; exposed-history and independent-account limitations visible."
+  },
+  "realOrdersPlaced": false,
+  "automationCreated": false,
+  "artifacts": {
+    "hypothesisPlan": {
+      "path": "G:\\CODE\\A-trade\\artifacts\\strategy-search\\profitability-review-20261031\\hypothesis-plan.json",
+      "sha256": "6ae0f8acdf54c69feb847e6333a6a1906126942bf8eddeaf4efd915201103ce7"
+    },
+    "executionPlan": {
+      "path": "G:\\CODE\\A-trade\\artifacts\\strategy-search\\profitability-review-20261031\\experiment\\execution-plan.json",
+      "sha256": "ab801561a8d29775ec806cf52e5c339c97555c72392bd4713f869394807f12ef"
+    },
+    "lossDiagnostics": {
+      "path": "G:\\CODE\\A-trade\\artifacts\\strategy-search\\profitability-review-20261031\\diagnostics\\loss-diagnostics.json",
+      "sha256": "abd2c5c82a272904f87032154a4565dc7a5edfb3b1224f98959b026a5f33dfc3"
+    },
+    "oosAudit": {
+      "path": "G:\\CODE\\A-trade\\artifacts\\strategy-search\\profitability-review-20261031\\oos-audit\\audit.json",
+      "sha256": "92cc68d6d4ce63408a93f0b911755981d5579bd3761bbd696e7306e3c086e93f"
+    },
+    "syntheticTests": {
+      "path": "G:\\CODE\\A-trade\\artifacts\\strategy-search\\profitability-review-20261031\\experiment\\synthetic-tests.json",
+      "sha256": "a9619c1128a5e708f2c6f0189afa469d4df5af78a3a7698e2f75bc44a1b333aa"
+    },
+    "accountCompletion": {
+      "path": "G:\\CODE\\A-trade\\artifacts\\strategy-search\\profitability-review-20261031\\experiment\\all-accounts-completion.json",
+      "sha256": "d36776c351bfdab5946b2cfb3f51483a32f11cf6364f5c2496b52dca226dfdc1"
+    },
+    "readout": {
+      "path": "G:\\CODE\\A-trade\\artifacts\\strategy-search\\profitability-review-20261031\\readout.json",
+      "sha256": "a33969abf06ed03f6406621a52efeff608a626caa6550350b797103561204919"
+    },
+    "independentVerification": {
+      "path": "G:\\CODE\\A-trade\\artifacts\\strategy-search\\profitability-review-20261031\\final-verification.json",
+      "sha256": "1be51f559f71c7c68fd9a14372d321c7f1bcceb1dbf3fb3f05b54a392cc0131b"
+    },
+    "figure": {
+      "path": "G:\\CODE\\A-trade\\artifacts\\strategy-search\\profitability-review-20261031\\historical-comparison.png",
+      "sha256": "170b7e4e3abbeab9572a113fe3ee2fbfda61b18aa8c1164569158d9c03ebce27"
+    },
+    "confirmationSource": {
+      "path": "G:\\CODE\\A-trade\\service\\research_dual_confirmation.py",
+      "sha256": "d2310c2fa5dddb02eefa7a48904870c8e6ec2f84312401ee1489fb028b505e2b"
+    },
+    "runnerSource": {
+      "path": "G:\\CODE\\A-trade\\scripts\\run-dual-confirmation-review.py",
+      "sha256": "cd3bf457ee36b53e0a782f5db1d0bd25552cda0fbbf82dc2e3dad64853da1d22"
+    },
+    "oracleSource": {
+      "path": "G:\\CODE\\A-trade\\scripts\\verify-dual-confirmation-inputs.py",
+      "sha256": "982bc9ed495834537c213e169cc09eb51e7aa9f3775678509126a89071ef7740"
+    },
+    "analysisSource": {
+      "path": "G:\\CODE\\A-trade\\scripts\\summarize-dual-confirmation-review.py",
+      "sha256": "9fc36a9bca33a54d69903fd5f27baddfb87056d18dd019336b09298f48b404f2"
+    }
+  },
+  "storageGuard": {
+    "path": "H:\\codex\\storage-guard\\latest.json",
+    "observedRecordId": "20261031T093347-e25f466c",
+    "alerts": [],
+    "policy": "advisory-only"
+  },
+  "limitations": [
+    "Surviving/raw-price source and incomplete historic trade-status/actions remain.",
+    "Single-open execution and prior-volume capacity are approximations, not opening-auction fill evidence.",
+    "Two candidates add to prior adaptive research; ordinary p-values/Sharpe are not proof of discovery."
+  ]
+}

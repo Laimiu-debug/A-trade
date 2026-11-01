@@ -1,0 +1,578 @@
+{
+  "schemaVersion": 1,
+  "studyId": "account-exit-comparison-v1",
+  "registeredAt": "2026-10-16T00:01:11.123620+00:00",
+  "studyTrialIndex": 18,
+  "title": "固定强势确认入场的共享资金退出对比：观察实际盈亏分布",
+  "stage": "reused-development-raw-price-and-available-rights-diagnostic",
+  "goalStatus": "active",
+  "certified": false,
+  "targetAchieved": false,
+  "objective": "Measure actual strategy payoff distributions and capital-constrained account paths without preset profitability hurdles.",
+  "designExposure": "The entry stream and all 2022-2023 data have already been inspected in prior development. These exact shared-account exit paths have not been run. There is no pristine holdout or independent profitability claim.",
+  "trialAccounting": {
+    "newBatchCount": 1,
+    "policiesExecuted": 3,
+    "newExitVariants": 2,
+    "referencePolicies": 1,
+    "hiddenParameterSearch": false
+  },
+  "sourceStudy": {
+    "directory": "artifacts/strategy-search/signal-early-strength-emergence-v1",
+    "strategyId": "control_rawEarlyStrengthEmergence",
+    "protocolHash": "c56cad06323ca553f09508145e27ca8c44b70fec5dec2b8a4afa62f6bdbf8089",
+    "expectedSelectedOpportunities": 2328,
+    "attemptDirectory": "attempts/attempt-0001",
+    "files": {
+      "protocol.json": "45a45fe5e178a7278247dea112e53355f34c33e31c6e8cf8e4909e0bcede96da",
+      "attempts/attempt-0001/completion.json": "f92e2b8515f22758c5d6a68c70218949b8b33265b3aa6f65cb5c553fb6927c96",
+      "independent-result-verification.json": "fbbcc46a9138c71eaf26eb878b023ba8cc1abc06018886de51d77224483c506c",
+      "attempts/attempt-0001/signals.jsonl.gz": "f9368721f5a39ca27fe24ee28d87d03751ebd03c800e446042aa7a45824a5b68",
+      "attempts/attempt-0001/selection.jsonl.gz": "e84cb522d8c9cd41dced92184e8e86c61fb0afe89a0106228be12d98a86f6248"
+    },
+    "usage": "Complete pre-active signals only, cross-checked against every selection.signals row and the common original Top5 slots. Never use events or previously attempted/filled subsets.",
+    "signalId": "strategyId + colon + episodeId + colon + signalDate"
+  },
+  "frozenSourceRunner": {
+    "path": "scripts/run-signal-early-strength-emergence.py",
+    "sha256": "d5bf75fdf928a30ff97ac4b97b9497136403f20caa0563cedeac8961cb9896da"
+  },
+  "sourceRegistration": {
+    "path": "docs/signal-early-strength-emergence-v1.json",
+    "sha256": "2fa9f3164206b0b50a4468f4759be3ab283cf89579c777d6e5907fed23b3f356"
+  },
+  "sourceBinding": {
+    "workspace": "artifacts/strategy-search/source-workspace",
+    "panelDirectory": "artifacts/strategy-search/leadership-panel-v1",
+    "files": {
+      "manifest.json": "06912e237350ba45042eaccb4970a565517ec46f34ff9e81531feef22fe59d6b",
+      "features.jsonl.gz": "58488ce25577100b09c6e3879cd94fa93fc3e6e59a4087d0f7fb99d38b126960",
+      "daily-coverage.jsonl.gz": "a09b2de7d0cf4088a9c5703bd6f4caa04691a85725fe52abe9fa19363583cacb",
+      "warmup-coverage.jsonl.gz": "d9a8a5b55dd069d5f47bf0d3ca46dcbaf46c39c5e854a774f65b464d083da614",
+      "summary.json": "67eb01a2d192abf02cb9cc985f9945fb68cfa3390bf5ac840b501a132c388611",
+      "execution-sources.zip": "3c70db4f16627292c8d0b4f9514e1910a51c4802a6772ede7686cbd468d28d0e",
+      "attempt.json": "e7241851abc8455b9ce77c50670a4a16e8ca0e734556ad600c7fbab735e40e55",
+      "independent-verification.json": "f5b6ed84e4f4ab62b2922123c63c9a565a9a225ada6cabbb687789060ed851d5",
+      "completion.json": "1c0000bd0cdfa96e6550e4662803afc4a63b3f3d92b17a04538de3ef1fd139e7"
+    },
+    "usage": "完整已审feature行（独立日P20/P60、历史rank/date/count、显式成交额质量、baseEligibility旁表）与原始security.bars/benchmark六槽；不消费父currentParent、已选候选、peer群或任何收益标签。"
+  },
+  "sample": {
+    "startDate": "2022-01-04",
+    "endDate": "2023-12-29",
+    "sourceSignalStart": "2022-01-01",
+    "sourceSignalEnd": "2023-12-31",
+    "warmupStart": "2021-08-02",
+    "expectedSecurities": 3141,
+    "expectedBars": 1796835,
+    "expectedStudySessions": 484,
+    "expectedSourceCalendarSessions": 587,
+    "snapshotFingerprint": "226fcb48c6729c7ee1784eb871ff124ac921733f339b9e2fbe78cb3e592a9014",
+    "fullDatasetContentSha256": "6f3bcdce0827e557d21988ffbaf73603b18096333f46f1b1f2275d14c57c79f5",
+    "historicalUniverseComplete": false,
+    "scope": "Keep the unchanged full source universe, including all failed or unavailable entries. Do not add recovered stocks or select winners."
+  },
+  "account": {
+    "initialCapital": 500000,
+    "entryWeight": 0.2,
+    "maxPositions": 5,
+    "maxStockWeight": 0.2,
+    "weightMeaning": "Initial close-time budget only; appreciated holdings are not automatically trimmed.",
+    "independentCashPerPolicy": true,
+    "riskNormalizedSizing": false
+  },
+  "baseConfig": {
+    "initialCapital": 500000.0,
+    "lookbackDays": 39,
+    "topN": 5,
+    "maxPositions": 5,
+    "maxStockWeight": 0.2,
+    "rebalanceEvery": 1,
+    "switchThreshold": 0.0,
+    "stopLossPct": 0.0,
+    "takeProfitPct": 0.0,
+    "trailingStopPct": 0.0,
+    "maxHoldingDays": 0,
+    "commissionRate": 0.0003,
+    "minCommission": 5.0,
+    "transferFeeRate": 1e-05,
+    "slippageBps": 10.0,
+    "maxParticipationRate": 0.01,
+    "startDate": "2022-01-04",
+    "endDate": "2023-12-29",
+    "weighting": "equal",
+    "rebalanceMode": "risk",
+    "rightsPolicy": "skip",
+    "stampDutyRate": null,
+    "strategies": [
+      {
+        "id": "control_rawEarlyStrengthEmergence",
+        "kind": "momentum",
+        "params": {
+          "lookback": 60,
+          "trendWindow": 120,
+          "minReturn": 0.05
+        },
+        "pool": "base"
+      }
+    ],
+    "combinations": [],
+    "allocation": {
+      "mode": "single",
+      "strategyIds": [
+        "control_rawEarlyStrengthEmergence"
+      ]
+    },
+    "rotation": {
+      "lookbackDays": 20,
+      "cooldownDays": 5,
+      "minWeightChange": 0.1,
+      "temperature": 0.05,
+      "regimeBlend": 0.25,
+      "regimeMinObservations": 5,
+      "warmupDays": 120
+    },
+    "universe": {
+      "strictHistory": false,
+      "excludeSt": true,
+      "minListingDays": 120,
+      "minAmount20": 50000000.0,
+      "minAmplitude20": null
+    },
+    "poolSettings": {
+      "trend": {
+        "window": 60,
+        "minReturn": 0.0,
+        "rankWindow": 40,
+        "rankStart": 1,
+        "rankEnd": 500,
+        "rankEnabled": false
+      },
+      "structure": {
+        "window": 20,
+        "minDrawdown": 0.02,
+        "maxDrawdown": 0.25,
+        "minMa10Above20Days": null,
+        "minMa5Above10Days": null,
+        "maxPeakAgeDays": null,
+        "maxPriceVsMa20": null,
+        "requireAboveMa20": false,
+        "peakBasis": "close",
+        "maDaysMode": "count"
+      },
+      "volume": {
+        "window": 20,
+        "minRatio": 1.2,
+        "minVolumeChange20": null,
+        "minUpDownVolumeRatio": null,
+        "maxDownVolumeRatio": null,
+        "excludeBlowoff": false,
+        "excludeDivergence": false,
+        "excludeUpperShadow": false
+      },
+      "combined": {
+        "pools": [
+          "trend",
+          "structure",
+          "volume"
+        ],
+        "mode": "intersection"
+      }
+    }
+  },
+  "policies": [
+    {
+      "id": "hold",
+      "title": "关闭价格退出的资金占用参照",
+      "role": "reference",
+      "config": {
+        "initialCapital": 500000.0,
+        "lookbackDays": 39,
+        "topN": 5,
+        "maxPositions": 5,
+        "maxStockWeight": 0.2,
+        "rebalanceEvery": 1,
+        "switchThreshold": 0.0,
+        "stopLossPct": 0.0,
+        "takeProfitPct": 0.0,
+        "trailingStopPct": 0.0,
+        "maxHoldingDays": 0,
+        "commissionRate": 0.0003,
+        "minCommission": 5.0,
+        "transferFeeRate": 1e-05,
+        "slippageBps": 10.0,
+        "maxParticipationRate": 0.01,
+        "startDate": "2022-01-04",
+        "endDate": "2023-12-29",
+        "weighting": "equal",
+        "rebalanceMode": "risk",
+        "rightsPolicy": "skip",
+        "stampDutyRate": null,
+        "strategies": [
+          {
+            "id": "control_rawEarlyStrengthEmergence",
+            "kind": "momentum",
+            "params": {
+              "lookback": 60,
+              "trendWindow": 120,
+              "minReturn": 0.05
+            },
+            "pool": "base"
+          }
+        ],
+        "combinations": [],
+        "allocation": {
+          "mode": "single",
+          "strategyIds": [
+            "control_rawEarlyStrengthEmergence"
+          ]
+        },
+        "rotation": {
+          "lookbackDays": 20,
+          "cooldownDays": 5,
+          "minWeightChange": 0.1,
+          "temperature": 0.05,
+          "regimeBlend": 0.25,
+          "regimeMinObservations": 5,
+          "warmupDays": 120
+        },
+        "universe": {
+          "strictHistory": false,
+          "excludeSt": true,
+          "minListingDays": 120,
+          "minAmount20": 50000000.0,
+          "minAmplitude20": null
+        },
+        "poolSettings": {
+          "trend": {
+            "window": 60,
+            "minReturn": 0.0,
+            "rankWindow": 40,
+            "rankStart": 1,
+            "rankEnd": 500,
+            "rankEnabled": false
+          },
+          "structure": {
+            "window": 20,
+            "minDrawdown": 0.02,
+            "maxDrawdown": 0.25,
+            "minMa10Above20Days": null,
+            "minMa5Above10Days": null,
+            "maxPeakAgeDays": null,
+            "maxPriceVsMa20": null,
+            "requireAboveMa20": false,
+            "peakBasis": "close",
+            "maDaysMode": "count"
+          },
+          "volume": {
+            "window": 20,
+            "minRatio": 1.2,
+            "minVolumeChange20": null,
+            "minUpDownVolumeRatio": null,
+            "maxDownVolumeRatio": null,
+            "excludeBlowoff": false,
+            "excludeDivergence": false,
+            "excludeUpperShadow": false
+          },
+          "combined": {
+            "pools": [
+              "trend",
+              "structure",
+              "volume"
+            ],
+            "mode": "intersection"
+          }
+        }
+      }
+    },
+    {
+      "id": "trail10",
+      "title": "收盘高点回撤退出，盈利不封顶",
+      "role": "candidate",
+      "config": {
+        "initialCapital": 500000.0,
+        "lookbackDays": 39,
+        "topN": 5,
+        "maxPositions": 5,
+        "maxStockWeight": 0.2,
+        "rebalanceEvery": 1,
+        "switchThreshold": 0.0,
+        "stopLossPct": 0.0,
+        "takeProfitPct": 0.0,
+        "trailingStopPct": 0.1,
+        "maxHoldingDays": 0,
+        "commissionRate": 0.0003,
+        "minCommission": 5.0,
+        "transferFeeRate": 1e-05,
+        "slippageBps": 10.0,
+        "maxParticipationRate": 0.01,
+        "startDate": "2022-01-04",
+        "endDate": "2023-12-29",
+        "weighting": "equal",
+        "rebalanceMode": "risk",
+        "rightsPolicy": "skip",
+        "stampDutyRate": null,
+        "strategies": [
+          {
+            "id": "control_rawEarlyStrengthEmergence",
+            "kind": "momentum",
+            "params": {
+              "lookback": 60,
+              "trendWindow": 120,
+              "minReturn": 0.05
+            },
+            "pool": "base"
+          }
+        ],
+        "combinations": [],
+        "allocation": {
+          "mode": "single",
+          "strategyIds": [
+            "control_rawEarlyStrengthEmergence"
+          ]
+        },
+        "rotation": {
+          "lookbackDays": 20,
+          "cooldownDays": 5,
+          "minWeightChange": 0.1,
+          "temperature": 0.05,
+          "regimeBlend": 0.25,
+          "regimeMinObservations": 5,
+          "warmupDays": 120
+        },
+        "universe": {
+          "strictHistory": false,
+          "excludeSt": true,
+          "minListingDays": 120,
+          "minAmount20": 50000000.0,
+          "minAmplitude20": null
+        },
+        "poolSettings": {
+          "trend": {
+            "window": 60,
+            "minReturn": 0.0,
+            "rankWindow": 40,
+            "rankStart": 1,
+            "rankEnd": 500,
+            "rankEnabled": false
+          },
+          "structure": {
+            "window": 20,
+            "minDrawdown": 0.02,
+            "maxDrawdown": 0.25,
+            "minMa10Above20Days": null,
+            "minMa5Above10Days": null,
+            "maxPeakAgeDays": null,
+            "maxPriceVsMa20": null,
+            "requireAboveMa20": false,
+            "peakBasis": "close",
+            "maDaysMode": "count"
+          },
+          "volume": {
+            "window": 20,
+            "minRatio": 1.2,
+            "minVolumeChange20": null,
+            "minUpDownVolumeRatio": null,
+            "maxDownVolumeRatio": null,
+            "excludeBlowoff": false,
+            "excludeDivergence": false,
+            "excludeUpperShadow": false
+          },
+          "combined": {
+            "pools": [
+              "trend",
+              "structure",
+              "volume"
+            ],
+            "mode": "intersection"
+          }
+        }
+      }
+    },
+    {
+      "id": "stop5trail10",
+      "title": "初始失败退出加收盘高点回撤退出，盈利不封顶",
+      "role": "candidate",
+      "config": {
+        "initialCapital": 500000.0,
+        "lookbackDays": 39,
+        "topN": 5,
+        "maxPositions": 5,
+        "maxStockWeight": 0.2,
+        "rebalanceEvery": 1,
+        "switchThreshold": 0.0,
+        "stopLossPct": 0.05,
+        "takeProfitPct": 0.0,
+        "trailingStopPct": 0.1,
+        "maxHoldingDays": 0,
+        "commissionRate": 0.0003,
+        "minCommission": 5.0,
+        "transferFeeRate": 1e-05,
+        "slippageBps": 10.0,
+        "maxParticipationRate": 0.01,
+        "startDate": "2022-01-04",
+        "endDate": "2023-12-29",
+        "weighting": "equal",
+        "rebalanceMode": "risk",
+        "rightsPolicy": "skip",
+        "stampDutyRate": null,
+        "strategies": [
+          {
+            "id": "control_rawEarlyStrengthEmergence",
+            "kind": "momentum",
+            "params": {
+              "lookback": 60,
+              "trendWindow": 120,
+              "minReturn": 0.05
+            },
+            "pool": "base"
+          }
+        ],
+        "combinations": [],
+        "allocation": {
+          "mode": "single",
+          "strategyIds": [
+            "control_rawEarlyStrengthEmergence"
+          ]
+        },
+        "rotation": {
+          "lookbackDays": 20,
+          "cooldownDays": 5,
+          "minWeightChange": 0.1,
+          "temperature": 0.05,
+          "regimeBlend": 0.25,
+          "regimeMinObservations": 5,
+          "warmupDays": 120
+        },
+        "universe": {
+          "strictHistory": false,
+          "excludeSt": true,
+          "minListingDays": 120,
+          "minAmount20": 50000000.0,
+          "minAmplitude20": null
+        },
+        "poolSettings": {
+          "trend": {
+            "window": 60,
+            "minReturn": 0.0,
+            "rankWindow": 40,
+            "rankStart": 1,
+            "rankEnd": 500,
+            "rankEnabled": false
+          },
+          "structure": {
+            "window": 20,
+            "minDrawdown": 0.02,
+            "maxDrawdown": 0.25,
+            "minMa10Above20Days": null,
+            "minMa5Above10Days": null,
+            "maxPeakAgeDays": null,
+            "maxPriceVsMa20": null,
+            "requireAboveMa20": false,
+            "peakBasis": "close",
+            "maDaysMode": "count"
+          },
+          "volume": {
+            "window": 20,
+            "minRatio": 1.2,
+            "minVolumeChange20": null,
+            "minUpDownVolumeRatio": null,
+            "maxDownVolumeRatio": null,
+            "excludeBlowoff": false,
+            "excludeDivergence": false,
+            "excludeUpperShadow": false
+          },
+          "combined": {
+            "pools": [
+              "trend",
+              "structure",
+              "volume"
+            ],
+            "mode": "intersection"
+          }
+        }
+      }
+    }
+  ],
+  "feePolicy": {
+    "profileId": "dated-transfer-assumption-v1",
+    "commissionRate": 0.0003,
+    "minCommission": 5,
+    "commissionIncludesTransfer": false,
+    "stampDutyOverride": null,
+    "securityType": "ordinary-a-share",
+    "tradingMode": "exchange-auction",
+    "minimumCommissionUnit": "each-simulated-fill",
+    "actualBrokerChargesVerified": false,
+    "description": "Signal-close reserves use signal-date rates; actual sizing and paid simulation use execution-date rates. Transfer dates remain an explicitly qualified research assumption."
+  },
+  "execution": {
+    "entry": "Frozen signal-close budget and share quantity; exactly one attempt at the immediate next independent session open. Rank order retained; no top-up, averaging, outside-Top5 replacement or retry after missing/partial buy.",
+    "exits": "Evaluate the registered price-based controls at a completed valid close. Earliest execution is a later session open. First exit intent persists through rebound, missing bars, suspension, price limits and partial fills.",
+    "precedence": "Inherited eligibility exits, then initial stop, then close-peak trailing. Sell available older lots before buying with actual remaining cash. Respect T+1 and declared opening/previous-session capacity.",
+    "trailReference": "Inherited peak starts at actual entry fill and updates with valid completed closes; it is not an intraday-high stop.",
+    "holdMeaning": "No percentage profit/loss/trailing or holding-time exit. Mandatory inherited membership/ST/delisting handling and data quarantine still apply; not an exact replay of prior net30 events.",
+    "noFixedTakeProfit": true,
+    "noForcedCutoffSale": true,
+    "ruleParametersAreNotRealizedLossBounds": true
+  },
+  "evaluation": {
+    "minimumMeanWinnerPct": null,
+    "minimumWinRatePct": null,
+    "minimumPayoffRatio": null,
+    "mandatoryNetTargetPct": null,
+    "automaticWinnerSelection": false,
+    "closedEpisodes": "Use every fully closed position episode, combining all partial-sell PnL and the engine-accounted rights treatment; wins/losses/zeros all enter denominators. Report mean/median wins/losses, full-return linear-interpolated quantiles, net mean return, actual payoff ratio and amount-weighted profit factor. A zero denominator is null with an explicit reason, not infinity.",
+    "openPositions": "Retain remaining shares, marks and mark dates, partial realized PnL, cost basis, outstanding exits and unresolved rights. Reconcile to continuous equity; do not count waiting as a zero-return trade or invent liquidation.",
+    "account": "Report total account return, peak-to-trough drawdown, cash, fees, slippage already embedded in fill prices, turnover, exposure, holding-session distributions and opportunity dispositions.",
+    "timeWindows": [
+      "2022",
+      "2023",
+      "2022-H1",
+      "2022-H2",
+      "2023-H1",
+      "2023-H2"
+    ],
+    "windowDefinition": "Continuous carried account; opening base is prior available account close or initial capital. Do not reset cash/positions per window. Separately report closed episodes grouped by exit date.",
+    "concentration": "Report largest one/five positive closed-PnL contributions and removing up to five largest winners as diagnostics. Right-tail dependence is not by itself an automatic rejection.",
+    "uncertainty": "Descriptive development statistics only this batch. Correlated trades and six exposed windows do not prove independent stable performance or support an IID confidence claim.",
+    "net30": "Optional descriptive closed-episode tail count only, not a first-passage target or screening rule.",
+    "causalComparison": "Shared input opportunities, independently evolving cash and active holdings. Different fills and later opportunities are part of each complete policy; differences are not matched-trade causal effects."
+  },
+  "qualityLimits": [
+    "Surviving local-file universe is not verified historical full-market membership or complete delisting coverage.",
+    "Unverified corporate actions, raw-price discontinuities and stale marks remain explicit; do not certify economic total returns.",
+    "Opening/previous-day capacity is simulated, not evidence of an actually available broker fill.",
+    "Historical fee assumptions are not verified broker charges; no cost-stress or untouched-period claim is supplied by this first batch.",
+    "Passing this batch or its arithmetic audit does not achieve the goal of a robust profitable strategy."
+  ],
+  "frozenImplementation": {
+    "service/research_fixed_signal_account.py": "59361f064ecb00307a2a4b5ee1890976eb2a24058a1ab9e3f6b6e2582283c753",
+    "service/research_account_fees.py": "4bf2b2ca97450148541940581556c84a07d4ffebd864671badb97828121dd1f2",
+    "service/research_fee_profile.py": "4bb9a3f8716cd290a320802d3f9af48cb95ba6a0ff28c111e5fc714663efda72",
+    "service/signal_target_study_fee_profile.py": "50f6331a50d66e73f3bae7a1de817252310d52a627eff55c541774061067ed36",
+    "service/portfolio_engine.py": "e00db3e5c9ccd67d808b3ac40bbbcd40bf8272db88f87f16bff2594d893a39c1",
+    "service/portfolio_config.py": "49873041d268f4fba606959e9c794df04a40bd8320af3d8511271800b0221f37",
+    "service/execution_evidence.py": "e85c3ee91510bf9643ab6c5af1be91f2ff9bf6d70747a28ef5b6bf9bf0b87826",
+    "docs/fixed-signal-account-contract-v1.json": "0ceb6f44a374e1c08b576f7f96cfc60fa76baf8653d0c8ae792a970eb2e280bc"
+  },
+  "engineeringEvidence": {
+    "artifacts/strategy-search/fixed-signal-account-scoped-tests-v1.json": "643a1ec7a702a852a37dde67d711c7efe0ee30394be52fb00ea0ffb17f1c246b",
+    "artifacts/strategy-search/fixed-signal-account-independent-review-v1.json": "6fadac3c6e9c8f95566e2631ff3b3cb91275e8734d5648981e2dd3915b6f4792",
+    "artifacts/strategy-search/strategy-outcome-first-objective-v1.json": "80b01fe50fc6ffa9e518a7d8639a5ba5c63c46cf6dce26a94fc53aea6573e4f5"
+  },
+  "reviewedFiles": [
+    "docs/account-exit-comparison-v1.json",
+    "scripts/run-account-exit-comparison.py",
+    "scripts/verify-account-exit-comparison.py",
+    "service/research_account_outcomes.py",
+    "tests/test_account_exit_comparison_runner.py",
+    "tests/test_account_exit_comparison_verifier.py",
+    "tests/test_research_account_outcomes.py"
+  ],
+  "runPrerequisites": {
+    "scopedTests": "artifacts/strategy-search/account-exit-comparison-scoped-tests-v1.json",
+    "prerunReview": "artifacts/strategy-search/account-exit-comparison-prerun-review-v1.json"
+  },
+  "runPolicy": "Freeze reviewed sources and protocol before one complete actual batch. Preserve any failed attempt. Do not restart or change thresholds because a result is poor. Check actual process handles after timeouts."
+}

@@ -1,0 +1,226 @@
+{
+  "schemaVersion": 1,
+  "status": "design-not-registered",
+  "title": "滚动领导力、角色更替与市场状态研究",
+  "userDirection": "The user explicitly added sustained month-long market leaders, followers and leadership displacement, apparent concentrated trading behavior, and signals that change with observable market conditions as a new research direction.",
+  "objective": {
+    "target": "A reproducible signal with a very high independently validated probability of realizing a single-position net +30 percent after executable entry.",
+    "targetNetGainPct": 30,
+    "annualizedReturnTarget": null,
+    "fixedHoldingDeadline": null,
+    "monthMeaning": "Twenty exchange sessions is a proposed descriptive trend-label window, not a new holding deadline or a replacement for the +30 event objective.",
+    "probabilityThreshold": "The program's provisional 80 percent screen remains assistant-proposed; this design neither turns it into a user guarantee nor claims an observed probability."
+  },
+  "completionState": {
+    "leadershipImplementationCreated": false,
+    "leadershipRealDataExecuted": false,
+    "leadershipReturnsCalculated": false,
+    "registeredTradingPolicies": 0,
+    "completeTradingRulesDefined": false,
+    "authorizationMeaning": "This document records the new research direction. Actual extraction, labeling, parameter registration and trading evaluation remain separately identifiable steps; no such result is implied here."
+  },
+  "existingProjectEvidence": {
+    "documentsRead": ["docs/emotion-cycle.md", "docs/local-analysis.md", "artifacts/strategy-search/program.json"],
+    "reuseCandidates": [
+      {
+        "component": "market.analysis.sentiment / market.analysis.ladder observations",
+        "existingBehavior": "Highest observable limit-up height, ties, prior-day leaders, promotion/failure cohorts, low candidates and theme-switch clues already exist. These are observation tools, not validated leader-return signals.",
+        "reuse": "Reuse the as-of-date presentation, explicit actual/requested dates, yesterday-frozen cohorts, unknown counts and evidence explanations after checking source and historical-rule compatibility."
+      },
+      {
+        "component": "Trend participation and market breadth",
+        "existingBehavior": "The panel already displays MA20/MA60 breadth, trend-candidate amount share and risk observations. Its documented trend sample requires continuous sixty-session trading observations.",
+        "reuse": "Reuse feature definitions as reference and UI presentation conventions, but retain the exact covered denominator. Do not call that complete-case sample the whole historical market."
+      },
+      {
+        "component": "Dated theme snapshots",
+        "existingBehavior": "Saved theme records have effective dates, source and save time. Current TDX snapshots cannot be backdated; retrospective manual historical labels are explicitly not contemporaneous signal evidence.",
+        "reuse": "Preserve this prohibition and metadata. Only verifiable as-of membership may enter a historical feature; unknown theme membership remains unknown."
+      }
+    ],
+    "mustNotInheritAsHistoricalTruth": [
+      "Current-name ST filters or today's survivor directory cannot become historical entry eligibility.",
+      "Approximate limit-up observations cannot substitute for historical exchange rules, auction evidence or intraday order-book facts.",
+      "Existing two-day stage confirmation, five-day carry and coverage thresholds are UI/observation rules; this document does not silently register them as the new trading policy."
+    ],
+    "newResearchContribution": "Build full daily rolling leadership features, then test whether persistence, role changes, same-group lagged relationships and a fixed observable-state policy add predictive information beyond simple relative-strength/momentum baselines. A new name for the existing highest-board list is not a new validated strategy."
+  },
+  "firstDeliverable": {
+    "name": "daily-leadership-panel",
+    "stage": "implementable-feature-panel-design;no-trading-signals-yet",
+    "grain": "One record per fixed-sample security per exchange session, including insufficient-history, ineligible, missing and unknown cases.",
+    "proposedInitialSample": {
+      "basis": "The unchanged original 3141-security development snapshot is the proposed initial diagnostic population, fixed before feature output.",
+      "fingerprint": "226fcb48c6729c7ee1784eb871ff124ac921733f339b9e2fbe78cb3e592a9014",
+      "developmentWindow": ["2022-01-01", "2023-12-31"],
+      "meaning": "Fixed local coverage, not a certified point-in-time whole-market universe.",
+      "supplementPolicy": "The 56 completed missing-history securities and 69 unqueried securities remain a separate acquisition package. Do not append only the available or successful names to this population. A broader panel requires its own outcome-blind sample manifest and coverage design.",
+      "beforeExtraction": "Freeze the exact source hashes, calendar, benchmark, feature version, sample count and extraction scope in a separate panel manifest. This design does not report that extraction has happened."
+    },
+    "rowIdentityAndEvidence": [
+      "symbol, asOfDate, sampleManifestHash, calendarHash, featureVersion, sourceHashes",
+      "rawPriceBasis, comparableActionEvidence, historicalMembershipEvidence, historicalStEvidence, historicalListingEvidence, historicalTradeStatusEvidence",
+      "requiredSessions, observedSessions, missingDates, eligibleCount, evaluableCrossSectionCount, unknownCount, exclusionOrUnknownReason"
+    ],
+    "clock": "Every feature at T uses only observations at or before T. Rolling windows use exchange-calendar slots, not the last N available bars. Missing slots are explicit; no future backfill, denominator repair, current identity substitution or backward relabeling is permitted.",
+    "priceBasis": "Keep raw observations and their source references. Comparable adjusted prices require a dated and independently justified action bridge. Until then, any price/volume feature derived from unadjusted data is a raw-price diagnostic with action and economic-profit certainty false.",
+    "featureGroups": [
+      {
+        "name": "relativeStrength",
+        "fields": ["return20", "return60", "relativeReturn20", "relativeReturn60", "relativeReturn20Percentile", "relativeReturn60Percentile"],
+        "calculation": "For h in {20,60}, return_h=C_T/C_(T-h)-1 and relativeReturn_h=(C_T/C_(T-h))/(I_T/I_(T-h))-1 using aligned CSI300 closes. Percentiles are same-day midranks in the declared evaluable cross-section, ascending strength so larger means stronger; preserve ties and the complete denominator.",
+        "unknownPolicy": "Missing benchmark, security observations or comparable price evidence is recorded. A covered-sample percentile is not represented as a whole-market rank."
+      },
+      {
+        "name": "strengthPersistence",
+        "fields": ["trailing20DailyStrengthPercentiles", "meanStrengthPercentile20", "minimumStrengthPercentile20", "knownStrengthRankSessions20", "topQuantileSessionCount20"],
+        "calculation": "Retain the twenty archived daily relativeReturn20 percentiles for T-19..T, each computed against that day's declared cross-section. Calculate their mean and minimum only with explicit completeness metadata. Never recalculate past ranks using today's survivors or today's candidate list.",
+        "strongThreshold": "No top-quantile cutoff is registered here. topQuantileSessionCount20 remains undefined until q is separately chosen and frozen; the underlying percentile history is already implementable without selecting q.",
+        "warmup": "Sufficient earlier observations are needed for each historical rank. Pre-start warmup may supply feature inputs but must not be represented as evaluated strategy signals."
+      },
+      {
+        "name": "pathQuality",
+        "fields": ["positiveCloseReturnSessions20", "closePathMaxDrawdown20", "signedPathEfficiency20", "closeAboveMA20Sessions20"],
+        "calculation": "On closes T-20..T, count strictly positive one-session close returns. Closing-path drawdown is the maximum decline from the running closing peak within that window. Signed efficiency is (C_T-C_(T-20))/sum(abs(C_d-C_(d-1))) over the twenty changes; a zero denominator is undefined. Count sessions T-19..T with C_d>MA20_d, each MA ending at d.",
+        "meaning": "These are backward-looking path descriptors, not proof of a future monthly rise, low intraday risk or achievable fills. Missing paths are not shortened into complete ones."
+      },
+      {
+        "name": "amountParticipation",
+        "fields": ["amountToday", "prior20MeanAmount", "amountRelativeToOwnPrior20", "knownAmountSessions20"],
+        "calculation": "Use explicit raw amount at T and arithmetic mean amount over T-20..T-1. The ratio is amount_T/prior20MeanAmount, with a known positive denominator. Keep units and source hashes; do not manufacture amount from volume times close.",
+        "meaning": "This measures participation relative to the stock's own history. It does not identify buyers, controllers, institutional ownership or free-float turnover.",
+        "turnoverExtension": "Turnover requires point-in-time tradable-share or free-float share counts and their effective dates. It remains unavailable until those fields are independently supplied."
+      }
+    ],
+    "noHiddenLeaderScore": "Do not combine these groups into a leader score, select winner-derived weights, emit leader/nonleader truth labels, or trade from this panel until thresholds, weights and ranking/tie rules are separately registered.",
+    "leadershipDimensionsRemainSeparate": {
+      "persistentPriceLeader": "A stock with strong relative returns and a persistent observed upward path under an eventual registered descriptive definition.",
+      "predictivelyAssociatedLeader": "A stock whose earlier observable changes have separately evaluated incremental predictive association with later same-group or covered-market outcomes, conditional on declared controls.",
+      "nonEquivalence": "The return champion is not automatically a market influencer. Persistent outperformance does not establish lead-lag prediction, and predictive association does not establish causal influence. Preserve separate fields and evidence status rather than merging these roles into one claimed total leader."
+    },
+    "initialSyntheticAcceptance": [
+      "Appending or changing future rows leaves every T feature and its prior-rank history unchanged.",
+      "Warmup, missing bars, explicit halts, unknown identity and cross-section denominators remain distinguishable.",
+      "Current ST names, current theme snapshots and future delisting dates cannot silently filter earlier feature rows.",
+      "Ranking ties and input mutation are tested; complete-sample row counts reconcile for every date.",
+      "Feature construction cannot access future-label files, directly or through shared joined tables."
+    ]
+  },
+  "futureLabelSeparation": {
+    "labelFileDesign": "A separate versioned labels/forward20-trend.jsonl-style artifact, created by an independent label job only after feature output is frozen. This is a proposed artifact layout; no label file has been generated by this task.",
+    "accessBoundary": "The feature job accepts only an allowlisted market-history input and its frozen sample manifest. It receives no label path, label table, label-derived eligibility mask or forward-coverage filter. Only the downstream evaluation job may join frozen features and labels by symbol/date.",
+    "trendLabelFields": ["forward20CloseReturn", "forward20ClosingPathDrawdown", "forward20PositiveReturnSessionCount", "forward20CloseAboveTrailingMA20SessionCount", "potentialFollowupSessions", "observedFollowupSessions", "rightCensored", "missingDataReason"],
+    "labelClock": "The trend interval is T+1..T+20 with T close as the descriptive return base. Trailing MA for a labeled future day ends on that day. Future observations are legal only in this isolated label job; those values never flow back to T features.",
+    "noWinnerOnlySelection": "Create labels for the complete fixed panel, including weak stocks, failed leaders, losses, delisted names where covered, unknown outcomes and censored rows. Never first select securities that later rose for a month and use them as the training population.",
+    "noPrematureBinaryLabel": "Continuous forward descriptors come first. Any definition of sustained-month leader or binary positive label requires a separately registered threshold before outcome comparison, rather than thresholds chosen to match attractive examples.",
+    "censoring": "A cutoff before twenty potential sessions is right-censoring; missing required observations is a separate unknown-data condition. Neither means success, zero return, certain failure or permission to drop the row.",
+    "economicEventSeparation": "Keep the executable-entry, cost/entitlement-adjusted net +30 event label in a separate event evaluation. A forward closing return or monthly trend-quality label is neither a trade fill nor a replacement for the user's target."
+  },
+  "sameGroupAndLeadLag": {
+    "pointInTimeGroups": "Use industry/theme membership only when source publication/as-of and effective dates make it available at the feature cutoff. Do not backfill today's constituents or retrospective manual stories.",
+    "statisticalAlternative": "If PIT groups are unavailable, a separately specified statistical grouping may use only pre-T returns, for example a fixed trailing sixty-session window with common-market variation removed. Such a group must be named a statistical co-movement group, not a verified industry or theme. Membership and grouping settings are frozen before the evaluated response period.",
+    "lagHypothesis": "Investigate whether earlier stock/group responses add predictive information about later peers beyond common-market moves and each peer's own momentum. A 1–3-session lag family is a candidate design; the window, aggregation, controls and number of tests must be registered before estimating results.",
+    "avoidPairMining": "Do not search every stock pair, lag, window and direction and keep only the best relation. Preserve all attempted pairs/groups and the uncertainty created by selecting them.",
+    "interpretation": "Lead-lag or incremental prediction is not proof that one stock caused followers to rise. Shared information, liquidity and delayed adjustment can generate the same observations. Same-day daily bars cannot establish intraday leadership order."
+  },
+  "rolesAndObservableRegimes": {
+    "status": "conceptual-policy-design;thresholds-and-trading-rules-incomplete",
+    "roleEvidence": [
+      {
+        "role": "leaderContinuation",
+        "label": "龙头延续",
+        "proposal": "A previously recorded leader retains strength persistence and path quality while participation and covered-market breadth support expansion. Evaluate renewed confirmation using the prior leader cohort, without requiring the highest limit-up count.",
+        "mustRegister": ["leader definition and tie handling", "confirmation condition", "persistence threshold", "entry ranking", "repeated-trigger policy"]
+      },
+      {
+        "role": "leaderRepair",
+        "label": "分歧修复",
+        "proposal": "Market or group breadth retreats, but a leader recorded before the divergence has not breached its predeclared invalidation condition. The first later observed repair may create a candidate; later recovery cannot retrospectively turn an earlier breakdown into a valid hold or entry.",
+        "mustRegister": ["divergence anchor", "structure invalidation", "repair trigger", "formation deadline", "unknown and halt handling"]
+      },
+      {
+        "role": "leadershipReplacement",
+        "label": "领导者更替",
+        "proposal": "The prior leader cohort visibly deteriorates while an already observable challenger establishes confirmed leadership. Freeze the old leader and challenger evidence at their actual dates; act only when the registered confirmation becomes known.",
+        "mustRegister": ["old-leader failure condition", "challenger ranking and confirmation days", "tie/conflict priority", "switch cooldown", "same-day information timing"],
+        "dailyMeaning": "With daily data this is a closing-rank or closing-structure replacement. Intraday displacement, sealing an auction queue or capturing order flow is not established."
+      },
+      {
+        "role": "followerRelay",
+        "label": "跟随接力",
+        "proposal": "A group defined before the event expands participation while its previously recorded leader remains valid; a preidentified nonleader develops its own confirmation. Membership cannot be created from the later group rally.",
+        "mustRegister": ["group availability", "leader-validity rule", "follower eligibility and own confirmation", "overextension filter if any", "conflict and ranking rule"],
+        "failureScenario": "A late follower can be weaker, less liquid or simply reacting to common news; relay is a hypothesis rather than an automatic low-risk substitute for the leader."
+      }
+    ],
+    "proposedFixedMapping": [
+      {"observableState": "unknownMarketState", "allowedNewRoleCandidates": [], "meaning": "Evidence is insufficient to classify the market. Do not choose a profitable alternative mode to fill an unknown state."},
+      {"observableState": "noClearLeader", "allowedNewRoleCandidates": [], "meaning": "Observed conditions may support no sufficiently persistent leader, including weak markets or rapid rotation. This is distinct from unavailable market evidence; no daily total leader is forced."},
+      {"observableState": "riskContraction", "allowedNewRoleCandidates": [], "meaning": "The policy may produce no new signal; this does not silently change existing-position exits."},
+      {"observableState": "trendExpansion", "allowedNewRoleCandidates": ["leaderContinuation", "followerRelay"], "meaning": "Leader and follower status must use the predeclared disjoint role rules; common selection handles competition, not hindsight returns."},
+      {"observableState": "divergenceWithStructureIntact", "allowedNewRoleCandidates": ["leaderRepair"], "meaning": "Use only a valid recorded leader/structure and a later observable repair."},
+      {"observableState": "leadershipTransition", "allowedNewRoleCandidates": ["leadershipReplacement"], "meaning": "Require evidence of old-leader deterioration and challenger confirmation before changing the role."}
+    ],
+    "stateInputs": "Candidate inputs are covered breadth, benchmark direction/volatility, prior-day frozen leader-cohort performance, participation and role persistence. Numerical thresholds, confirmation duration, hierarchy between overlapping states, carry/expiry and all score weights remain unregistered.",
+    "fixedMeans": "Before any policy trial, freeze one deterministic observable-state classifier and its state-to-role mapping. Do not choose the historically best strategy after seeing each market episode, move regime boundaries to improve outcomes, or relabel earlier states using future recovery.",
+    "timeOrder": "State and role evidence at T close can affect only a later permitted execution. Confirmation on a second day cannot be assigned to the first day's opening price. Preserve the previous day's full cohort, including failures and unknown observations, when computing today's feedback.",
+    "onlineLearningIfLaterProposed": "Any later learning policy is a separate research version, with fixed update schedule/window/objective and only feedback matured by the update time. It cannot train on still-unobserved eventual +30 outcomes or choose rules using future validation returns.",
+    "noForcedDailySelection": "Explicitly allow noClearLeader and unknownMarketState. Never choose a daily total leader merely because a ranking always has a first place, and never backfill a rejected or unknown role merely to produce daily signals.",
+    "currentBoundary": "No numerical state classifier, complete leader score, full entry/exit system or market-adaptive trading strategy is implemented or registered by this document."
+  },
+  "controlAndBehaviorInterpretation": {
+    "allowedDescription": "Relative strength, path stability, amount participation and apparent limited selling pressure are observable price/volume behavior descriptors.",
+    "notIdentified": "These descriptors cannot identify actual controlling shareholders, small trading groups, account ownership, institutional buying or the existence of price control. Do not label them verified strong-control or market-manipulation evidence.",
+    "additionalExecutionEvidence": "Intraday timing, auction capacity, queue position and full-position fills require appropriate contemporaneous intraday/auction/order evidence; daily high touches and turnover proxies do not supply it."
+  },
+  "priceVolumePersistenceProxyBranch": {
+    "status": "separate-design-branch;not-registered-not-executed",
+    "userLanguageContext": "This branch addresses the user's interest in small-group or tightly controlled-looking stocks without treating that description as established account-level control.",
+    "researchObject": "Test persistent relative strength, restrained closing-path drawdown, amount behavior relative to the stock's own history and any independently available share-turnover evidence as observable price-volume persistence proxies.",
+    "separation": "Keep this branch separate from persistent-price leadership and peer/market predictive-association labels. It may describe a stock with no measurable followers, and it need not imply a market leader.",
+    "notAnOwnershipClaim": "No proxy here identifies a controlling account, participant identity, coordinated trading group or actual control of supply. Missing historical free-float or participant data remains missing.",
+    "futureRegistration": "Any entry hypothesis, thresholds, weights or adaptive interaction for this branch needs its own registration and attempt record. No daily signal or replacement candidate is required when the proxy is absent or unknown."
+  },
+  "evaluationPlan": {
+    "stages": [
+      "First build and audit the immutable daily feature panel, with no return-based selection or trading output.",
+      "Separately construct complete-population trend labels and inspect whether rolling leadership descriptors predict those labels beyond ordinary momentum, preserving all negative and unknown cases.",
+      "Only after separately registering exact scoring, role rules and state mapping, compare a simple momentum baseline, a fixed leader ranking, the same role signals without state selection, and the fixed state policy. Record every model and comparison rather than retrofitting the best stage into earlier rules.",
+      "Then evaluate the final single-position net +30 objective with executable-entry/exit evidence, costs, entitlements, waiting time and adverse paths; retain distinctions between raw-price proxies and economic outcomes."
+    ],
+    "sampleUse": "2022–2023 remains development data. Prior documented 2024+ use prevents automatic pristine-holdout claims. New independent historical validation needs provenance, or collect prospective frozen-rule paper signals.",
+    "dependencyAndMultiplicity": "Cluster evidence by market date, security and group/leadership episode. Overlapping twenty-session labels and many followers of one leader are not independent observations. Record feature variants, lag choices, weights, state thresholds, role policies and all failed attempts.",
+    "reporting": "Report row/entry coverage, negative examples, unfilled signals, net +30 frequency with appropriate uncertainty, complete-cohort horizons, time-to-target, right-censoring and target-before/after adverse-boundary paths. Do not present winner-only holding times or the best horizon as the success probability.",
+    "practicalAcceptance": "A mechanism is useful only if its extra predictive value survives the declared comparisons and separately justified validation without excessive waiting, severe pre-target loss or unfillable signals. No result or acceptance is asserted here."
+  },
+  "externalHypothesisContext": {
+    "provenance": "Short summaries below use primary-source facts supplied by the coordinating agent after its reading in this task. No new network request was made while writing this document. They motivate hypotheses, not results from this system.",
+    "sources": [
+      {
+        "authorOrProvider": "Hou, author SSRN abstract",
+        "url": "https://ssrn.com/abstract=463005",
+        "reportedFinding": "Industry return responses can show large companies preceding smaller companies; much of the documented relation is linked to slower adjustment to negative information.",
+        "designUse": "Motivates pre-event group definitions, asymmetric information response and tests beyond common-market movement.",
+        "limit": "This is not evidence that A-share speculative leaders cause followers to rally, or that a one-month +30 trading signal exists."
+      },
+      {
+        "authorOrProvider": "Moskowitz and Grinblatt, author institution AQR",
+        "title": "Do Industries Explain Momentum?",
+        "url": "https://www.aqr.com/Insights/Research/Journal-Article/Do-Industries-Explain-Momentum",
+        "reportedFinding": "Industry momentum is relevant to intermediate-horizon momentum research, commonly discussed over six-to-twelve-month horizons.",
+        "designUse": "Motivates separating stock leadership from common industry/group momentum and retaining an industry-aware baseline.",
+        "limit": "The horizon and setting do not establish one-month A-share +30 outcomes or validate the proposed group/leader classifier."
+      },
+      {
+        "authorOrProvider": "Daniel and Moskowitz, NBER",
+        "url": "https://www.nber.org/papers/w20439",
+        "reportedFinding": "Momentum crash research highlights market states involving prior declines, high volatility and rebounds.",
+        "designUse": "Motivates observable regime stratification and explicit testing of reversal/repair risks rather than assuming strong stocks remain safe in all states.",
+        "limit": "This is hypothesis context, not direct A-share performance evidence or proof that the proposed regime mapping prevents crashes."
+      }
+    ]
+  },
+  "returnsCalculated": false,
+  "certified": false,
+  "targetAchieved": false
+}

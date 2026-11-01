@@ -1,5 +1,22 @@
 .settings-form-panel{max-width:900px}
 .settings-form-panel .panel-body{padding:26px}
+.settings-rule-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.settings-rule-heading h2{font-size:18px;line-height:1.5;margin:0}
+.settings-rule-state{padding:5px 10px;border-radius:6px;background:var(--hover);color:var(--secondary);font-size:13px;line-height:1.5;white-space:nowrap}
+.settings-rule-state[data-state=draft]{background:#fff4df;color:#88571a}
+.settings-rule-description{font-size:14px;line-height:1.85;color:var(--secondary);margin:0;max-width:66ch}
+.settings-form-panel .field-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
+.settings-form-panel .field{font-size:14px;line-height:1.7;min-width:0}
+.settings-form-panel .field input{min-height:42px;font-size:15px}
+.settings-form-panel .field input[aria-invalid=true]{border-color:#bb4139;outline-color:#bb4139}
+.settings-current-value,.settings-field-error{display:block;font-size:13px;line-height:1.65;margin-top:7px}
+.settings-current-value{color:var(--secondary)}
+.settings-field-error{color:#aa332c}
+.settings-field-error[hidden]{display:none}
+.settings-form-panel .field-hint{font-size:13px;line-height:1.8}
+.settings-form-panel .btn{font-size:14px;min-height:40px}
+.settings-form-panel .settings-feedback{font-size:14px;line-height:1.8;color:var(--text)}
+.settings-form-panel .settings-draft-hint{margin-top:7px}
 .settings-form-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
 .settings-feedback{font-size:13px;line-height:1.7;min-height:22px;margin-top:14px;color:var(--secondary)}
 .settings-migration{margin-top:18px;font-size:12px;line-height:1.8}
@@ -10,6 +27,8 @@
 .settings-status-item>strong{font-size:16px;overflow-wrap:anywhere}
 .settings-local-path{overflow-wrap:anywhere;margin:16px 0;color:var(--secondary)}
 .reading-large :is(.field,.field input,.field-hint,.settings-feedback,.ai-key-note,.ai-feedback,.market-field-note){font-size:14px}
+.reading-large .settings-form-panel :is(.field,.field input,.settings-rule-description,.settings-feedback,.btn){font-size:16px}
+.reading-large .settings-form-panel :is(.field-hint,.settings-current-value,.settings-field-error,.settings-rule-state){font-size:14px}
 .fx-reading{margin-bottom:22px}
 .fx-advanced{margin-top:22px}
 .fx-advanced>summary{cursor:pointer;padding:18px 20px;font-size:14px;font-weight:600;background:var(--surface);border-radius:10px}
@@ -31,4 +50,4 @@
   .fx-settings-grid>.fx-preview-column{grid-row:3}
   .fx-settings-grid .fx-advanced{grid-row:4;margin-top:0}
 }
-@media(max-width:620px){.settings-status-grid{grid-template-columns:1fr}.settings-form-panel .panel-body{padding:18px}}
+@media(max-width:620px){.settings-status-grid{grid-template-columns:1fr}.settings-form-panel .panel-body{padding:18px}.settings-form-panel .field-row{grid-template-columns:1fr}}

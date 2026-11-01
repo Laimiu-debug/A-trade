@@ -1,0 +1,98 @@
+{
+  "schema": "ignition-selection-research-closeout-v1",
+  "completedAt": "2026-10-31T10:04:36.315445+00:00",
+  "newHypotheses": 2,
+  "completedAccounts": 9,
+  "newEntryFiltersRun": 0,
+  "allOriginalSlotsPreserved": true,
+  "tests": {
+    "preExecutionSyntheticPassed": 30,
+    "readoutSyntheticPassed": 8,
+    "readoutResultSource": "Successful subagent unittest execution; test code SHA included."
+  },
+  "independentVerificationPassed": true,
+  "historicalScreenPassCount": 0,
+  "profitabilityProven": false,
+  "pristineOosPerformed": false,
+  "readPricesAfter20261015": false,
+  "productionStrategyChanged": false,
+  "realOrdersPlaced": false,
+  "automationCreated": false,
+  "visualQA": {
+    "file": {
+      "path": "artifacts/strategy-search/ignition-selection-review-20261031/historical-comparison.png",
+      "sha256": "b9418e14aa57506c884e755ac061c2ff60a108c73a84fd29ce8567430eac6612"
+    },
+    "reviewed": true,
+    "result": "Three panels readable; negative returns and exposed-history limitation visible; no clipping observed."
+  },
+  "decision": "Reject both candidates for promotion. Preserve all results, including development deterioration and temporal retest improvements, without post-result parameter changes.",
+  "artifacts": {
+    "hypothesis": {
+      "path": "artifacts/strategy-search/ignition-selection-review-20261031/hypothesis-plan.json",
+      "sha256": "46a7804a3f8f875f21b3a82bd5c364faa94d33e71bb0531be3c5a982a8084c25"
+    },
+    "executionPlan": {
+      "path": "artifacts/strategy-search/ignition-selection-review-20261031/experiment/execution-plan.json",
+      "sha256": "4cde613f33da29393070630c16f02ebc92e525afc7357cb6e9278a9c86378948"
+    },
+    "readout": {
+      "path": "artifacts/strategy-search/ignition-selection-review-20261031/readout.json",
+      "sha256": "4177d5ed471234ecda681baf6ec067e0ad78150cbd1ad4841d9f2147473ee037"
+    },
+    "finalVerification": {
+      "path": "artifacts/strategy-search/ignition-selection-review-20261031/final-verification.json",
+      "sha256": "5b359dc505c54392f2212c2aa4636b20033b8d3b55c79e6364794da76c6c0b1d"
+    },
+    "diagnosticManifest": {
+      "path": "artifacts/strategy-search/ignition-selection-review-20261031/diagnostics/frozen-diagnostic-manifest.json",
+      "sha256": "f999754e3d72bd0d6bd17eae2083168756bdb87e000147385000b1fe3fe58d13"
+    },
+    "diagnosticConclusions": {
+      "path": "artifacts/strategy-search/ignition-selection-review-20261031/diagnostics/diagnostic-conclusions.json",
+      "sha256": "259c467b77cb8bdab7cb2e01bbb52c26ef434845727a6668a3da6994cc592cc7"
+    },
+    "accountCompletion": {
+      "path": "artifacts/strategy-search/ignition-selection-review-20261031/experiment/all-accounts-completion.json",
+      "sha256": "a12e2822c23dd490b797f04279899b73428e44ee6f04144d4338df4a4705d922"
+    },
+    "syntheticTests": {
+      "path": "artifacts/strategy-search/ignition-selection-review-20261031/experiment/synthetic-tests.json",
+      "sha256": "0a3960e5075d6932708af98a017d9f64f16d2cb1ddf53916a9582266abcdc90f"
+    },
+    "oosStatus": {
+      "path": "artifacts/strategy-search/ignition-selection-review-20261031/oos-status.json",
+      "sha256": "fbacb23e5716ac4c701414f1b239b7c3edb0d90c368d071185b16ebe03e49df7"
+    },
+    "figure": {
+      "path": "artifacts/strategy-search/ignition-selection-review-20261031/historical-comparison.png",
+      "sha256": "b9418e14aa57506c884e755ac061c2ff60a108c73a84fd29ce8567430eac6612"
+    },
+    "selectionCode": {
+      "path": "service/research_ignition_selection.py",
+      "sha256": "db94120ddb592ae8d19ff44060251e9c4a3eee1f9bfffd3de26c4d60b1845b29"
+    },
+    "runner": {
+      "path": "scripts/run-ignition-selection-review.py",
+      "sha256": "f4966494eae9d53a586041c452ce626d95c66af94c9abda5458af61cd6707bf6"
+    },
+    "formationOracle": {
+      "path": "scripts/verify-ignition-selection-inputs.py",
+      "sha256": "fd0a090cc5336bd1187d90975bba9e0a8a0a4e7e1e150aecd916aa5fbfac59d7"
+    },
+    "readoutCode": {
+      "path": "scripts/summarize-ignition-selection-review.py",
+      "sha256": "375b947900e6fb05822de347444056663ee4e70920d772e5f3179e49eb00bbb2"
+    },
+    "readoutTests": {
+      "path": "tests/test_ignition_selection_readout.py",
+      "sha256": "07be5e0ab3d941c917ff0773b71f8d0c8ac086fdbb30772eb1db89c69b4785c8"
+    }
+  },
+  "storageGuard": {
+    "path": "H:\\codex\\storage-guard\\latest.json",
+    "observedRecordId": "20261031T100353-b7fb21b6",
+    "alerts": [],
+    "policy": "advisory-only"
+  }
+}

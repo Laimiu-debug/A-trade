@@ -1,0 +1,68 @@
+{
+  "schema": "leader-matched-anchor-protocol-v1",
+  "strategyId": "leaderMatchedAnchorV1",
+  "candidateIds": ["control", "realCross", "pseudoCross"],
+  "decision": "On a common subset of the same frozen member first-breakout opportunities, does crossing the original leader's traded value add more useful account outcomes than crossing a pre-matched outside-group stock?",
+  "objective": "Continue empirical small-loss/large-win research without annual30, per-trade30, average-win, win-rate, payoff or holding-duration acceptance hurdles. No stable-return certification from repeatedly inspected development history.",
+  "source": {
+    "family": "board-coverage-reclaim-v1",
+    "opportunityFamily": "leader-amount-handoff-v1",
+    "periods": ["2022-2023", "2024-2025"],
+    "boards": ["main", "chinext", "star"],
+    "inheritance": "Bind all six unchanged raw caches and batch43 passing plan/input-completion/input-validation/validation/delivery. Inherit every original formation and original Top5 opportunity, including unknowns; do not rebuild parent lock, peer group, first-breakout clock, owner or rank. No2026 source, new universe or industry metadata.",
+    "limitations": "Fixed surviving local cohorts, raw prices and incomplete historical status/coverage remain. Board-local statistical peers are not verified industry/theme memberships or market-wide leadership."
+  },
+  "validity": {
+    "calendar": "Exact ordered unique supplied source slots, including warmup; no compressed missing history. Numeric reads stop at registered end.",
+    "bar": "Frozen research_leader_lag._Series raw OHLCV/envelope/known-status validity. Explicit finite positive CNY amounts additionally required. No individual-stock repair or new liquidity/listing/ST/Q filter.",
+    "amount3": "M3(s,d)=math.fsum of exact d-2..d positive amounts, only when all three required price/status bars and amounts are valid. Unknown stays unknown.",
+    "mean20": "math.fsum(amount[A-20:A])/20 over exact A-20..A-1 slots, excluding A. All20 raw price/status bars and amounts must be valid, and sum/mean finite positive."
+  },
+  "matching": {
+    "scope": "For every parent formation with status formed, including those producing no future Top5 opportunity, match exactly once at A. Retain all parent locked/not-formed events as inherited dispositions without matching.",
+    "identity": "One pseudo anchor per parentEventId=(A,originalAnchor); all frozen members share it. Different formations may reuse a pseudo anchor.",
+    "pool": "All securities in the same frozen board cohort except the original anchor and all20 frozen members. No A-day amount/status, future availability, future return, original member eligibility, theme or leadership rank participates in matching.",
+    "scale": "Both original anchor and candidate require known mean20. If original scale is unknown, match status anchorScaleUnknown. Otherwise eligible candidates require known mean20. No valid candidate means noEligibleCandidate.",
+    "distance": "abs(math.log(candidateMean20)-math.log(anchorMean20)); select smallest exact unrounded float distance, then lexicographically smallest symbol for a tie. No caliper, tolerance, parameter search, random seed or replacement.",
+    "freeze": "Selected identity never changes because its A-day M3, a member's initial relation, T evidence or future outcomes are unfavorable or unknown. No second-nearest fallback. A-day data are assessed only after identity is frozen.",
+    "interpretation": "The selected stock is outside this specific frozen group, not proven unrelated, random or non-leading. The matching controls only prior traded-value scale; strength, theme, correlation, news and A-day activity are not balanced."
+  },
+  "commonSupport": {
+    "population": "Every original batch43 Top5 opportunity retains original A,T,member,anchor,owner and originalRank. The parent already required member M3(A)<=real M3(A); adding the pseudo condition defines a NEW common subset. Do not call this the identical old43 control population.",
+    "evidence": "Recompute and retain member, real and pseudo M3 at A,T-1,T from raw bars. Store all individually knowable values and reason flags even when another requirement fails. Bind recomputed inherited member/real values to parent evidence.",
+    "priority": "Exclusive status order: matchUnavailable; initialUnknown if any A M3 unknown; initialAbove if known member M3(A)>either anchor M3(A); decisionUnknown if any T-1/T M3 unknown; commonKnown otherwise. Keep independent unknown and failed-initial reason flags in addition to exclusive status. No backfill.",
+    "initial": "Known member M3(A)<=real M3(A) AND member M3(A)<=pseudo M3(A), equality admitted. Above or unknown removes the opportunity from ALL three policies, with its original slot retained in the denominator.",
+    "clock": "T is the parent's first price breakout in A+1..A+5. Amount failure/unknown does not wait for a later breakout or extend the episode; original Top5 precedes all new masks.",
+    "control": "Admit every commonKnown original opportunity, without any crossing condition.",
+    "realCross": "Within commonKnown, member M3(T-1)<=real M3(T-1) AND member M3(T)>real M3(T).",
+    "pseudoCross": "Within commonKnown, member M3(T-1)<=pseudo M3(T-1) AND member M3(T)>pseudo M3(T).",
+    "signals": "Exactly signalId,strategyId,symbol,signalDate,originalRank. New identity leaderMatchedAnchorV1:A:realAnchor:member; retain parentOpportunityId for reconciliation. Same identity across policies; T-close decision and unchanged next-source-open execution."
+  },
+  "account": {
+    "exits": ["trail10", "volatilityTrail"],
+    "execution": "Same frozen FixedSignalAccount / VolatilityTrailAccount and exact batch43 configuration, changing strategy identity only.500000 initial capital, max5 positions,20% entry budget, initial5% close stop, fixed10% close trail or3x prior20 normalized true-range trail. No take-profit, fixed holding deadline or noProgress5 exit.",
+    "fees": "Unchanged dated policy for2022-2023, LegacyFeePolicy for2024-2025; double-sided10bp slippage, integer5 minimum commission. Preserve costs, volume/price-band constraints, unresolved/open holdings and valuation flags.",
+    "executionScope": "All36 newly executed accounts,0 reused. Old43 control summaries are descriptive population context only, never reused as a matched-control account."
+  },
+  "readout": {
+    "primary": "All12 realCross-minus-pseudoCross comparisons across2 periods,3 boards,2 exits. No winning-cohort selection.",
+    "secondary": "All12 realCross-minus-control and12 pseudoCross-minus-control comparisons; all36 accounts. Separately12 old43-control versus new-common-control context rows, labelled population/selection change rather than anchor effect.",
+    "coverage": "All parent formation dispositions; match-known/unknown counts; matching distance distributions and pseudo reuse; original Top5 through each exclusive common-support status; all three schedules, rejected/unfilled/closed/open dispositions. Keep four overlap cells both/realOnly/pseudoOnly/neither within commonKnown.",
+    "diagnostics": "Prior20 scale ratios/distances, A-day pseudo/real M3 ratio and member-to-both ratios, distinct pseudo counts and repeated usage are descriptive only. Do not derive new gates from diagnostics.",
+    "performance": "Full net return/drawdown/exposure/costs, closed win/loss means and medians, expectancy/payoff/PF, loss streaks/tails/profit concentration, open realized/unrealized PnL and valuation flags. Missing or undefined ratios remain null.",
+    "time": "All annual, half-year, existing narrative-phase and9.24 continuous-equity intervals; no capital reset, date-coded switch or annualization of unequal before/after intervals.",
+    "conservation": ["parentFormations=formed+inheritedOther", "formed=matched+anchorScaleUnknown+noEligibleCandidate", "originalTop5=matchUnavailable+initialUnknown+initialAbove+decisionUnknown+commonKnown", "commonKnown=both+realOnly+pseudoOnly+neither", "controlSignals=commonKnown", "realCrossSignals=both+realOnly", "pseudoCrossSignals=both+pseudoOnly", "per-policy originalTop5=scheduled+notScheduled", "scheduled=entered+notEntered"]
+  },
+  "validation": {
+    "freeze": "Protocol, matching, code and source hashes before any new actual candidate coverage or schedules. Complete all six preparations and independent reconstruction before accounts. Preserve failures without changing selection based on results.",
+    "synthetic": "Historical20 exact slots/excludesA, log-distance and symbol ties, excluded peer group, missing scale/no candidate, A-unknown/initialAbove and no fallback, matching all formed events including no future opportunity, pseudo reuse, immutable identities/rank/no refill, four crossing cells, common status priority/independent flags, unknown required bars, no source mutation and future perturbation invariance.",
+    "independent": "Inherit exact hash-bound parent formation/Top5 proof; separately reconstruct candidate matching from raw histories and all new common-support values/masks, audit36 fee/cash/holdings/risk paths without executing duplicate trials, independently rebuild all readout tables.",
+    "interpretation": "This is a conditional strategy comparison, not randomized identification of leadership or investors. A positive result can justify further preregistered validation; repeated development history cannot establish stable returns."
+  },
+  "trialAccounting": {"newSetupMechanisms": 1, "newEntryPolicies": 3, "newAccounts": 36, "referenceAccountsReused": 0, "newUniverseVariants": 0},
+  "profitHurdles": null,
+  "parameterSearch": false,
+  "holdoutClaim": false,
+  "certified": false,
+  "targetAchieved": false
+}

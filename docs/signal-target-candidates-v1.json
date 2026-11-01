@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "registeredAt": "2026-10-15T11:37:02Z",
+  "status": "registered-not-executed",
+  "rationale": "Three low-degree-of-freedom extensions proposed before inspecting full-pool baseline outcomes. These are hypotheses, not demonstrated 30-percent signals.",
+  "designSource": "Independent methodology agent used existing source definitions only; no pilot, baseline or reserved-period outcome inspection.",
+  "signalWindow": {"start": "2022-01-01", "end": "2023-12-31"},
+  "observationCutoff": "2023-12-31",
+  "candidateCount": 3,
+  "parameterScan": false,
+  "execution": "Reuse baseline single next-session opening attempt, costs, fixed quantity reserve, no stop and no fixed holding deadline; Top5 after filtering the full daily triggered set; keep original causal score and symbol tie-break.",
+  "candidates": [
+    {
+      "id": "pullbackVolumeConfirm",
+      "base": "trendPullback",
+      "baseParameters": {"trendWindow": 80, "pullbackWindow": 10, "minDrawdown": 0.03, "maxDrawdown": 0.12},
+      "extraFilter": "Signal-day volume divided by the mean volume of the preceding 20 exchange sessions is at least 1.2; all 20 prior sessions must have known positive-volume bars.",
+      "hypothesis": "Volume confirmation may reject weak price rebounds inside a trend."
+    },
+    {
+      "id": "firstBreakoutTenSessions",
+      "base": "trendBreakout",
+      "baseParameters": {"lookback": 40, "trendWindow": 80, "volumeRatio": 1.2},
+      "extraFilter": "The exact same default breakout condition was false on every one of the preceding 10 exchange sessions; each session must have enough complete causal indicator history. Today's base condition must pass.",
+      "hypothesis": "A first trigger within ten sessions may avoid repeated late entries; it does not establish the start of a new bull trend."
+    },
+    {
+      "id": "momentumMarketUp",
+      "base": "momentum",
+      "baseParameters": {"lookback": 60, "trendWindow": 120, "minReturn": 0.05},
+      "extraFilter": "The registered CSI300 benchmark has observed regime data and its signal-day close exceeds MA60, which exceeds the prior session's MA60. Missing benchmark observations produce no signal.",
+      "hypothesis": "A rising broad market may improve momentum signal outcomes."
+    }
+  ],
+  "riskObservationOnly": {
+    "thresholdsNetLowProxyPct": [-10, -20],
+    "categories": ["main-open-target-first", "risk-boundary-first", "neither-before-cutoff", "unresolved-data-or-ordering"],
+    "retainLaterRecovery": true,
+    "policy": "These are path diagnostics, not new stop orders or user risk tolerances. Entry-day risk is observed under T+1; target-open exit days exclude later lows. Intraday high/low same-bar ordering remains unknown.",
+    "denominators": "Keep complete potential follow-up cohorts, missing-result bounds and still-waiting events. Do not report only successful holding times."
+  },
+  "validation": "The 2024+ interval is not pristine: documented earlier six-stock runs exist. Additional historical tests need qualified provenance; independent validation requires frozen rules and separately justified untouched data or prospective observations.",
+  "targetAchieved": false
+}

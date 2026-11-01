@@ -2,7 +2,7 @@
   const $ = (s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)], E=AT.escape, I=AT.icon, B=AT.button;
   const main=$('#main'),workspaceRoot=$('#workspace-root'); let toastTimer,modalReturnFocus,resizeTimer,noteTimer,renderFrame,workspaceSession;
   const chartStateKeys=['activeTask','researchParams','strategyIds','stockPool','researchMode','heat','plateauRatio','plateauStrategies','resultTab','chartZoom','pathContext'];
-  const scrollRegions=['#navigation','.local-tabs','.context-nav','.pass-viewport','.workspace-tabs','.table-wrap','.research-config','.modal','.modal-body'];
+  const scrollRegions=['#navigation','.local-tabs','.context-nav','.pass-viewport','.workspace-tabs','.table-wrap','.rs-table-wrap','.pf-heat-scroll','.rs-heatmap','.pf-pool-evidence-body','.research-config','.modal','.modal-body'];
   const compactNavigation=()=>typeof AT.state.sidebarCollapsed==='boolean'?AT.state.sidebarCollapsed:matchMedia('(max-width:1080px)').matches;
   const navigationPage=page=>page==='G01'?(AT.ui.stockOrigin||'M04'):page;
   const navigationGroup=page=>navigationPage(page)[0]==='G'?'R':navigationPage(page)[0];
@@ -85,10 +85,12 @@
     // In-page actions use the live position, never the last navigation snapshot.
     const viewport=position||capturePosition(),focus=position?null:captureFocus();
     cancelAnimationFrame(renderFrame);main.style.minHeight=main.getBoundingClientRect().height+'px';
-    applyPrefs();updateShell();main.innerHTML=window.ResearchModule?.handles(AT.state.page)?window.ResearchModule.render(AT.state.page):AT.view(AT.state.page);AT.hydrateIcons();AT.effects.mount();
+    applyPrefs();updateShell();main.innerHTML=window.ExperimentalStrategies?.handles(AT.state.page)?window.ExperimentalStrategies.render():window.ResearchModule?.handles(AT.state.page)?window.ResearchModule.render(AT.state.page):AT.view(AT.state.page);AT.hydrateIcons();AT.effects.mount();
     main.dataset.renderedPage=AT.state.page;
-    // A second data response can cancel this frame; keep focus available to its render now.
+    // A second data response can cancel this frame; keep the current reading
+    // position and focus available to that render before deferred chart mounting.
     restoreFocus(focus);
+    restorePosition(viewport);
     renderFrame=requestAnimationFrame(()=>{
       const mountedFocus=captureFocus();
       AT.drawCharts();AT.drawCandles();wirePass();initView();main.style.minHeight='';
@@ -196,6 +198,7 @@
   function initView(){
     AT.onboarding?.mount();
     AT.settingsPage?.mount();
+    if(window.ExperimentalStrategies?.handles(AT.state.page)){window.ExperimentalStrategies.mount(main);return;}
     if(window.ResearchModule?.handles(AT.state.page)){window.ResearchModule.mount(main);return;}
     AT.drawSparks();
     if($('[data-plateau-ratio]'))$('[data-plateau-ratio]').value=AT.ui.plateauRatio||50;
@@ -352,7 +355,7 @@
     if(el.dataset.reviewNote){AT.ui.reviewNote=el.dataset.reviewNote;preservePosition(()=>{const panel=$('.review-notebook');const heading=$('.panel-head',panel).outerHTML;panel.innerHTML=heading+AT.reviewNotebook();$(`[data-review-note="${AT.ui.reviewNote}"]`)?.focus({preventScroll:true})});return}
     if(el.dataset.scrollSection){scrollToSection(el.dataset.scrollSection);return}
     if(el.dataset.nav){e.preventDefault();if(el.dataset.nav==='R06')AT.ui.pathContext=AT.chartContext(AT.state.page==='R05'?'plateau':'research');go(el.dataset.nav);return}
-    if(el.dataset.stock){go('G01',el.dataset.stock);return}
+    if(el.dataset.stock){if(el.dataset.stockDay&&AT.marketUI?.openDay?.(el.dataset.stock,el.dataset.stockDay))return;go('G01',el.dataset.stock);return}
     if(el.dataset.milestoneFilter){AT.ui.milestoneFilter=el.dataset.milestoneFilter;milestoneDetail(AT.ui.milestoneNumber);return}
     if(el.dataset.milestone){milestoneDetail(+el.dataset.milestone);return}
     if(el.dataset.watch){const c=el.dataset.watch;AT.state.watch=AT.state.watch.includes(c)?AT.state.watch.filter(x=>x!==c):[...AT.state.watch,c];AT.persist();render();return}
@@ -430,6 +433,10 @@
   }
   actions['confirm-restore']=async()=>{
     const data=AT.ui.restoreCandidate;if(!data||AT.ui.restoringBackup)return;
+    if(AT.ui.committingSettings){
+      const message='正在保存设置，请稍后再确认恢复。',target=$('[data-interface-restore-error]');
+      if(target){target.hidden=false;target.textContent=message}toast(message);return;
+    }
     const button=$('[data-action="confirm-restore"]');
     AT.ui.restoringBackup=true;if(button)button.disabled=true;
     try{

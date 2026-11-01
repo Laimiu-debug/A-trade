@@ -53,6 +53,19 @@ test('sector history loads visible rows only, keeps selection inline, and suppor
   assert.equal(ui.html(),'');
 });
 
+test('changing the shared history cutoff discards an in-flight result for the previous date',async()=>{
+  const ui=fixture();
+  ui.AT.sectorTrends.setContext({basis:'daily',asOf:'2026-01-05'});
+  ui.AT.sectorTrends.setVisible([{id:'sh881376',name:'数字媒体'}]);ui.flush();
+  ui.AT.sectorTrends.setContext({basis:'daily',asOf:'2026-01-06'});ui.flush();
+  await ui.resolve({rows:[{date:'2026-01-04',close:10},{date:'2026-01-05',close:11}]});ui.flush();
+  assert.equal(ui.calls.length,2);
+  assert.equal(ui.calls[1].payload.asOf,'2026-01-06');
+  await ui.resolve({rows:[{date:'2026-01-05',close:11},{date:'2026-01-06',close:12}]});ui.flush();
+  assert.match(ui.AT.sectorTrends.row({id:'sh881376',name:'数字媒体'}),/01-06/);
+  assert.equal(ui.calls[1].payload.basis,'daily');
+});
+
 test('drag tracks pointer identity, releases stable capture, and ignores movement after buttons are released', async () => {
   const ui=fixture();ui.AT.sectorTrends.setVisible([{id:'sh881376',name:'数字媒体'}]);ui.flush();await ui.resolve();ui.click({sectorTrend:'sh881376'});
   const original=ui.html();

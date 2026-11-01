@@ -1,0 +1,41 @@
+{
+  "schema": "reclaim-2026-replication-protocol-v1",
+  "registeredDate": "2026-10-18",
+  "researchBatch": 52,
+  "question": "Does the frozen strong-stock support-reclaim entry plus unchanged volatility trail retain useful net payoff and board-relative returns in the later2026 interval? Separate ample market turnover level from the additional short-term expansion requirement.",
+  "designExposure": "Batch51 outcomes informed adding the level-only admission comparison. No2026 account outcomes have been computed by this protocol at registration;2026 prices were already exposed to earlier work, so this is chronological replication, not a pristine holdout.",
+  "scope": {
+    "requestDate": "2026-10-18",
+    "startDate": "2026-01-05",
+    "endPolicy": "Freeze the common latest locally available date of all five required SH/SZ market and benchmark index files, bounded by requestDate. Fail on differing latest dates, no silent future or missing-date fill.",
+    "boards": ["main", "chinext", "star"],
+    "regime": "Within the user's post2024-09-24 bull-market research scope; earlier bear profits remain unnecessary. Report observed market behavior rather than assuming every later subinterval rises."
+  },
+  "population": {
+    "members": "Keep the exact three2024-2025 fixed cohorts from batch51, including members without new observations. No addition based on later performance, IPOs or availability.",
+    "history": "Read stable current TDX raw .day files. Require the decoded prefix through2025-12-31 to match the exact frozen old bars and rawPrefixSha256. Missing current files retain old history and explicit unknown2026 observations, not population removal. Any changed historical prefix aborts materialization for inspection.",
+    "calendar": "Retain the original independent calendar through2025-12-31 and append2026 exchange-notice-derived sessions. Cross-check all five index dates against the appended calendar; no observed-date compression. Raw account and signal datasets stop at the frozen cutoff.",
+    "limits": "Still a surviving local cohort with incomplete dated identity, ST, membership, rights and opening auction evidence. This does not recreate the full historical A-share universe."
+  },
+  "policies": ["original", "levelOnly", "expanding"],
+  "signals": {
+    "entry": "Exact unchanged build_undercut_reclaim immediate mode: prior61 valid exact slots, positive own prior60 return and board-local midrank>=0.8, prior20 positive mean amount, T low strictly below prior20 support and T close strictly above support; rank by prior20 mean amount descending and symbol, originalTop5. No rank backfill after admission.",
+    "original": "All frozen immediate opportunities.",
+    "levelOnly": "Same opportunities only when broad SH+SZ total-turnover proxy at T>=1e12 CNY; unknown stays unknown. No growth condition.",
+    "expanding": "Same previously frozen batch50/51 condition: T total>=1e12 and mean(T-4..T)>=mean(T-20..T-1), all21 source slots required.",
+    "clock": "All decisions at completed T close; one next-source-calendar open attempt, T+1 sale lock, original cash/lot/capacity constraints. Relative strength/ranking precedes T. Future confirmation fields are diagnostic only and never used for immediate admission."
+  },
+  "account": {
+    "configuration": "Clone batch51 config changing only start/end dates. OriginalVolatilityTrailAccount,500000 CNY,5 slots,20percent entry budget,5percent close initial stop,20-session normalized volatility times3 ratchet, no fixed trail/profit cap/deadline. Original LegacyFeePolicy and10bps each-side slippage.",
+    "newAccounts": 9,
+    "referenceAccountsReused": 0,
+    "exitParametersChanged": false,
+    "thresholdScan": false
+  },
+  "validation": "Before accounts: source prefix and calendar coverage verification, relevant unchanged strategy/account/fee tests, full independent UR rank/setup/schedule replay via the frozen independent oracle, and separate direct-window market policy selection. After accounts: independent every-held-day volatility-risk replay and trade/curve arithmetic; cash/PnL/fee bridges checked by existing audited summarizer. Keep all boards, policies, failures, open holdings and valuation flags.",
+  "comparison": "Same-date SH300/main, ChiNextIndex/chinext andSTAR50/star price-index references, no dividend or benchmark costs, excess reported as percentage-point difference, not risk-adjusted alpha. Include2026 quarters/halves as descriptive slices with carried equity, no repeated initial funding.",
+  "screening": "Keep batch50 numerical screens as assistant-proposed diagnostics only; not human-confirmed requirements or a future-profit guarantee. Goal completion requires evidence beyond a favorable isolated backtest.",
+  "marketSource": "TDX sh000001 amount + sz399106 amount in CNY; broad market proxy, not surviving-cohort amount or certified official all-A turnover. Failed official downloads remain preserved, no access-control bypass or invented fill.",
+  "certified": false,
+  "targetAchieved": false
+}

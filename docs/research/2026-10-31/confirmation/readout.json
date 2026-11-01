@@ -1,0 +1,413 @@
+{
+  "schema": "dual-confirmation-reviewed-readout-v1",
+  "plan": {
+    "path": "artifacts/strategy-search/profitability-review-20261031/hypothesis-plan.json",
+    "sha256": "6ae0f8acdf54c69feb847e6333a6a1906126942bf8eddeaf4efd915201103ce7"
+  },
+  "analysisCode": {
+    "path": "scripts/summarize-dual-confirmation-review.py",
+    "sha256": "9fc36a9bca33a54d69903fd5f27baddfb87056d18dd019336b09298f48b404f2"
+  },
+  "rows": [
+    {
+      "period": "development",
+      "caseId": "complete",
+      "label": "原双路径",
+      "cost": "normal",
+      "metrics": {
+        "netReturnPct": -8.216864742604901,
+        "maxDrawdownPct": 12.61122504650375,
+        "closed": 130,
+        "profitFactor": 0.6064682909831609,
+        "winRatePct": 30.0,
+        "feesPaid": 5691.9164730252,
+        "closedNetPnl": -41084.32371302465,
+        "openMarketValue": 0,
+        "meanExposurePct": 7.698122961237883,
+        "benchmarkReturnPct": 38.12841036901349,
+        "topFiveProfitShare": 0.45775878256689123,
+        "valuationUnreliableDates": []
+      },
+      "source": {
+        "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/development/complete/normal/result.json.gz",
+        "sha256": "e6e75f400f0082b19578aee19576d81e06e296282da7ada3aeb1cdc69301731a"
+      }
+    },
+    {
+      "period": "development",
+      "caseId": "Bonly",
+      "label": "原回调路径",
+      "cost": "normal",
+      "metrics": {
+        "netReturnPct": -2.726474608711227,
+        "maxDrawdownPct": 6.62519920142739,
+        "closed": 66,
+        "profitFactor": 0.7803828636778838,
+        "winRatePct": 36.36363636363637,
+        "feesPaid": 3632.5401935563,
+        "closedNetPnl": -13632.373043555981,
+        "openMarketValue": 0,
+        "meanExposurePct": 5.293955513335618,
+        "benchmarkReturnPct": 38.12841036901349,
+        "topFiveProfitShare": 0.47831537483459985,
+        "valuationUnreliableDates": []
+      },
+      "source": {
+        "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/development/Bonly/normal/result.json.gz",
+        "sha256": "c6ad53e5b66f4cb2a0144fe8a1c5e873669267477b5b3e28ae2f60a63485bbd9"
+      }
+    },
+    {
+      "period": "development",
+      "caseId": "confirmComplete",
+      "label": "双路径延后确认",
+      "cost": "normal",
+      "metrics": {
+        "netReturnPct": -1.6378652164244167,
+        "maxDrawdownPct": 3.341473182257071,
+        "closed": 18,
+        "profitFactor": 0.5366475715611887,
+        "winRatePct": 22.22222222222222,
+        "feesPaid": 906.0370221221999,
+        "closedNetPnl": -8189.326082122156,
+        "openMarketValue": 0,
+        "meanExposurePct": 1.1968639981020044,
+        "benchmarkReturnPct": 38.12841036901349,
+        "topFiveProfitShare": 1.0,
+        "valuationUnreliableDates": []
+      },
+      "source": {
+        "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/development/confirmComplete/normal/result.json.gz",
+        "sha256": "305f7be1b5d422478d8ac1b5f200bbe74cb89edbd1325305ca22baf2027615f8"
+      }
+    },
+    {
+      "period": "development",
+      "caseId": "confirmBonly",
+      "label": "回调延后确认",
+      "cost": "normal",
+      "metrics": {
+        "netReturnPct": -2.1491690302013255,
+        "maxDrawdownPct": 4.323665755961004,
+        "closed": 10,
+        "profitFactor": 0.44543941212299887,
+        "winRatePct": 10.0,
+        "feesPaid": 568.9855110067999,
+        "closedNetPnl": -10745.845151006779,
+        "openMarketValue": 0,
+        "meanExposurePct": 0.8180973359840741,
+        "benchmarkReturnPct": 38.12841036901349,
+        "topFiveProfitShare": 1.0,
+        "valuationUnreliableDates": []
+      },
+      "source": {
+        "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/development/confirmBonly/normal/result.json.gz",
+        "sha256": "2fefcdfb12be7c7f3369fe79348e8b28b50bf600d4d7a37f3020d625efafb7a7"
+      }
+    },
+    {
+      "period": "reusedTemporalCheck",
+      "caseId": "complete",
+      "label": "原双路径",
+      "cost": "normal",
+      "metrics": {
+        "netReturnPct": -5.675054422647796,
+        "maxDrawdownPct": 7.145294645261258,
+        "closed": 43,
+        "profitFactor": 0.22826739767497586,
+        "winRatePct": 25.581395348837212,
+        "feesPaid": 2039.3586732391998,
+        "closedNetPnl": -28375.272113239007,
+        "openMarketValue": 0,
+        "meanExposurePct": 3.7896620100935303,
+        "benchmarkReturnPct": -11.694981717979969,
+        "topFiveProfitShare": 0.8159977604644799,
+        "valuationUnreliableDates": []
+      },
+      "source": {
+        "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/reusedTemporalCheck/complete/normal/result.json.gz",
+        "sha256": "c41916d06bfca33230a10e3c2a258764f79ce09e74f47ef61633798a8fcab6ca"
+      }
+    },
+    {
+      "period": "reusedTemporalCheck",
+      "caseId": "Bonly",
+      "label": "原回调路径",
+      "cost": "normal",
+      "metrics": {
+        "netReturnPct": 0.701387243600915,
+        "maxDrawdownPct": 5.56261902072751,
+        "closed": 20,
+        "profitFactor": 1.197010349192892,
+        "winRatePct": 45.0,
+        "feesPaid": 1202.3484619956,
+        "closedNetPnl": 3506.93621800451,
+        "openMarketValue": 0,
+        "meanExposurePct": 3.310889711332982,
+        "benchmarkReturnPct": -11.694981717979969,
+        "topFiveProfitShare": 0.9208802201741058,
+        "valuationUnreliableDates": []
+      },
+      "source": {
+        "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/reusedTemporalCheck/Bonly/normal/result.json.gz",
+        "sha256": "70639b9d1aec0886139e77ec4493c903809083f51068c126c74d4443bcb11e76"
+      }
+    },
+    {
+      "period": "reusedTemporalCheck",
+      "caseId": "confirmComplete",
+      "label": "双路径延后确认",
+      "cost": "normal",
+      "metrics": {
+        "netReturnPct": -2.0316286364620018,
+        "maxDrawdownPct": 2.0316286364620018,
+        "closed": 5,
+        "profitFactor": 0.0,
+        "winRatePct": 0.0,
+        "feesPaid": 252.26218231,
+        "closedNetPnl": -10158.14318230997,
+        "openMarketValue": 0,
+        "meanExposurePct": 0.3899958170004683,
+        "benchmarkReturnPct": -11.694981717979969,
+        "topFiveProfitShare": null,
+        "valuationUnreliableDates": []
+      },
+      "source": {
+        "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/reusedTemporalCheck/confirmComplete/normal/result.json.gz",
+        "sha256": "d1861050d9ac767797c6b6aeb870d2d7d97deb02fa2f3c3bcd94e2a326cb12ec"
+      }
+    },
+    {
+      "period": "reusedTemporalCheck",
+      "caseId": "confirmComplete",
+      "label": "双路径延后确认",
+      "cost": "stress",
+      "metrics": {
+        "netReturnPct": -2.1283345249129892,
+        "maxDrawdownPct": 2.1283345249129892,
+        "closed": 5,
+        "profitFactor": 0.0,
+        "winRatePct": 0.0,
+        "feesPaid": 239.521124565,
+        "closedNetPnl": -10641.672624565006,
+        "openMarketValue": 0,
+        "meanExposurePct": 0.3723161715291577,
+        "benchmarkReturnPct": -11.694981717979969,
+        "topFiveProfitShare": null,
+        "valuationUnreliableDates": []
+      },
+      "source": {
+        "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/reusedTemporalCheck/confirmComplete/stress/result.json.gz",
+        "sha256": "ea901c5e0e5da7799de2d2812970dbbcd03a8c329042fec6da236d0241fa3647"
+      }
+    },
+    {
+      "period": "reusedTemporalCheck",
+      "caseId": "confirmBonly",
+      "label": "回调延后确认",
+      "cost": "normal",
+      "metrics": {
+        "netReturnPct": -0.4473716173680087,
+        "maxDrawdownPct": 0.47878339243799806,
+        "closed": 3,
+        "profitFactor": 0.0,
+        "winRatePct": 0.0,
+        "feesPaid": 133.51008683999999,
+        "closedNetPnl": -2236.8580868399913,
+        "openMarketValue": 0,
+        "meanExposurePct": 0.18095312548435666,
+        "benchmarkReturnPct": -11.694981717979969,
+        "topFiveProfitShare": null,
+        "valuationUnreliableDates": []
+      },
+      "source": {
+        "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/reusedTemporalCheck/confirmBonly/normal/result.json.gz",
+        "sha256": "6a77a2145cd6f7492978e4338502f807110c0b0d62bcddbdbebc2faefdbbb351"
+      }
+    },
+    {
+      "period": "reusedTemporalCheck",
+      "caseId": "confirmBonly",
+      "label": "回调延后确认",
+      "cost": "stress",
+      "metrics": {
+        "netReturnPct": -0.5501754539329995,
+        "maxDrawdownPct": 0.5697293416780047,
+        "closed": 3,
+        "profitFactor": 0.0,
+        "winRatePct": 0.0,
+        "feesPaid": 130.731769665,
+        "closedNetPnl": -2750.8772696649976,
+        "openMarketValue": 0,
+        "meanExposurePct": 0.17852568875786845,
+        "benchmarkReturnPct": -11.694981717979969,
+        "topFiveProfitShare": null,
+        "valuationUnreliableDates": []
+      },
+      "source": {
+        "path": "artifacts/strategy-search/profitability-review-20261031/experiment/accounts/reusedTemporalCheck/confirmBonly/stress/result.json.gz",
+        "sha256": "73319d56599d83b83f3c691d257e90e6f683640236a7a6187c5862d0b02873a3"
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "period": "development",
+      "caseId": "confirmComplete",
+      "parent": "complete",
+      "netImprovementPp": 6.578999526180485,
+      "blockBootstrap": {
+        "available": true,
+        "pairedSessions": 309,
+        "blockSessions": 20,
+        "draws": 2000,
+        "seed": 20261031,
+        "meanDailyExcessBps": 2.131701448646279,
+        "percentile95Bps": [
+          -0.6225357514629241,
+          5.592581238084221
+        ],
+        "meaning": "Retrospective dependent-return resampling; not correction for prior adaptive selection or a forecast."
+      }
+    },
+    {
+      "period": "reusedTemporalCheck",
+      "caseId": "confirmComplete",
+      "parent": "complete",
+      "netImprovementPp": 3.6434257861857944,
+      "blockBootstrap": {
+        "available": true,
+        "pairedSessions": 187,
+        "blockSessions": 20,
+        "draws": 2000,
+        "seed": 20261031,
+        "meanDailyExcessBps": 1.9615997556136666,
+        "percentile95Bps": [
+          -0.057192596533416275,
+          5.071118999892549
+        ],
+        "meaning": "Retrospective dependent-return resampling; not correction for prior adaptive selection or a forecast."
+      }
+    },
+    {
+      "period": "development",
+      "caseId": "confirmBonly",
+      "parent": "Bonly",
+      "netImprovementPp": 0.5773055785099013,
+      "blockBootstrap": {
+        "available": true,
+        "pairedSessions": 309,
+        "blockSessions": 20,
+        "draws": 2000,
+        "seed": 20261031,
+        "meanDailyExcessBps": 0.11371366230604675,
+        "percentile95Bps": [
+          -2.5160590530082714,
+          2.824716366362536
+        ],
+        "meaning": "Retrospective dependent-return resampling; not correction for prior adaptive selection or a forecast."
+      }
+    },
+    {
+      "period": "reusedTemporalCheck",
+      "caseId": "confirmBonly",
+      "parent": "Bonly",
+      "netImprovementPp": -1.1487588609689237,
+      "blockBootstrap": {
+        "available": true,
+        "pairedSessions": 187,
+        "blockSessions": 20,
+        "draws": 2000,
+        "seed": 20261031,
+        "meanDailyExcessBps": -0.6953658950413224,
+        "percentile95Bps": [
+          -3.707446584877033,
+          3.4504768190842343
+        ],
+        "meaning": "Retrospective dependent-return resampling; not correction for prior adaptive selection or a forecast."
+      }
+    }
+  ],
+  "decisions": [
+    {
+      "caseId": "confirmComplete",
+      "checks": [
+        {
+          "period": "development",
+          "positiveNet": false,
+          "beatsMatchedParent": true,
+          "profitFactorAboveOne": false,
+          "closedAtLeast30": false,
+          "drawdownAtMost20": true
+        },
+        {
+          "period": "reusedTemporalCheck",
+          "positiveNet": false,
+          "beatsMatchedParent": true,
+          "profitFactorAboveOne": false,
+          "closedAtLeast30": false,
+          "drawdownAtMost20": true
+        }
+      ],
+      "positiveStressNet": false,
+      "historicalScreenPassed": false,
+      "promotedForLiveUse": false,
+      "pristineOosValidated": false
+    },
+    {
+      "caseId": "confirmBonly",
+      "checks": [
+        {
+          "period": "development",
+          "positiveNet": false,
+          "beatsMatchedParent": true,
+          "profitFactorAboveOne": false,
+          "closedAtLeast30": false,
+          "drawdownAtMost20": true
+        },
+        {
+          "period": "reusedTemporalCheck",
+          "positiveNet": false,
+          "beatsMatchedParent": false,
+          "profitFactorAboveOne": false,
+          "closedAtLeast30": false,
+          "drawdownAtMost20": true
+        }
+      ],
+      "positiveStressNet": false,
+      "historicalScreenPassed": false,
+      "promotedForLiveUse": false,
+      "pristineOosValidated": false
+    }
+  ],
+  "historicalScreenPassCount": 0,
+  "profitabilityProven": false,
+  "pristineOosPerformed": false,
+  "oosStatus": {
+    "status": "Not yet available at a sufficient independent length",
+    "exposedThrough": "2026-10-15",
+    "laterScanExposureThrough": "2026-10-23",
+    "twoDaysWithoutLocatedUse": [
+      "2026-10-26",
+      "2026-10-27"
+    ],
+    "localMissing": [
+      "2026-10-28",
+      "2026-10-29",
+      "2026-10-30"
+    ],
+    "newSegmentConsumption": "Do not consume the two remaining days to advertise a powerless profitability test.",
+    "prospectiveStartNotBefore": "2026-11-02",
+    "minimumCompletedIndependentSessions": 60,
+    "minimumClosedTrades": 30,
+    "requires": "Rules/code/input identity frozen before observing that session; append-only simulated records; no real orders; verify published trading calendar; no parameter reselection from forward outcomes.",
+    "automationCreated": false,
+    "profitabilityProven": false
+  },
+  "periodsAreIndependentAccounts": true,
+  "limitations": [
+    "Surviving/raw-price source and incomplete historic trade-status/actions remain.",
+    "Single-open execution and prior-volume capacity are approximations, not opening-auction fill evidence.",
+    "Two candidates add to prior adaptive research; ordinary p-values/Sharpe are not proof of discovery."
+  ]
+}

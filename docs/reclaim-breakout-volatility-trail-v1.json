@@ -1,0 +1,73 @@
+{
+  "schema": "reclaim-breakout-volatility-trail-v1",
+  "strategyId": "strongUndercutReclaimV1",
+  "modes": ["breakoutVolatilityTrail"],
+  "reportModes": ["trail10", "volatilityTrail", "breakoutVolatilityTrail"],
+  "labels": {"trail10": "固定百分比跟踪", "volatilityTrail": "全程波动跟踪", "breakoutVolatilityTrail": "突破后波动跟踪"},
+  "question": "Does switching from fixed trailing to an existing volatility ratchet only after an observable breakout improve the complete payoff and account paths across all six unchanged source cohorts?",
+  "novelty": {
+    "classification": "One new staged exit definition, one frozen specification, unchanged entry and universe.",
+    "priorExperiments": [
+      "account-exit-comparison-v1 compared holding and fixed stops/trails; reclaim-exit-transfer-v1 removed day-five exits and tested rolling structural lows.",
+      "relative-repair-volatility-stop-v1 changed the entry-frozen initial stop. reclaim-volatility-trail-v1 applied a volatility ratchet from the first held close.",
+      "reclaim-exit-mechanism-v1 was a zero-new-account descriptive decomposition. Its profitable/losing trade labels are hindsight and are not an entry or activation input."
+    ],
+    "designExposure": "All six 2022-2025 cohorts and previous outcomes informed this hypothesis. The exact staged rule has not run at registration. This is development evidence, not an untouched holdout."
+  },
+  "population": {
+    "sources": "Reuse all six board-coverage-reclaim-v1 sources, 2022-2023 and 2024-2025, main/chinext/star. No new market data or 2026 observations.",
+    "signals": "All 8155 original opportunities with the same signalId, strategyId, symbol, signalDate and originalRank. No additions, score changes, date gate or selective board omission.",
+    "reference": "Reuse the twelve trail10 and volatilityTrail result/checkpoint/summary artifact sets from reclaim-volatility-trail-v1 byte-for-byte. Execute only six new staged-exit accounts.",
+    "scope": "Historical surviving-stock cohorts with incomplete historical status and corporate-action evidence. Board membership does not identify technology industries or capital owners."
+  },
+  "policies": {
+    "trail10": {"execution": "reused-frozen-account", "engine": "FixedSignalAccount", "exitRule": null, "stopLossPct": 0.05, "trailingStopPct": 0.1, "takeProfitPct": 0, "maxHoldingDays": 0},
+    "volatilityTrail": {"execution": "reused-frozen-account", "engine": "VolatilityTrailAccount", "exitRule": "volatilityTrail", "stopLossPct": 0.05, "trailingStopPct": 0, "takeProfitPct": 0, "maxHoldingDays": 0},
+    "breakoutVolatilityTrail": {
+      "execution": "new-independent-account", "engine": "BreakoutVolatilityTrailAccount", "exitRule": "breakoutVolatilityTrail",
+      "stopLossPct": 0.05, "trailingStopPct": 0, "takeProfitPct": 0, "maxHoldingDays": 0,
+      "lookback": 20, "multiplier": 3,
+      "formationAnchor": "F is the original signalDate. Freeze the maximum raw close of exactly the twenty source-calendar slots F-20 through F-1. Require correctly dated valid positive OHLC and volume. Missing/invalid slots permanently make this episode's anchor unknown; never compress, extend, rebuild or delete the signal.",
+      "anchorReference": "The first anchor slot needs no earlier reference. Within the other nineteen slots, any explicitly invalid preclose or explicit reference change beyond the inherited engine tolerance max(0.005,previousClose*1e-7) makes the raw-price anchor unknown. Do not introduce internal-window back adjustment. From F through actual entry, translate the frozen anchor by the inherited engine's known preclose/previous-actual-bar-close changes and tolerance. Every exact calendar slot from F through entry and its preceding slot requires a correctly dated positive OHLCV bar and valid price envelope; missing/invalid necessary bars or references makes the anchor unknown. Because all exact slots must exist, the previous actual bar equals the preceding calendar slot. An absent explicit preclose means no declared conversion. The full entry binding is frozen at the first held close; entry-day closing data never affects the opening buy. Store convertedAnchor/actualBuyFillPrice in riskEntryPrice units. Subsequent inherited conversions scale the current anchor and floor through riskEntryPrice without changing their ratios.",
+      "beforeActivation": "Keep the original fixed ten-percent trigger expression close/closePeak-1 <= -0.1, including its floating-point boundary, after inherited initial-stop and eligibility handling. Preserve the corresponding floor ratio in riskEntryPrice units. Unknown anchor stays in this fixed regime for the whole holding episode.",
+      "activation": "A valid held close strictly above the current converted frozen anchor activates the new regime only after existing forced exits, inherited standard risk and the fixed-ten-percent trigger have all been checked. The entry-day close can activate; entry open or formation close cannot preactivate. Equality to the anchor does not activate. Activation day carries the fixed floor as its seed and makes no volatility update or additional volatility exit decision.",
+      "afterActivation": "Starting at the next held close after activation, use the unchanged volatility estimator: twenty normalized true ranges from exact twenty-one prior source-calendar slots, current day excluded; explicit valid preclose or preceding exact-slot close supplies each reference; v is the arithmetic mean, width=3*v, require 0<width<1. Candidate ratio=closePeak*(1-width)/riskEntryPrice. Floor ratio=max(previousRatio,candidateRatio), never lower it. Do not keep updating the fixed-ten-percent floor and never switch back to fixed mode.",
+      "unknown": "Unknown volatility retains the previous floor; invalid current close/volume freezes updates and prevents the additional exit. Unknown formation anchor never becomes retrospectively known. Do not change the original opportunity denominator.",
+      "trigger": "In the active regime compare valid current close <= currentRiskEntryPrice*floorRatio after ratcheting. Equality triggers a breakoutVolatilityTrail exit at the earliest subsequent executable open. Preserve pending intent and partial-exit retries.",
+      "parameters": "Twenty anchor slots, twenty volatility terms, multiplier three and fixed initial trail ten percent are one researcher-chosen causal specification, not a parameter sweep or an asserted optimum."
+    }
+  },
+  "execution": {
+    "priority": "Inherited day-start reference conversion, opening fills, eligibility/delist/ST and five-percent initial stop, then the staged rule. Existing or standard-queued exits keep their first reason/date/evidence and skip all staged updates.",
+    "clock": "Close-time observations and earliest subsequent executable opening. Preserve T+1, board lots, price limits, opening capacity, quarantine, no additions and partial forced-exit retries. A five-percent stop trigger is not a realized-loss ceiling.",
+    "capital": "Each account starts with 500000 cash, at most five positions and twenty-percent entry budget. Changed exit paths can change subsequent capital availability and admissions.",
+    "fees": "Preserve the historical DatedFeePolicy for 2022-2023, LegacyFeePolicy for 2024-2025 and ten basis points of slippage each side.",
+    "corporateActions": "No individual-price repair or corporate-action reconstruction. Reject declared corporate action ledgers, preserve inherited preclose conversions and unaccounted-action warnings.",
+    "state": "One anchor, activation state and floor per actual holding episode. Partial sells retain state; full closure clears it; reentry binds the new original signal. Include state and append-only log lengths in transaction rollback. Checkpoints are descriptive, not restorable.",
+    "cutoff": "Keep all open marked holdings, pending exits and censored opportunities. No forced final liquidation or missing-outcome zero fill."
+  },
+  "comparison": {
+    "primary": [
+      {"id": "breakoutVolatilityTrailVsTrail10", "control": "trail10", "candidate": "breakoutVolatilityTrail"},
+      {"id": "breakoutVolatilityTrailVsVolatilityTrail", "control": "volatilityTrail", "candidate": "breakoutVolatilityTrail"}
+    ],
+    "context": {"id": "volatilityTrailVsTrail10", "control": "trail10", "candidate": "volatilityTrail"},
+    "meaning": "Full independent account paths with identical original signals. Capital and admission differences remain included; these are not matched-trade causal effects. Activation/outcome groupings are descriptive, never candidate filters."
+  },
+  "evidence": {
+    "binding": "Freeze protocol, adapter, tests, runner, independent verifier and readout helpers before real execution. Bind both completed diagnostic decision and prior account evidence, six source schedules and twelve exact reference accounts.",
+    "riskAudit": "Independently reconstruct every held-day anchor conversion, activation, fixed/active floor and queued exit from source bars and actual fills. Audit entry-day and next-day clocks, reference conversions, missing data, existing exits, partial sales and reentries without importing the production staged formula.",
+    "readout": "Eighteen full accounts with three pairwise contrasts per source; actual closed/open outcomes, fees, tails, drawdown, exposure, original opportunity dispositions, activation/unknown counts and quality flags. Retain all year, half-year, market-phase and event-boundary rows.",
+    "eventBoundary": "2024-09-24 is a user-specified descriptive policy-event boundary. Carry prior equity and holdings through it. It does not occur in entry, activation or exit rules, and does not prove permanent prosperity or quantitative-fund leadership.",
+    "trialAccounting": {"experimentBatches": 1, "newAccounts": 6, "referenceAccountsReused": 12, "newSetupMechanisms": 0, "newUniverseVariants": 0, "newEntryPolicies": 0, "newExitDefinitions": 1, "transferredExitPolicies": 0},
+    "productionChanges": "Only an isolated research adapter and boundary tests. Existing engines, signals, user settings and production UI are unchanged."
+  },
+  "limitations": [
+    "All 2022-2025 cohorts are exposed development history. Earlier project use also precludes an untouched-2026 claim; this experiment does not use 2026.",
+    "Historical universe/status, corporate actions, valuation and execution evidence remain incomplete. Arithmetic agreement does not certify investable returns.",
+    "Ordinary small losses can coexist with gap losses, repeated losses, drawdowns and concentrated large winners. No preset average winner, win rate, payoff or holding-period promotion gate is used.",
+    "OHLCV data do not identify institutions, retail, quantitative funds, control of a stock or manipulation.",
+    "Unknown windows, failed admissions, partial exits and unclosed holdings stay visible."
+  ],
+  "parameterSearch": false, "profitHurdles": null, "certified": false, "targetAchieved": false
+}

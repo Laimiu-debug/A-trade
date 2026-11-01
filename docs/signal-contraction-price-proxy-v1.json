@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "registeredAt": "2026-10-15T13:15:41Z",
+  "stage": "development-diagnostic",
+  "candidateId": "rawThreeStageContractionBreakoutDiagnostic",
+  "status": "rules-frozen-before-first-real-contraction-price-outcomes",
+  "objective": "Investigate one signal for the user's very-high-probability single-position net +30 percent objective; compare time-to-target with no fixed holding deadline. Annualized return is not this target.",
+  "candidateCount": 1,
+  "parametersSearched": false,
+  "priorResearch": "Seven earlier development candidates and their results have been inspected. This is an adaptive new hypothesis on development data, not an independent out-of-sample test. The three-proposal draft is not three completed trials.",
+  "designSource": "docs/signal-next-hypotheses-v1.json, first priority threeStageContractionBreakoutDraft; unchanged contraction and breakout constants, with exact clock/coverage/selection semantics made explicit before any real outcomes.",
+  "sample": {
+    "signalStart": "2022-01-01",
+    "signalEnd": "2023-12-31",
+    "latestPermittedObservation": "2023-12-31",
+    "expectedFullSnapshotFingerprint": "226fcb48c6729c7ee1784eb871ff124ac921733f339b9e2fbe78cb3e592a9014",
+    "expectedFullSecurities": 3141,
+    "expectedFullBars": 1796835,
+    "expectedScoredSessions": 484,
+    "source": "Unchanged original local SH/SZ main-board development snapshot including its existing warmup; no new source selection or additional recovered security appended.",
+    "warmup": "Before 2022-01-01 bars provide indicator inputs only; emit no warmup signals. No state or pending pattern carries across dates because this is a stateless daily predicate.",
+    "noMaxSymbolsPilot": true,
+    "noHoldoutClaim": true,
+    "knownCoverageGap": "Four historical membership snapshots contain 125 securities absent from this local universe. Only 56 now have supplementary history. They remain separate; this trial neither corrects survivor bias nor measures its direction or magnitude."
+  },
+  "baseEligibility": {
+    "implementation": "Existing DailyScorer(..., pools_only=True)._qualified_universe on every development session, using identical legacy eligibility config.",
+    "strictHistory": false,
+    "explicitDiagnosticFlagRequired": true,
+    "excludeKnownHistoricalSt": true,
+    "minListingDays": 120,
+    "listingHistorySemantics": "The frozen scorer requires at least 120 observed-history bars including prewindow observations; when a listing date exists it caps that count by elapsed calendar days since listing. This is not a claim of 120 independently verified listing calendar days.",
+    "minAmount20": 50000000,
+    "baseAmountWindow": "Existing eligibility mean uses the last 20 observed bars including T (normally T-19..T); it is distinct from the new ranking measure. The detector separately requires 81 aligned complete sessions.",
+    "unknownIdentityFields": "Missing historic ST, membership, listing date or trade status remain unverified under the existing diagnostic fallback; current name/status do not fill those fields.",
+    "knownRejection": "Known delisted, not-listed, nonmember, historical ST, insufficient observed history or observed liquidity below the fixed gate rejects before signal evaluation. Missing/invalid required inputs remain unevaluable, not observed pattern failures.",
+    "suspension": "An explicit historical halt cannot trigger. An explicit halt with positive volume is contradictory and unevaluable unless an earlier known hard rejection already applies. Unexplained missing/zero volume never proves a halt."
+  },
+  "pattern": {
+    "priceBasis": "Unadjusted series.bars OHLCV, never reference-adjusted series.signal_bars. This raw basis does not prove comparable corporate-action regimes.",
+    "clock": "Exactly 81 aligned exchange-calendar slots T-80..T with known finite positive OHLCV and valid OHLC envelopes. Missing slots or required amounts are unevaluable. All timestamps end at T.",
+    "movingAverages": "MA80_T is arithmetic statistics.mean of closes T-79..T. Previous MA80 is statistics.mean of closes T-80..T-1. Require C_T > MA80_T > previous MA80, strictly.",
+    "breakout": "Require C_T > max(H from T-40..T-1) strictly and V_T / statistics.mean(V from T-40..T-1) >= 1.2. This is the original default trendBreakout price-volume predicate on raw prices.",
+    "blocks": [
+      {"id": 1, "startOffset": -30, "endOffset": -21},
+      {"id": 2, "startOffset": -20, "endOffset": -11},
+      {"id": 3, "startOffset": -10, "endOffset": -1}
+    ],
+    "rangeContraction": "D_j=max(H in block j)/min(L in block j)-1. Require D_1 > D_2 > D_3 strictly and D_3 <= 0.08. All range comparisons use Decimal(str(raw price)) operands, with fixed Decimal precision 28, and Decimal('0.08') so decimal price boundaries are retained without a tuned epsilon. Log raw block maxima/minima and the comparison basis; floating displayed D values are not reused for these gates. Do not move segment boundaries or include T in any block.",
+    "volumeContraction": "Require statistics.mean(V in block3) <= 0.70 * statistics.mean(V in block1), using the same Python numeric semantics as the base volume predicate. There is no tuned epsilon, rounding or parameter scan. The range gate separately accepts its decimal D_3=0.08 boundary.",
+    "rankingInputs": "Require explicit finite positive raw amount for each aligned session T-20..T-1. Prior20MeanAmount is their arithmetic statistics.mean, without T's amount, fallback volume*price, future data or reference adjustment.",
+    "emission": "Emit at T close when all gates pass. No retest, first-breakout restriction, cooldown, waiting state or position-aware raw trigger suppression. Every later date is evaluated independently.",
+    "actionEvidence": "Keep corporate actions, historical identity and execution certification false. Empty factor/dividend responses are not absence evidence."
+  },
+  "selection": {
+    "ranking": "All raw candidate signals at T ranked by prior20MeanAmount descending, then symbol ascending; score and rawScore equal this raw amount mean solely for event-tool compatibility.",
+    "topN": 5,
+    "positionExclusion": "First record complete raw ranks and Top5. Then the existing evaluator excludes same-symbol same-group events still active. No rank-six backfill. Exit at today's open releases the symbol for a new close signal.",
+    "controls": "Same-day base-eligible universe minus the strategy Top5, sorted by SHA256(original control seed:day:new candidate ID:symbol) then symbol. Request the Top5 count, retain pool shortfalls; control membership may include raw triggers below Top5.",
+    "controlSeed": "a-trade-signal-same-day-base-pool-control-v1",
+    "controlLimit": "Descriptive comparison with independent active-event exclusion; dates need not remain paired, events are correlated, and controls are not randomized causal evidence.",
+    "interpretation": "Any result describes the complete contraction-plus-breakout-plus-ranking rule; it cannot isolate a causal contribution of contraction alone."
+  },
+  "eventPolicy": {
+    "entry": "Freeze quantity at T close with existing fee/price-limit reserve and signal-volume cap. One next-exchange-session opening attempt under the unchanged SignalTargetStudy; no delayed replacement.",
+    "budgetPerEvent": 100000,
+    "targetNetGainPct": 30,
+    "holdingDeadline": null,
+    "stopLoss": null,
+    "execution": "Reuse existing fees, slippage, T+1 sell lock, gates, full-position target exits and opening capacity proxies unchanged. Code/config are hashed in the protocol; daily prices do not certify actual auction fills.",
+    "labels": ["rawHigh30", "netHigh30", "nextOpenNet30"],
+    "allLabelsAreProxies": true,
+    "terminal": "Unhit positions are observed through cutoff with marked outcomes and right-censoring; no forced sale, no inference that an unhit event can never succeed.",
+    "knownEngineLimit": "The reused gate conservatively blocks a resumption opening after a known preceding halt. This implementation limitation is not corrected within this fixed comparative trial."
+  },
+  "audit": {
+    "candidateLog": "Every raw signal with all calculation features, exact contributing session windows, eligibility unknowns, rank and Top5 status, including nonselected and later active-suppressed signals.",
+    "dailyCoverage": "Evaluate every one of the 3141 symbols on each of 484 sessions. Mutually exclusive status/reason counts must sum to 1520244 evaluations; unknown required inputs must remain distinguishable from observed false conditions.",
+    "selectionLog": "Retain complete raw-ranked symbols, strategy Top5 and selected controls for every session, reconciled with candidates and selected signals. No arbitrary state-transition file is required for this stateless hypothesis.",
+    "files": "Hash protocol, original data identity, candidates, coverage, selections, signals, result and summary; a changed successful artifact refuses recomputation. Keep every failed attempt.",
+    "comparisonHorizonsSessions": [5, 10, 20, 40, 60, 120, 250],
+    "cohorts": "Mature cohorts are based on potential calendar followup, not early success. Report each horizon's denominator, missing-result bounds, unfilled entries, active suppression and insufficient followup. Distinct mature cohorts are not a single cumulative probability curve.",
+    "risk": "Append unchanged PathRiskStudy raw daily-low -10/-20 boundaries and target ordering without changing trades. Include entry-day lows, exclude later lows on target-opening exit day, preserve uncertain paths.",
+    "dependence": "Report distinct signal symbols and dates. Existing Wilson intervals assume independence and do not certify these overlapping events. Very high probability needs adequate separately justified independent/prospective validation, which this trial does not supply.",
+    "preRun": "Synthetic causal/threshold/ranking/execution/lifecycle tests and independent implementation review, followed by source/data/protocol freeze before the first real outcomes.",
+    "postRun": "Independently verify source hashes, candidate formulas from raw source, full counts, selection/control lineage, cohort arithmetic and event/path timing. No parameter or sample changes in response to this run."
+  },
+  "certified": false,
+  "targetAchieved": false
+}

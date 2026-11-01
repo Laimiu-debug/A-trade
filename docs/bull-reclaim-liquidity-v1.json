@@ -1,0 +1,36 @@
+{
+  "schema": "bull-reclaim-liquidity-protocol-v1",
+  "registeredDate": "2026-10-18",
+  "question": "After the user's 9.24 regime correction, does a cash-start bull account using the already frozen strong-stock undercut/reclaim entry and volatility trail support a useful net payoff and board-relative return? Does the unchanged total-turnover gate add value?",
+  "researchBatch": 51,
+  "scope": {"startDate": "2024-09-24", "endDate": "2025-12-31", "boards": ["main", "chinext", "star"], "primary": "User-designated bull period; no inherited pre-split position or cash loss", "bearProfitRequired": false},
+  "policies": ["original", "liquid"],
+  "signals": {
+    "source": "Exact original immediate.signals.json files bound by reclaim-volatility-trail-v1; retain rows in the registered dates, all original IDs, ranks, order and gaps. Not a previously filled/active-event subset.",
+    "original": "All original post-split opportunities.",
+    "liquid": "Original opportunities on dates when the batch50 archived TDX Shanghai+Shenzhen total-turnover proxy at T >=1e12 CNY and mean(T-4..T) >= mean(T-20..T-1). Require 21 exact calendar observations. Same constants and source as batch50; no missingness fill, new ranking, backfill, delayed entry or fitted threshold.",
+    "clock": "T close decision, one immediate next-source-session opening attempt; preserve T+1 sale lock, cash, lots and price/capacity gates. The date split selects the research scope, not a claimed advance bull-market detector."
+  },
+  "exitAndCapital": {
+    "source": "Exact original VolatilityTrailAccount and reclaim-volatility-trail-v1 2024-2025 volatilityTrail config; only change startDate to2024-09-24.",
+    "capital": "Each of six independently executed accounts starts with500000 CNY, at most5 holdings and20percent entry budget. No source result is reused as a new account.",
+    "exit": "Keep5percent initial close stop; no fixed percent trail, profit cap or holding deadline. Existing floor is max(previous floor, closePeak*(1-3*prior20 mean normalized true range)), evaluated using21 exact slots strictly before the held close. The dimensionless risk-entry floor only tightens.",
+    "cost": "Original LegacyFeePolicy and10bps each-side slippage, all configured costs unchanged. A close stop is not a realized-loss ceiling."
+  },
+  "evaluation": {
+    "primary": ["Fully closed net mean win percent / absolute net mean loss percent", "Closed cash profit factor", "Continuous account net return and drawdown", "Same-date board price-index excess percentage points", "Closed sample size, holding time, exposure, tails, concentration and open PnL"],
+    "subperiods": "2024Q4 and2025 inside the continuous bull account; no equity reset. Treat sparse-year exits and existing-position gains explicitly.",
+    "screens": "Reuse batch50 proposed R>=3, PF>=1.5, mean loss magnitude<=5percent, maxDD<=20percent and>=30closed episodes as diagnostics. Numerical requirements are not human-confirmed, and a screen pass does not certify the goal.",
+    "benchmarks": "Same archived local sh000300, sz399006 and sh000688 price-index snapshots as batch50. Same start/end close, no dividend or benchmark transaction costs; not a risk-adjusted alpha estimate."
+  },
+  "validation": "Prior source and original schedule hashes; original20 volatility adapter unit tests plus frozen entry/account/fee tests before accounts. Independent direct-window liquidity schedule replay. Reuse only the hash-pinned pure independent every-held-day volatility-risk oracle; independently recompute trade/curve outcomes, reconcile saved account/fee/position bridges, verify T+1 and no same-close exits.",
+  "trialAccounting": {"newAccounts": 6, "referenceAccountsReused": 0, "newSetupMechanisms": 0, "newAdmissionPolicyTransferred": 1, "newExitDefinitions": 0, "parameterSearch": false},
+  "limits": [
+    "All2022-2025 history is repeatedly inspected development. Prior full-period results and later episode-only diagnostics informed this decision; this is not independent holdout evidence.",
+    "No result-based board selection: all three boards and both admission policies must be retained.",
+    "TDX turnover is a broad market proxy, not a certified official all-A total. Official SSE420 and SZSE75 receipts were available for batch50 checks; the slow SZSE resume also stopped at its first failure. Complete official replication remains pending.",
+    "Raw unadjusted prices, surviving stock cohorts, incomplete dated identity/ST/rights and unverified opening auction capacity remain material. No stable-profit, market-order, deployment or publication claim."
+  ],
+  "certified": false,
+  "targetAchieved": false
+}

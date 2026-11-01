@@ -1,0 +1,95 @@
+{
+  "schema": "full-gap-retention-protocol-v1",
+  "status": "fixed-before-input-generation-and-account-outcomes",
+  "researchQuestion": "Does preserving a complete upward price gap for two further source sessions improve the executable payoff distribution of an already strong stock, compared with the same gap setup and the same delayed decision clock?",
+  "userObjective": "Observe repeatable small ordinary losses and larger gains without a required annual return, single-position gain, winning-trade average, win rate, payoff ratio or holding duration.",
+  "novelty": {
+    "newOpportunitySource": true,
+    "notRestrictedToPriorUndercutReclaimSignals": true,
+    "priorEvidence": [
+      "docs/signal-volume-anchor-acceptance-v1.json: otherIdeasNotExecuted names Persistent full upward gap lifecycle",
+      "docs/signal-sequence-price-proxy-v1.json: breakout, contracted pullback and rebreak already tested",
+      "docs/signal-session-decomposition-v1.json: aggregate overnight-return share is not a single complete gap lifecycle"
+    ],
+    "mechanism": "Observable repricing and subsequent price acceptance. It does not identify main-force, retail or quantitative investors."
+  },
+  "periods": ["2022-2023", "2024-2025"],
+  "boards": ["main", "chinext", "star"],
+  "candidateIds": ["control", "retained"],
+  "trialAccounting": {
+    "newSetupMechanisms": 1,
+    "newEntryPolicies": 2,
+    "newExitMechanisms": 0,
+    "newAccounts": 24,
+    "referenceAccountsReused": 0,
+    "candidateTrialCountBefore": 41
+  },
+  "source": {
+    "datasets": "Six frozen board-coverage-reclaim account-data snapshots, containing full cohorts and warmup, not just earlier selected signals.",
+    "priceBasis": "raw-unadjusted",
+    "benchmark": "sh000300",
+    "windowClock": "Exact source-calendar slots; missing bars cannot compress a lookback.",
+    "formationInterval": "All source sessions within each declared two-year development period.",
+    "noNewExternalData": true
+  },
+  "formation": {
+    "date": "F, observed at its close",
+    "priorWindow": "61 aligned valid OHLCV source slots ending F-1, allowing a 60-session return, for both stock and benchmark.",
+    "ownReturn60": "close(F-1) / close(F-61) - 1",
+    "relativeReturn60": "[close(F-1) / close(F-61)] / [benchmarkClose(F-1) / benchmarkClose(F-61)] - 1",
+    "rankPopulation": "Every finite-return, prior-price-complete member of the full declared board cohort, before liquidity, own-return, gap, activity, status or account checks.",
+    "rankFormula": "Ascending midrank: (number strictly lower + 0.5 * number equal) / population count; exact float ties share rank.",
+    "priorStrength": "relativeReturn60 midrank >= 0.8 and ownReturn60 > 0; F jump is excluded from both.",
+    "historyEligibility": "At least 120 observed valid OHLCV bars through F-1; this is neither listing age nor 120 consecutive slots. Exclude only stByDate[F-1] is True. Do not use today's stock name. Unknown historical status remains explicitly qualified.",
+    "liquidity": "Mean positive amount over the exact 20 source slots F-20 through F-1 >= CNY 50,000,000.",
+    "completeUpwardGap": "low(F) > high(F-1); freeze G = high(F-1).",
+    "activity": "volume(F) > mean(volume(F-20..F-1)); no additional amount-increase or prior-high breakout requirement.",
+    "quality": "Explicit raw basis, finite positive OHLCV, valid OHLC envelope, no known halt; invalid/unknown evidence has a recorded reason.",
+    "symbolLock": "Every otherwise eligible formation locks its symbol from F through F+2 inclusive, before original Top5 selection or retention gate. Qualifying new gaps inside a lock are recorded but do not replace or extend the first formation.",
+    "originalRanking": "Unlocked eligible formations at F sorted by prior20MeanAmount descending then symbol ascending; freeze original Top5 and originalRank at F.",
+    "noBackfill": "No replacement, reranking or backfill after unknown confirmation, failed retention, occupied holdings or failed execution."
+  },
+  "decision": {
+    "date": "T = F+2, at close, for both policies",
+    "commonEvidence": "F+1 and F+2 must both be valid complete aligned raw OHLCV with no known halt. An explicitly supplied invalid preclose or declared raw rebasing during F..F+2 makes the shared anchor evidence unknown under the existing price-basis rule. No individual history repair or new adjustment is undertaken. Both policies exclude the same unknown evidence; an insufficient remaining target window is censored.",
+    "explicitRebasingRule": "Along portfolio_engine._observe_actions, a supplied preclose differing from the preceding actual raw close by more than max(0.005, precedingClose * 1e-7) flags anchor uncertainty during F..F+2. Missing preclose alone is not a new failure. An explicitly supplied nonfinite or nonpositive preclose is unknown.",
+    "control": "Admit every original Top5 formation with complete common evidence.",
+    "retained": "Same common evidence plus low(F+1) > G and low(F+2) > G. Equality fails.",
+    "interpretation": "The original gap has not been completely filled; price may have entered part of the gap. This does not require never touching low(F).",
+    "execution": "One attempt at next source-calendar session open after T, through the unchanged executable account engine; absent next session remains an unfilled or end-of-period disposition, not a hypothetical fill.",
+    "calendarEventGate": false,
+    "meanFeedbackGate": false
+  },
+  "account": {
+    "contract": "docs/account-exit-comparison-v1.json",
+    "initialCapital": 500000,
+    "maxPositions": 5,
+    "entryWeight": 0.2,
+    "slippageBpsPerSide": 10,
+    "fees": "Use frozen period-specific policies, including historical dated fees in 2022-2023 and unchanged legacy profile in 2024-2025. Preserve integer minCommission=5 where the settings digest requires it.",
+    "exits": [
+      "Existing initial close-stop 5 percent plus fixed 10 percent trailing stop",
+      "Existing initial close-stop 5 percent plus ratcheted 3 times prior20 normalized true-range trailing stop"
+    ],
+    "executionCaveat": "Close-triggered stops execute through later tradable prices and are not caps on realized losses.",
+    "takeProfitCap": null,
+    "maximumHoldingDays": null,
+    "keepOpenHoldings": true
+  },
+  "evaluation": {
+    "wholeAccount": ["net return", "maximum drawdown", "net expectancy", "profit factor", "mean and median winning and losing returns", "consecutive losses", "open PnL", "exposure", "largest-winner concentration", "execution failures"],
+    "continuousStrata": ["calendar year", "calendar half-year", "2024-09-24 policy event before and after, with carried positions and unequal interval lengths disclosed"],
+    "policyComparison": "Retained minus same-clock control, all six cohort-periods and both predeclared exits. No best-board selection or promotion based on a preassigned profitability threshold.",
+    "uncertainty": "These are clustered, dependent historical opportunities and repeated development samples; cross-board/period consistency is diagnostic, not independent certification.",
+    "futureValidation": "Any promising rule still requires frozen prospective or genuinely independent evidence."
+  },
+  "guardrails": {
+    "parameterSearch": false,
+    "holdoutClaim": false,
+    "certified": false,
+    "targetAchieved": false,
+    "userWorkspaceModified": false,
+    "liveTrading": false,
+    "externalPublication": false
+  }
+}

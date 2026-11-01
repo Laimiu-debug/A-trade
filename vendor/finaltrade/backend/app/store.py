@@ -187,6 +187,7 @@ from .tdx_loader import (
     load_input_pool_from_tdx,
     load_intraday_for_symbol_date,
     probe_tdx_latest_trade_date,
+    market_source_revision,
 )
 
 # Import refactored modules
@@ -272,6 +273,15 @@ def state_locked(method):
     return wrapped
 
 
+def backtest_history(method):
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        payload = kwargs.get('payload') if 'payload' in kwargs else args[0]
+        with self._backtest_candle_history(payload):
+            return method(self, *args, **kwargs)
+    return wrapped
+
+
 class MarketDataUnavailable(ValueError):
     pass
 
@@ -279,13 +289,13 @@ class MarketDataUnavailable(ValueError):
 class InMemoryStore:
     _APP_STATE_SCHEMA_VERSION = 3
     _FULL_MARKET_SYSTEM_PROTECT_LIMIT = 6000
-    _BACKTEST_INPUT_POOL_CACHE_VERSION = "input-pool-v3"
+    _BACKTEST_INPUT_POOL_CACHE_VERSION = "input-pool-v4-date-history"
     _SCREENER_RESULT_CACHE_VERSION = "screener-run-v3"
     _SIGNALS_RESULT_CACHE_VERSION = "signals-v2"
-    _BACKTEST_TREND_FILTER_CACHE_VERSION = "trend-filter-v4"
-    _BACKTEST_RESULT_CACHE_VERSION = "backtest-result-v7-strategy-registration"
-    _BACKTEST_SIGNAL_MATRIX_CACHE_VERSION = "signal-matrix-v2"
-    _BACKTEST_PRECHECK_CACHE_VERSION = "precheck-v1"
+    _BACKTEST_TREND_FILTER_CACHE_VERSION = "trend-filter-v5-date-history"
+    _BACKTEST_RESULT_CACHE_VERSION = "backtest-result-v9-full-pool-default"
+    _BACKTEST_SIGNAL_MATRIX_CACHE_VERSION = "signal-matrix-v3-date-history"
+    _BACKTEST_PRECHECK_CACHE_VERSION = "precheck-v3-full-pool-default"
     _BACKTEST_REPORT_SCHEMA_VERSION = "ftbt-1.0"
     _BACKTEST_REPORT_PACKAGE_TYPE = "backtest_report"
     _BACKTEST_REPORT_REQUIRED_FILES = (
@@ -4468,11 +4478,109 @@ class InMemoryStore:
                 removed += 1
         return removed
 
-    def _ensure_candles(self, symbol: str) -> list[CandlePoint]:
+    @contextmanager
+    def _backtest_candle_history(self, payload=None, *, history_range=None):
+        previous = getattr(self._backtest_runtime_context, 'candle_history', None)
+        previous_revisions = getattr(self._backtest_runtime_context, 'market_revisions', None)
+        if previous_revisions is None:
+            self._backtest_runtime_context.market_revisions = {}
+        if history_range is None:
+            base = getattr(payload, 'base_payload', payload)
+            warmup = max(400, int(self._config.candles_window_bars), int(self._config.return_window_days),
+                         int(base.window_days), *getattr(payload, 'window_days_list', []))
+            history_range = (base.date_from, base.date_to, warmup)
+        if previous and previous[:2] == history_range[:2]:
+            history_range = (*history_range[:2], max(previous[2], history_range[2]))
+        self._backtest_runtime_context.candle_history = history_range
+        try:
+            yield
+        except BaseException:
+            if previous_revisions is None:
+                self._validate_market_data_revisions(raise_on_change=False)
+            raise
+        else:
+            if previous_revisions is None:
+                self._validate_market_data_revisions()
+        finally:
+            self._backtest_runtime_context.candle_history = previous
+            self._backtest_runtime_context.market_revisions = previous_revisions
+
+    def _market_source_generation_file(self, root, csv_root):
+        source_id = hashlib.sha256(json.dumps([root, csv_root]).encode('utf-8')).hexdigest()
+        return self._resolve_backtest_result_cache_dir() / 'source-generations' / (source_id + '.txt')
+
+    def _current_market_data_revision(self, root, csv_root):
+        path = self._market_source_generation_file(root, csv_root)
+        try:
+            generation = path.read_text(encoding='ascii')
+        except FileNotFoundError:
+            generation = ''
+        raw = market_source_revision(root, csv_root)
+        return raw, generation
+
+    def _validate_market_data_revisions(self, *, raise_on_change=True):
+        revisions = getattr(self._backtest_runtime_context, 'market_revisions', None) or {}
+        changed = False
+        for (root, csv_root), original in revisions.items():
+            current = self._current_market_data_revision(root, csv_root)
+            if current == original:
+                continue
+            changed = True
+            if current[0] != original[0]:
+                # Some lower caches may already have been populated before the
+                # change was detected. Retire their entire generation, even if
+                # the original file set is restored later. Preserve all files.
+                path = self._market_source_generation_file(root, csv_root)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                temporary = path.with_suffix('.' + uuid4().hex + '.tmp')
+                try:
+                    temporary.write_text(uuid4().hex, encoding='ascii')
+                    temporary.replace(path)
+                finally:
+                    temporary.unlink(missing_ok=True)
+        if changed and raise_on_change:
+            raise BacktestValidationError('BACKTEST_MARKET_DATA_CHANGED',
+                '回测期间行情文件发生变化，请在数据更新完成后重新运行。')
+
+    def _market_data_revision(self, tdx_root=None) -> str:
+        root = str(self._resolve_user_path(tdx_root or self._config.tdx_data_path))
+        csv_root = str(self._config.akshare_cache_dir or os.getenv('AKSHARE_CACHE_DIR', '') or
+                       str(Path.home() / '.tdx-trend' / 'akshare' / 'daily'))
+        key = (root, csv_root)
+        revisions = getattr(self._backtest_runtime_context, 'market_revisions', None)
+        if revisions is None:
+            revision = self._current_market_data_revision(*key)
+        else:
+            if key not in revisions:
+                revisions[key] = self._current_market_data_revision(*key)
+            revision = revisions[key]
+        return hashlib.sha256(json.dumps(revision).encode('utf-8')).hexdigest()
+
+    def _capture_candle_loader(self):
+        # Matrix fetches run in worker threads; capture the request explicitly.
+        history_range = getattr(self._backtest_runtime_context, 'candle_history', None)
+        return lambda symbol: self._ensure_candles(symbol, history_range=history_range)
+
+    def _run_with_candle_history(self, history_range, method, *args, market_revisions=None):
+        previous = getattr(self._backtest_runtime_context, 'market_revisions', None)
+        if market_revisions is not None:
+            self._backtest_runtime_context.market_revisions = dict(market_revisions)
+        try:
+            with self._backtest_candle_history(history_range=history_range):
+                self._validate_market_data_revisions()
+                result = method(*args)
+                self._validate_market_data_revisions()
+                return result
+        finally:
+            self._backtest_runtime_context.market_revisions = previous
+
+    def _ensure_candles(self, symbol: str, *, history_range=None) -> list[CandlePoint]:
         symbol_key = str(symbol).strip().lower()
         if not re.fullmatch(r"(?:sh|sz|bj)\d{6}", symbol_key):
             raise MarketDataUnavailable("证券代码需为 sh、sz 或 bj 加六位数字。")
         config = self.get_config()
+        history_range = history_range or getattr(self._backtest_runtime_context, 'candle_history', None)
+        cache_symbol = symbol_key if history_range is None else f'{symbol_key}@{history_range!r}'
         roots = [self._resolve_user_path(config.tdx_data_path) / symbol_key[:2] / "lday"]
         csv_root = self._resolve_user_path(config.akshare_cache_dir or os.getenv('AKSHARE_CACHE_DIR', '') or str(Path.home() / ".tdx-trend" / "akshare" / "daily"))
         paths = [roots[0] / f"{symbol_key}.day", roots[0] / f"{symbol_key[2:]}.day", csv_root / f"{symbol_key}.csv", csv_root / f"{symbol_key[2:]}.csv"]
@@ -4480,48 +4588,51 @@ class InMemoryStore:
         for path in paths:
             try:
                 stat = path.stat()
-                versions.append((str(path), stat.st_mtime_ns, stat.st_size))
+                versions.append((str(path), stat.st_mtime_ns, stat.st_size, stat.st_ctime_ns))
             except OSError:
                 versions.append((str(path), None, None))
-        signature = (config.tdx_data_path, config.market_data_source, config.akshare_cache_dir, config.candles_window_bars, tuple(versions))
+        signature = (config.tdx_data_path, config.market_data_source, config.akshare_cache_dir, config.candles_window_bars, history_range, tuple(versions))
         with self._candles_lock:
-            cached = self._candles_map.get(symbol_key)
-            if cached is not None and self._candles_signatures.get(symbol_key) == signature:
+            cached = self._candles_map.get(cache_symbol)
+            if cached is not None and self._candles_signatures.get(cache_symbol) == signature:
                 # LRU touch: move to tail.
-                self._candles_map.pop(symbol_key, None)
-                self._candles_map[symbol_key] = cached
+                self._candles_map.pop(cache_symbol, None)
+                self._candles_map[cache_symbol] = cached
                 return cached
 
         window_bars = max(120, int(config.candles_window_bars))
+        history_args = {} if history_range is None else dict(
+            date_from=history_range[0], date_to=history_range[1], warmup_bars=history_range[2])
         real_candles = load_candles_for_symbol(
             config.tdx_data_path,
             symbol_key,
             window=window_bars,
             market_data_source=config.market_data_source,
             akshare_cache_dir=config.akshare_cache_dir,
+            **history_args,
         )
         if real_candles:
             resolved = real_candles
         else:
             with self._candles_lock:
-                self._candles_map.pop(symbol_key, None)
-                self._candles_signatures.pop(symbol_key, None)
+                self._candles_map.pop(cache_symbol, None)
+                self._candles_signatures.pop(cache_symbol, None)
             raise MarketDataUnavailable(f"未找到 {symbol_key} 的真实行情，请检查行情目录或同步数据。")
 
         with self._lock:
             current = self._config
             fields = ('tdx_data_path', 'market_data_source', 'akshare_cache_dir', 'candles_window_bars')
             if any(getattr(current, field) != getattr(config, field) for field in fields):
-                return self._ensure_candles(symbol_key)
+                return self._ensure_candles(symbol_key, history_range=history_range)
             with self._candles_lock:
-                existing = self._candles_map.get(symbol_key)
-                if existing is not None and self._candles_signatures.get(symbol_key) == signature:
-                    self._candles_map.pop(symbol_key, None)
-                    self._candles_map[symbol_key] = existing
+                existing = self._candles_map.get(cache_symbol)
+                if existing is not None and self._candles_signatures.get(cache_symbol) == signature:
+                    self._candles_map.pop(cache_symbol, None)
+                    self._candles_map[cache_symbol] = existing
                     return existing
 
-                self._candles_map[symbol_key] = resolved
-                self._candles_signatures[symbol_key] = signature
+                self._candles_map[cache_symbol] = resolved
+                self._candles_signatures[cache_symbol] = signature
                 max_symbols = self._candles_runtime_cache_max_symbols()
                 if max_symbols > 0 and len(self._candles_map) > max_symbols:
                     trim_to = max(1, int(max_symbols * 0.9))
@@ -5947,7 +6058,7 @@ class InMemoryStore:
                 continue
             seen.add(symbol_text)
             replay_candidates.append(row)
-            if len(replay_candidates) >= replay_max_symbols:
+            if replay_max_symbols > 0 and len(replay_candidates) >= replay_max_symbols:
                 break
 
         return replay_candidates, load_error
@@ -6546,6 +6657,9 @@ class InMemoryStore:
         symbol = str(row.symbol).strip().lower()
         trade_date = str(resolved_as_of_date or "").strip()
         data_source = str(self._config.market_data_source).strip() or "unknown"
+        history_data_version = self._wyckoff_event_data_version
+        if getattr(self._backtest_runtime_context, 'candle_history', None):
+            history_data_version += '|date-history-v1|source=' + self._market_data_revision()
         runtime_binding = self._get_backtest_runtime_event_judgment_binding()
         if runtime_binding is not None and isinstance(runtime_binding.get("profile"), dict):
             event_judgment_profile = dict(runtime_binding["profile"])
@@ -6568,7 +6682,7 @@ class InMemoryStore:
                 window_days=window_days,
                 algo_version=self._wyckoff_event_algo_version,
                 data_source=data_source,
-                data_version=self._wyckoff_event_data_version,
+                data_version=history_data_version,
                 params_hash=params_hash,
             )
             read_duration_ms = (time.perf_counter() - read_started) * 1000.0
@@ -6594,7 +6708,7 @@ class InMemoryStore:
                 window_days=window_days,
                 algo_version=self._wyckoff_event_algo_version,
                 data_source=data_source,
-                data_version=self._wyckoff_event_data_version,
+                data_version=history_data_version,
                 params_hash=params_hash,
                 snapshot=snapshot,
             )
@@ -6848,7 +6962,7 @@ class InMemoryStore:
         replay_max_symbols = None
         if backtest_max_symbols is not None:
             try:
-                replay_max_symbols = max(20, min(2000, int(backtest_max_symbols)))
+                replay_max_symbols = max(0, min(2000, int(backtest_max_symbols)))
             except Exception:
                 replay_max_symbols = None
 
@@ -8508,6 +8622,7 @@ class InMemoryStore:
     ) -> str:
         payload = {
             "version": self._BACKTEST_INPUT_POOL_CACHE_VERSION,
+            "source_revision": self._market_data_revision(tdx_root),
             "tdx_root": str(self._resolve_user_path(tdx_root)),
             "tdx_last_trade_date": self._resolve_tdx_last_trade_date(tdx_root),
             "markets": sorted({str(item).strip().lower() for item in markets if str(item).strip()}),
@@ -8665,6 +8780,7 @@ class InMemoryStore:
             return_window_days=return_window_days,
             as_of_date=as_of_date,
             load_timeout_sec=self._screener_input_pool_load_timeout_sec(),
+            source_revision=self._market_data_revision(tdx_root),
         )
         typed_rows = [row for row in rows if isinstance(row, ScreenerResult)]
         if cache_enabled:
@@ -8706,6 +8822,7 @@ class InMemoryStore:
         _ = max_symbols
         payload = {
             "version": self._BACKTEST_TREND_FILTER_CACHE_VERSION,
+            "source_revision": self._market_data_revision(),
             "as_of_date": str(as_of_date).strip(),
             "trend_step": str(trend_step).strip(),
             "board_filters": sorted({str(item).strip().lower() for item in board_filters if str(item).strip()}),
@@ -8932,12 +9049,15 @@ class InMemoryStore:
         else:
             pending_days = list(refresh_unique)
 
+        source_revision = self._market_data_revision(tdx_root)
+
         def _load_for_day(as_of_date: str) -> tuple[str, list[object], str | None]:
             rows, load_error = load_input_pool_from_tdx(
                 tdx_root=tdx_root,
                 markets=markets,
                 return_window_days=return_window_days,
                 as_of_date=as_of_date,
+                source_revision=source_revision,
             )
             typed_rows = [row for row in rows if isinstance(row, ScreenerResult)]
             if not typed_rows and str(load_error or "").strip() == "TDX_PATH_NOT_FOUND":
@@ -9162,7 +9282,7 @@ class InMemoryStore:
                 continue
             seen_symbols.add(symbol)
             symbols.append(symbol)
-            if len(symbols) >= payload.max_symbols:
+            if payload.max_symbols > 0 and len(symbols) >= payload.max_symbols:
                 break
 
         symbol_set = set(symbols)
@@ -9175,7 +9295,7 @@ class InMemoryStore:
             ),
             (
                 f"静态股票池数量: {len(symbols)}（原始 {original_count}，"
-                f"板块过滤后 {len(source_rows)}，单日上限 {payload.max_symbols}）。"
+                f"板块过滤后 {len(source_rows)}，单日上限 {payload.max_symbols if payload.max_symbols > 0 else '全部（不限数量）'}）。"
             ),
         ]
         if payload.pool_roll_mode != "daily":
@@ -9301,7 +9421,7 @@ class InMemoryStore:
                     continue
                 seen_symbols.add(symbol)
                 day_symbols_full.append(symbol)
-                if len(day_symbols) < payload.max_symbols:
+                if payload.max_symbols <= 0 or len(day_symbols) < payload.max_symbols:
                     day_symbols.append(symbol)
 
             pool_by_refresh_date[as_of_date] = set(day_symbols)
@@ -9340,7 +9460,7 @@ class InMemoryStore:
                 f"候选池构建: {mode_label}（扫描 {len(scan_dates)} 日，刷新 {len(refresh_dates_used)} 次，"
                 f"每次刷新平均加载 {avg_source_rows} 只标的）。"
             ),
-            f"滚动股票池并集数量: {len(symbols_union)}，单日上限: {payload.max_symbols}。",
+            f"滚动股票池并集数量: {len(symbols_union)}，单日上限: {payload.max_symbols if payload.max_symbols > 0 else '全部（不限数量）'}。",
         ]
         if empty_refresh_days > 0:
             notes.append(f"有 {empty_refresh_days} 个刷新日当日数据为空。")
@@ -9429,10 +9549,10 @@ class InMemoryStore:
                 day_symbols.append(symbol)
 
             day_symbols.sort()
-            if len(day_symbols) > protect_limit:
+            if payload.max_symbols > 0 and len(day_symbols) > protect_limit:
                 day_symbols = day_symbols[:protect_limit]
                 system_limit_hit_days += 1
-            if len(day_symbols) > payload.max_symbols:
+            if payload.max_symbols > 0 and len(day_symbols) > payload.max_symbols:
                 day_symbols = day_symbols[: payload.max_symbols]
 
             pool_by_refresh_date[as_of_date] = set(day_symbols)
@@ -9467,7 +9587,7 @@ class InMemoryStore:
                 f"全市场候选池构建: {mode_label}（扫描 {len(scan_dates)} 日，刷新 {len(refresh_dates_used)} 次，"
                 f"每次刷新平均加载 {avg_source_rows} 只标的）。"
             ),
-            f"滚动股票池并集数量: {len(symbols_union)}，单日上限: {payload.max_symbols}。",
+            f"滚动股票池并集数量: {len(symbols_union)}，单日上限: {payload.max_symbols if payload.max_symbols > 0 else '全部（不限数量）'}。",
         ]
         if system_limit_hit_days > 0:
             notes.append(
@@ -9976,7 +10096,7 @@ class InMemoryStore:
 
     def _build_backtest_engine(self) -> BacktestEngine:
         return BacktestEngine(
-            get_candles=self._ensure_candles,
+            get_candles=self._capture_candle_loader(),
             build_row=self._build_row_from_candles,
             calc_snapshot=lambda row, window_days, as_of_date: self._calc_wyckoff_snapshot(
                 row,
@@ -9997,6 +10117,7 @@ class InMemoryStore:
             ),
         )
 
+    @backtest_history
     def _run_matrix_execution(
         self,
         *,
@@ -10015,8 +10136,9 @@ class InMemoryStore:
         matrix_windows = self._build_backtest_matrix_windows(payload)
         matrix_max_lookback_days = max(matrix_windows)
         data_version = (
-            f"{self._config.market_data_source}|bars={int(self._config.candles_window_bars)}|"
-            f"wy={self._wyckoff_event_data_version}|mode={payload.mode}|roll={payload.pool_roll_mode}"
+            f"{self._config.market_data_source}|date-history-v1|bars={int(self._config.candles_window_bars)}|"
+            f"wy={self._wyckoff_event_data_version}|mode={payload.mode}|roll={payload.pool_roll_mode}|"
+            f"source={self._market_data_revision()}"
         )
         cache_key = self._backtest_matrix_engine.build_cache_key(
             symbols=symbols,
@@ -10037,7 +10159,7 @@ class InMemoryStore:
         bundle_start_ts = time.perf_counter()
         bundle, cache_hit = self._backtest_matrix_engine.build_bundle(
             symbols=symbols,
-            get_candles=self._ensure_candles,
+            get_candles=self._capture_candle_loader(),
             date_from=payload.date_from,
             date_to=payload.date_to,
             max_lookback_days=matrix_max_lookback_days,
@@ -10453,13 +10575,13 @@ class InMemoryStore:
             "BACKTEST_DATA_COVERAGE_INSUFFICIENT",
             (
                 f"回测K线覆盖不足：请求区间 {payload.date_from} ~ {payload.date_to}，"
-                f"{scope_label}在当前K线窗口(candles_window_bars={int(self._config.candles_window_bars)})下"
+                f"{scope_label}按请求日期自动加载历史K线后，"
                 f"有效覆盖约 {effective_start or 'N/A'} ~ {effective_end or 'N/A'}；"
                 f"可覆盖起始日标的 {covered_from_count}/{checked_count}，"
                 f"可覆盖结束日标的 {covered_to_count}/{checked_count}。"
                 f"覆盖比例(起始/结束)={covered_from_ratio:.1%}/{covered_to_ratio:.1%}，"
                 f"最低要求={min_coverage_ratio:.1%}。"
-                "请增大K线窗口或缩短回测区间。"
+                "本地历史数据仍未覆盖请求区间，请补充对应日期的历史行情后重试。"
             ),
         )
 
@@ -10471,6 +10593,9 @@ class InMemoryStore:
         *,
         scope_label: str,
     ) -> None:
+        scan_dates = self._build_backtest_scan_dates(payload.date_from, payload.date_to)
+        if scan_dates:
+            payload = payload.model_copy(update={'date_from': scan_dates[0], 'date_to': scan_dates[-1]})
         summary = self._summarize_backtest_candle_coverage_from_matrix_bundle(
             symbols=symbols,
             date_from=payload.date_from,
@@ -10483,6 +10608,7 @@ class InMemoryStore:
             scope_label=scope_label,
         )
 
+    @backtest_history
     def _validate_backtest_data_coverage(
         self,
         payload: BacktestRunRequest,
@@ -10490,6 +10616,9 @@ class InMemoryStore:
         *,
         scope_label: str,
     ) -> None:
+        scan_dates = self._build_backtest_scan_dates(payload.date_from, payload.date_to)
+        if scan_dates:
+            payload = payload.model_copy(update={'date_from': scan_dates[0], 'date_to': scan_dates[-1]})
         summary = self._summarize_backtest_candle_coverage(
             symbols=symbols,
             date_from=payload.date_from,
@@ -10501,22 +10630,11 @@ class InMemoryStore:
             scope_label=scope_label,
         )
 
+    @backtest_history
     def _precheck_backtest_data_coverage_before_task(self, payload: BacktestRunRequest) -> None:
         scan_dates = self._build_backtest_scan_dates(payload.date_from, payload.date_to)
         if not scan_dates:
             raise BacktestValidationError("BACKTEST_INVALID", "回测区间内无可扫描交易日。")
-        required_bars = max(1, len(scan_dates)) + max(20, int(payload.window_days)) + 5
-        configured_bars = int(self._config.candles_window_bars or 0)
-        if configured_bars > 0 and configured_bars < required_bars:
-            raise BacktestValidationError(
-                "BACKTEST_CANDLES_WINDOW_TOO_SHORT",
-                (
-                    f"回测K线窗口不足：请求区间 {payload.date_from} ~ {payload.date_to} "
-                    f"共 {len(scan_dates)} 个交易日，signal_window={int(payload.window_days)}；"
-                    f"估算至少需要 {required_bars} 根K线，当前 candles_window_bars={configured_bars}。"
-                    "请在设置中提高K线数后重试。"
-                ),
-            )
         first_refresh_date = [scan_dates[0]]
         board_filters = [item for item in payload.board_filters if item in {"main", "gem", "star", "beijing", "st"}]
 
@@ -10725,6 +10843,7 @@ class InMemoryStore:
             )
         cache_payload = {
             "version": self._BACKTEST_PRECHECK_CACHE_VERSION,
+            "source_revision": self._market_data_revision(),
             "payload": payload_raw,
             "config": {
                 "tdx_root": str(self._resolve_user_path(self._config.tdx_data_path)),
@@ -10871,6 +10990,7 @@ class InMemoryStore:
             )
         payload_meta = {
             "version": self._BACKTEST_RESULT_CACHE_VERSION,
+            "source_revision": self._market_data_revision(),
             "payload": payload_raw,
             "config": {
                 "tdx_root": str(self._resolve_user_path(self._config.tdx_data_path)),
@@ -10951,6 +11071,7 @@ class InMemoryStore:
             return False
         if not self._is_backtest_result_cache_eligible(payload):
             return False
+        self._validate_market_data_revisions()
         cache_key = self._build_backtest_result_cache_key(
             payload,
             strategy_version=strategy_version,
@@ -11818,11 +11939,10 @@ class InMemoryStore:
                     upper=float(position_pct_bounds[1]),
                     precision=6,
                 ),
-                max_symbols=self._map_plateau_int_from_unit(
-                    unit_values[8],
-                    lower=int(max_symbols_bounds[0]),
-                    upper=int(max_symbols_bounds[1]),
-                ),
+                max_symbols=(max_symbols_axis[min(len(max_symbols_axis) - 1,
+                    int(unit_values[8] * len(max_symbols_axis)))] if 0 in max_symbols_axis else
+                    self._map_plateau_int_from_unit(unit_values[8],
+                        lower=int(max_symbols_bounds[0]), upper=int(max_symbols_bounds[1]))),
                 priority_topk_per_day=self._map_plateau_int_from_unit(
                     unit_values[9],
                     lower=int(priority_topk_bounds[0]),
@@ -11884,7 +12004,7 @@ class InMemoryStore:
             )
             if payload.pool_roll_mode == "position":
                 engine = BacktestEngine(
-                    get_candles=self._ensure_candles,
+                    get_candles=self._capture_candle_loader(),
                     build_row=self._build_row_from_candles,
                     calc_snapshot=lambda row, window_days, as_of_date: self._calc_wyckoff_snapshot(
                         row, window_days=window_days, as_of_date=as_of_date,
@@ -11938,7 +12058,7 @@ class InMemoryStore:
         if payload.mode == "full_market":
             if payload.pool_roll_mode == "position":
                 engine = BacktestEngine(
-                    get_candles=self._ensure_candles,
+                    get_candles=self._capture_candle_loader(),
                     build_row=self._build_row_from_candles,
                     calc_snapshot=lambda row, window_days, as_of_date: self._calc_wyckoff_snapshot(
                         row, window_days=window_days, as_of_date=as_of_date,
@@ -11988,6 +12108,7 @@ class InMemoryStore:
 
         raise ValueError(f"不支持的回测模式: {payload.mode}")
 
+    @backtest_history
     def run_backtest_plateau(
         self,
         payload: BacktestPlateauRunRequest,
@@ -12079,7 +12200,7 @@ class InMemoryStore:
         max_symbols_axis = self._normalize_plateau_axis_int(
             payload.max_symbols_list,
             base=int(base.max_symbols),
-            lower=20,
+            lower=0,
             upper=2000,
         )
         priority_topk_axis = self._normalize_plateau_axis_int(
@@ -12308,7 +12429,10 @@ class InMemoryStore:
         can_prebuild = base.pool_roll_mode in {"daily", "weekly"}
         universe_by_max_symbols: dict[int, tuple[list[str], dict[str, set[str]] | None, list[str]]] = {}
         if can_prebuild:
-            unique_max_symbols = sorted({int(p.max_symbols) for p in params_to_evaluate})
+            # Zero is the full universe, so it must be built before deriving any
+            # limited universes even though it is numerically the smallest value.
+            unique_max_symbols = sorted({int(p.max_symbols) for p in params_to_evaluate},
+                                        key=lambda value: float('inf') if value == 0 else value)
             max_ms = unique_max_symbols[-1] if unique_max_symbols else int(base.max_symbols)
             if control_callback is not None:
                 control_callback()
@@ -12330,6 +12454,13 @@ class InMemoryStore:
                 # 对较小的 max_symbols 值，从完整结果中截断 allowed_symbols_by_date
                 for ms_val in unique_max_symbols:
                     if ms_val == max_ms:
+                        continue
+                    if max_ms == 0:
+                        # Rebuild explicit limits using the pool's own ranking;
+                        # an unordered set of all symbols cannot preserve it.
+                        universe_by_max_symbols[ms_val] = self._build_backtest_universe_for_plateau(
+                            base.model_copy(update={'max_symbols': ms_val}, deep=True),
+                            board_filters_for_prebuild, control_callback=control_callback)
                         continue
                     if full_allowed is not None:
                         truncated_allowed: dict[str, set[str]] = {}
@@ -12377,7 +12508,7 @@ class InMemoryStore:
             lambda: str((self._get_backtest_runtime_event_judgment_binding() or {}).get("profile_hash", "")),
         )
         _plateau_engine = BacktestEngine(
-            get_candles=self._ensure_candles,
+            get_candles=self._capture_candle_loader(),
             build_row=cached_row,
             calc_snapshot=cached_snapshot,
             resolve_symbol_name=self._resolve_symbol_name,
@@ -12572,7 +12703,11 @@ class InMemoryStore:
                     except StopIteration:
                         return
                     universe = universe_by_max_symbols.get(int(params.max_symbols)) if can_prebuild else None
-                    future = executor.submit(evaluator, orig_idx, params, universe)
+                    history_range = getattr(self._backtest_runtime_context, 'candle_history', None)
+                    future = executor.submit(self._run_with_candle_history, history_range,
+                                             evaluator, orig_idx, params, universe,
+                                             market_revisions=dict(getattr(self._backtest_runtime_context,
+                                                                           'market_revisions', None) or {}))
                     future_to_meta[future] = (orig_idx, params, ckey)
 
                 for _ in range(min(worker_count, len(plan))):
@@ -13390,6 +13525,7 @@ class InMemoryStore:
             }
         )
 
+    @backtest_history
     def run_backtest(
         self,
         payload: BacktestRunRequest,
@@ -13483,6 +13619,7 @@ class InMemoryStore:
         strategy_supports_matrix = bool(strategy_capabilities.get("supports_matrix", False))
         strategy_supports_entry_delay = bool(strategy_capabilities.get("supports_entry_delay", True))
         capability_notes: list[str] = [
+            "回测按所选日期读取历史日线，并自动补充指标预热数据。",
             f"事件判别模板: id={active_event_profile_id}, hash={active_event_profile_hash}"
         ]
         if cleared_wyckoff_entry_config:
@@ -13797,7 +13934,7 @@ class InMemoryStore:
         rolling_start_ts = time.perf_counter()
 
         engine = BacktestEngine(
-            get_candles=self._ensure_candles,
+            get_candles=self._capture_candle_loader(),
             build_row=feature_cache[0] if feature_cache else self._build_row_from_candles,
             calc_snapshot=feature_cache[1] if feature_cache else lambda row, window_days, as_of_date: self._calc_wyckoff_snapshot(
                 row,
@@ -15102,7 +15239,7 @@ class InMemoryStore:
             )),
             len(self._normalize_plateau_axis_int(payload.max_positions_list, base=int(base.max_positions), lower=1, upper=100)),
             len(self._normalize_plateau_axis_float(payload.position_pct_list, base=float(base.position_pct), lower=0.0001, upper=1.0, precision=6)),
-            len(self._normalize_plateau_axis_int(payload.max_symbols_list, base=int(base.max_symbols), lower=20, upper=2000)),
+            len(self._normalize_plateau_axis_int(payload.max_symbols_list, base=int(base.max_symbols), lower=0, upper=2000)),
             len(self._normalize_plateau_axis_int(payload.priority_topk_per_day_list, base=int(base.priority_topk_per_day), lower=0, upper=500)),
         ]
         grid_total = 1

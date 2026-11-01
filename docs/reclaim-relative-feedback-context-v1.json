@@ -1,0 +1,37 @@
+{
+  "schema": "reclaim-relative-feedback-context-v1",
+  "question": "Does prior strong-versus-weak cohort feedback distinguish the observed payoff distribution of both existing reclaim exit policies across both periods and all three boards?",
+  "periods": ["2022-2023", "2024-2025"],
+  "boards": ["main", "chinext", "star"],
+  "policies": ["trail10", "volatilityTrail"],
+  "states": ["stronger", "weaker", "equal", "unknown"],
+  "rules": {
+    "population": "All8155 original UR formations, each retaining both complete existing account dispositions; no outcome, admission, holding or maturity-based deletion. No new account or signal is run.",
+    "clock": "For original formation T, use exact prior source-calendar A=T-1. Freeze groups at F=A-5=T-6, using RS20 from F-20 through F, and feedback from F through A. All required slots are exact, never compressed. T-close and subsequent prices cannot affect this context.",
+    "rank": "Within each unchanged board-period source cohort, reuse batch35 RS20 and midrank definitions on all valid21-slot members and the shared CSI300 benchmark. Top percentile>=0.90; bottom percentile<=0.10. Retain all ties, so group sizes may differ or be empty. No in-period universe substitution.",
+    "feedback": "Each fixed member has raw closeA/closeF-1 positive, flat, negative, or unknown. All six source slots require the inherited valid raw OHLCV and known-status checks. Unknown members remain in their frozen group denominator.",
+    "bounds": "For each group N=P+Z+L+U, positive fraction lies in[P/N,(P+U)/N]. Difference lowerNumerator=Ps*Nw-(Pw+Uw)*Ns; upperNumerator=(Ps+Us)*Nw-Pw*Ns; denominator=Ns*Nw. Compare integer numerators: lower>0 stronger; upper<0 weaker; both zero equal; otherwise unknown. Either empty group is unknown. Do not round, add epsilon, or impose a coverage filter.",
+    "meaning": "The state measures already-observed positive-feedback proportions of previously strong and weak groups. Stronger can occur when both groups mostly fall, weaker when both mostly rise. It does not identify bull/bear regimes, causality, ownership, quantitative funds or future returns.",
+    "attribution": "Map closed episodes and terminal open realized/unrealized PnL to their original formation context. Preserve failed/unexecuted signals and cutoff positions. Report original account residual separately; do not allocate it to any state. Money divided by original500000 is a contribution, never a filtered account return.",
+    "groups": "Explicit complete matrices:48 overall,96 formation-year,72 formation-epoch,24 policy-difference groups. Include empty and unknown cells. Each of12 account bridges reconciles all opportunity/episode counts and money. Closed means condition on both execution and maturity.",
+    "epochs": "The user-directed2024-09-24 boundary is descriptive only. Formation cohorts differ from existing continuous equity intervals; retain all12 original pre/post curve rows with carried cash and positions. Old2022-2023 capital remains separate.",
+    "comparison": "Contrast volatilityTrail minus trail10 group money and counts. Different exits change subsequent admissions, sizes and capital paths; this is not a matched-trade causal estimate or a tested market filter.",
+    "validation": "Freeze new analytical code, tests, inputs and rules before new context extraction. Independently reconstruct every source-day rank, both fixed member lists and integer bounds, then every disposition, aggregate and account bridge. Cross-check the top group against batch35 on overlapping A dates.",
+    "novelty": "The new component is the symmetric weak-cohort comparator and bound on the difference. Strong-cohort feedback,20-session rank,5-session feedback and0.90 top percentile were already examined. This is an exploratory diagnostic on exposed development data, not a newly untouched validation."
+  },
+  "trialAccounting": {"diagnosticBatches": 1, "newStrategyTrials": 0, "newAccounts": 0, "existingAccountsRead": 12, "newEntryPolicies": 0, "newExitDefinitions": 0, "newContextDefinitions": 1},
+  "conceptReferences": [{"url": "https://scs.fidelity.com/webcontent/ap010098-etf-content/18.12.0/help/research/learn_er_glossary_1.shtml", "meaning": "General breadth counts participation; our fixed-cohort relative-feedback definition is independently specified and is not the advance-decline line or an endorsed strategy."}],
+  "limitations": [
+    "All2022-2025 histories have been inspected and used for development;2026 is excluded and no holdout claim is made.",
+    "Present-day surviving local files, fixed pre-start cohorts, raw prices and incomplete historical membership, status, rights and execution evidence remain material limitations.",
+    "Formation-time grouping is descriptive. Neither positive group PnL nor a difference between exit policies proves an executable filter would earn that amount.",
+    "Closed episodes and open positions have different maturity. Preserve tail concentration, open PnL, pending exits, valuation flags and unallocated residuals.",
+    "Known sign under unknown-member bounds is not complete observation of all members. Empty/tied populations and bounds touching zero remain explicit.",
+    "Board listing category is not industry; the common benchmark is not board-matched. Price-volume evidence cannot establish institutional, retail or quantitative-fund identity.",
+    "Overlapping dates and repeated stocks are dependent observations; no independent-sample significance, winner promotion or fixed profit hurdle is claimed."
+  ],
+  "parameterSearch": false,
+  "profitHurdles": null,
+  "certified": false,
+  "targetAchieved": false
+}

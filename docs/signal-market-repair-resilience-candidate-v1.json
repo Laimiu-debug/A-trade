@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-10-15T16:37:52.855317+00:00",
+  "status": "design-frozen-before-new-candidate-evaluation",
+  "candidateId": "rawMarketRepairResilientLeaderBreakoutDiagnostic",
+  "title": "广度收缩期间持续强势，广度修复当日再突破",
+  "hypothesisCount": 1,
+  "objective": {
+    "targetSinglePositionNetGainPct": 30,
+    "annualizedReturnTarget": null,
+    "holdingDeadline": null,
+    "certified": false,
+    "targetAchieved": false
+  },
+  "decisionTiming": "Use only T-close and earlier information; reuse the parent's single T+1-open entry attempt. No later repair day or future winner may relabel T.",
+  "marketRepair": {
+    "window": {
+      "startOffset": -5,
+      "endOffset": 0,
+      "requiredRows": 6,
+      "earliestTargetIndex": 10
+    },
+    "differenceField": "matched5.matchedBreadthChange5",
+    "differenceMeaning": "D(u) is the percentage-point change in the fraction with positive raw 20-session return, on the fixed intersection of price-evaluable securities at u and u-5. Each u uses its own intersection; this is not daily advancing-stock breadth or one fixed six-day constituent set.",
+    "qualityOnEveryRequiredDay": [
+      {
+        "field": "price20.coverage",
+        "operator": ">=",
+        "threshold": 0.9,
+        "domain": [
+          0,
+          1
+        ]
+      },
+      {
+        "field": "matched5.available",
+        "operator": "is",
+        "threshold": true
+      },
+      {
+        "field": "matched5.pairedCoverageFixed",
+        "operator": ">=",
+        "threshold": 0.9,
+        "domain": [
+          0,
+          1
+        ]
+      },
+      {
+        "field": "matched5.matchedBreadthChange5",
+        "operator": "finiteInDomain",
+        "domain": [
+          -100,
+          100
+        ]
+      }
+    ],
+    "conditions": [
+      "count(D(u)<0 for u=T-5..T-1)>=3",
+      "D(T-1)<=0",
+      "D(T)>0"
+    ],
+    "zero": "Zero does not count as contraction; it is allowed as the immediately preceding non-expanding observation.",
+    "noLevelFilter": "No threshold on medianAbsoluteReturn20 or amount: a repair may start while aggregate twenty-session returns remain negative.",
+    "dependence": "Overlapping five-day comparison windows are dependent. Three negative signs are three observations, not three independent confirmations."
+  },
+  "resilience": {
+    "source": "The unchanged independently audited market-state panel roles.jsonl.gz qState.",
+    "window": {
+      "startOffset": -5,
+      "endOffset": -1,
+      "requiredRows": 5
+    },
+    "condition": "qState is the exact string true for this strategy symbol on each of T-5..T-1; require all five, not only contraction days.",
+    "currentTrigger": "Current T must already be a pre-active Top5 parent persistent-leader raw breakout candidate. Current Q and breakout remain inherited; no scan of another eligible pool.",
+    "meaning": "Q is observed relative price strength, not demonstrated market influence, controller identity, theme leadership or capital accumulation."
+  },
+  "gateSemantics": {
+    "states": [
+      "true",
+      "false",
+      "unknown"
+    ],
+    "priority": "Necessary evidence unknown takes priority over known failures; retain all known failed predicates. Complete valid coverage below 0.9 or failed sign/Q conditions gives false.",
+    "unknown": "Missing/invalid required numeric field, out-of-domain/nonfinite value, matched5.available false or nonboolean, explicit qState unknown, or insufficient target-calendar history. Booleans are never numeric observations.",
+    "hardIntegrityFailure": "Missing whole row, extra/duplicate/wrong-order row, wrong date/symbol/version/source binding, invalid qState enum or contradictory exact earlierDate aborts. Do not convert these integrity errors to filter unknown.",
+    "warmup": "Use exactly targetDates[max(0,Tindex-5)..Tindex] for market and max(0,Tindex-5)..Tindex-1 for role history. Missing pre-target rows are insufficient formation history, not fabricated warmup. D on first five target sessions is unavailable; earliest evaluable index is 10.",
+    "noHiddenState": "No best-day choice, episode anchor, retry, cooldown or post-hoc repair labels. Evaluate every T independently; negative/zero to positive sign crossing defines each mechanical repair event.",
+    "finiteInputContract": "Bound panel JSON was emitted with allow_nan=False. A nonfinite whole input row cannot satisfy that frozen integrity contract and may abort hashing, while generic pure predicates preserve unknown semantics."
+  },
+  "selectionAndReplay": {
+    "groupMapping": {
+      "rawPersistentPriceLeaderBreakoutDiagnostic": "rawMarketRepairResilientLeaderBreakoutDiagnostic",
+      "control_rawPersistentPriceLeaderBreakoutDiagnostic": "control_rawMarketRepairResilientLeaderBreakoutDiagnostic"
+    },
+    "parentOrder": "Preserve complete parent raw ranking and pre-active Top5. Filter after that original selection; do not rerank or backfill rank six, including after active exclusion.",
+    "strategyAdmission": "Admit original parent strategy rank k only when its compound market-repair and own-history resilience gate is true.",
+    "controlAdmission": "Original control rank k on the same date inherits exactly the corresponding parent strategy rank k gate. Do not evaluate the control's own Q for admission, compress ranks after filtering, redraw controls or change the parent hash salt.",
+    "lineage": "Every decision and admitted signal records own original sourceSignalKey and parent row/file hashes plus pairedParentSignalKey=[parentStrategyId,strategySymbol,T], original pairedParentRank and the strategy-owned gate evidence/hash. Strategy rows pair to themselves; control rows never mislabel the strategy history as their own.",
+    "shortfall": "If original control rank k is absent, retain original matching shortfall and separately count true strategy slots with missing controls. Do not substitute another control or delete the strategy signal.",
+    "active": "Fresh empty active map per new group. Only filled entry reserves the symbol. Target exit at T open releases T-close signal; unfilled entry does not reserve. A false/unknown new-entry gate does not change old holdings/exits."
+  },
+  "apiContract": {
+    "market": "evaluate_market_repair(target_dates, target_index, market_rows) returns date,targetIndex,version,candidateId,marketGate,newEntryAllowed,predicates,failedPredicates,unknownReasons,history,certified=false,targetAchieved=false; exact aligned six-or-fewer rows.",
+    "compound": "evaluate_resilient_gate(symbol,target_dates,target_index,role_rows,market_gate) returns date,symbol,targetIndex,version,candidateId,signalGate,newEntryAllowed,marketGate,roleHistory,failedPredicates,unknownReasons,certified=false,targetAchieved=false; exact aligned five-or-fewer roles for that symbol.",
+    "pureScope": "Pure functions validate dates, source featureVersion, exact earlierDate, qState enum and required identities; no source IO, prices, returns, active positions or control sampling. Caller validates complete input population and lineage."
+  },
+  "requiredRecords": [
+    "All 484 market gates with full causal six-day evidence and source row hashes.",
+    "All 1057 parent raw candidates with compound gate evidence, including non-Top5 records; retain original ranks.",
+    "All parent strategy/control pre-active rows with admitted/false/unknown dispositions and explicit paired rank lineage.",
+    "All daily selection/coverage rows, full role-stream exact date/symbol population and EOF verification, fresh active dispositions and all original event outputs.",
+    "Separate market-gate counts, candidate-gate counts, per-group original/admitted/false/unknown/attempted/active-suppressed accounting and unmatched true strategy slots."
+  ],
+  "researchAccounting": {
+    "previousCompletedCandidates": 10,
+    "additionalCompletedTrialsFromRegistration": 0,
+    "outcomesCalculated": false,
+    "marketSelectedDatesCalculated": false,
+    "parametersSearched": false,
+    "interpretation": "One fixed composite hypothesis, chosen after ten earlier development trials. Constants are predeclared, not empirically justified optima. This is adaptively reused 2022-2023 development data, not holdout evidence."
+  }
+}

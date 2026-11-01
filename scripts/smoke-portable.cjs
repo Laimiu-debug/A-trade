@@ -1,6 +1,5 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const os = require('node:os');
 const net = require('node:net');
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
@@ -37,19 +36,41 @@ async function fixture(directory) {
     }
     await fs.writeFile(path.join(destination, `sh${600000 + stock}.day`), bytes);
   }
+  await fs.writeFile(path.join(destination, 'sh881115.day'), await fs.readFile(path.join(destination, 'sh600000.day')));
+  const nameDirectory=path.join(directory,'行情样本','T0002','hq_cache');await fs.mkdir(nameDirectory,{recursive:true});
+  const names=Buffer.alloc(50+360*2);
+  for(const [i,code] of ['881115','880363'].entries()){names.write(code,50+i*360,'ascii');names.write('Fixture Forestry',81+i*360,'ascii');}
+  await fs.writeFile(path.join(nameDirectory,'shs.tnf'),names);
+  await fs.writeFile(path.join(destination,'sh880363.day'),await fs.readFile(path.join(destination,'sh881115.day')));
+  const plugins=path.join(directory,'行情样本','PYPlugins');await fs.mkdir(path.join(plugins,'user'),{recursive:true});
+  await fs.writeFile(path.join(plugins,'TPythClient.dll'),'fixture - never loaded');
+  await fs.writeFile(path.join(plugins,'user','tqcenter.py'),`class tq:
+    _initialized = False
+    @classmethod
+    def initialize(cls, path): cls._initialized = True
+    @classmethod
+    def close(cls): cls._initialized = False
+    @classmethod
+    def get_sector_list(cls, list_type): return [{'Code':'881115.SH','Name':'Fixture Forestry'}]
+    @classmethod
+    def get_stock_list_in_sector(cls, block_code, block_type):
+        if block_code != 'Fixture Forestry': raise ValueError('wrong sector identity')
+        return ['600000.SH','600001.SH']
+`);
   return { dates, source: path.join(directory, '行情样本') };
 }
-async function launch(application, directory) {
+async function launch(application, directory, { cacheDirectory = path.join(directory, '运行缓存'), workingDirectory = directory } = {}) {
   const port = await reservePort();
   const temporary=path.join(directory,'临时解包');await fs.mkdir(temporary,{recursive:true});
   const env = { ...process.env, ATRADE_USER_DATA: path.join(directory, '独立数据'),
-    TEMP:temporary,TMP:temporary,
+    TEMP:temporary,TMP:temporary, ATRADE_RUNTIME_CACHE: cacheDirectory,
     ATRADE_PYTHON: 'Z:\\missing-host-python.exe', PYTHONHOME: 'Z:\\missing-home', PYTHONPATH: 'Z:\\missing-site',
     PATH: path.join(process.env.SystemRoot, 'System32') };
   delete env.ELECTRON_RUN_AS_NODE;
   const executable=(await fs.stat(application)).isFile()?application:path.join(application,'A-trade.exe');
+  const launchStarted = performance.now();
   const child = spawn(executable, ['--start-hidden', `--remote-debugging-port=${port}`, '--remote-debugging-address=127.0.0.1'],
-    { cwd: directory, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    { cwd: workingDirectory, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   let tail = '', exitCode, socket;
   child.stdout.on('data', data => { tail = (tail + data).slice(-4000); });
   child.stderr.on('data', data => { tail = (tail + data).slice(-4000); });
@@ -113,8 +134,8 @@ async function launch(application, directory) {
     };
     await wait('typeof AT !== "undefined" && !!window.ResearchModule && !!window.PortfolioWorkbench && !!document.querySelector("main")', 'packaged UI');
     await evaluate('window.__portableErrors=[];window.addEventListener("error",event=>__portableErrors.push(event.message));window.addEventListener("unhandledrejection",event=>__portableErrors.push(String(event.reason)));');
-    return { evaluate, strategy, wait, command, child,async duplicate(){
-      const second=spawn(executable,['--start-hidden'],{cwd:directory,env,windowsHide:true,stdio:'ignore'});
+    return { evaluate, strategy, wait, command, child, startupMs: Math.round(performance.now() - launchStarted), async duplicate(){
+      const second=spawn(executable,['--start-hidden'],{cwd:workingDirectory,env,windowsHide:true,stdio:'ignore'});
       const result=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>{second.kill();reject(Error('Second portable launch did not hand off'))},60000);second.once('error',error=>{clearTimeout(timer);reject(error)});second.once('exit',code=>{clearTimeout(timer);resolve(code)})});
       assert.equal(result,0,'a duplicate launch exits normally');assert.equal(await evaluate('typeof AT.navigate==="function"'),true,'duplicate extraction must not damage the running app');
     }, async close() {
@@ -125,9 +146,10 @@ async function launch(application, directory) {
   } catch (error) { socket?.close(); child.kill(); throw error; }
 }
 async function main() {
-  const single=process.argv.includes('--single-exe'),specified=process.argv.slice(2).find(value=>value!=='--single-exe');
+  const single=process.argv.includes('--single-exe'),sectorOnly=process.argv.includes('--sector-only'),specified=process.argv.slice(2).find(value=>!['--single-exe','--sector-only'].includes(value));
   const original = path.resolve(specified || (single?JSON.parse(await fs.readFile(path.join(root,'dist/latest-single-exe.json'),'utf8')).file:JSON.parse(await fs.readFile(path.join(root, 'dist/latest-portable.json'), 'utf8')).directory));
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'atrade-portable-'));
+  const smokeRoot=path.join(root,'artifacts','portable-smoke-work');await fs.mkdir(smokeRoot,{recursive:true});
+  const directory = await fs.mkdtemp(path.join(smokeRoot, 'attempt-'));
   const oneFile=(await fs.stat(original)).isFile();let application=original;
   if(oneFile){const folder=path.join(directory,'中文单文件程序');await fs.mkdir(folder);application=path.join(folder,'A-trade 单文件.exe');await fs.copyFile(original,application);}
   console.log('Testing packaged exe with no host Python/Node on PATH, in an isolated workspace.');
@@ -155,6 +177,49 @@ async function main() {
     const configured = await evaluate(`atradeDesktop.market('market.configure',{path:${JSON.stringify(sample.source)}})`);
     assert.equal(configured.ok, true, configured.error);
     const scanned = await evaluate("atradeDesktop.market('market.scan')"); assert.equal(scanned.ok, true, scanned.error);
+    await evaluate('AT.marketUI.refresh()');await evaluate('AT.navigate("M02");true');
+    await wait('!!document.querySelector("[data-sector-trend=sh881115]")','packaged local sector snapshot without MCP');
+    assert.equal(await evaluate('document.querySelector("[data-market-sector=sh881115]")'),null,'offline index cannot claim available constituents');
+    assert.equal(await evaluate('document.querySelector("[data-market-sector-basis=daily]").getAttribute("aria-pressed")'),'true');
+    const sectorCutoff=sample.dates[319];
+    await evaluate(`(()=>{const input=document.querySelector('[data-market-sector-date]');input.value=${JSON.stringify(sectorCutoff)};input.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+    await wait(`document.querySelector('.sector-date-controls')?.innerText.includes('实际日线截至 '+${JSON.stringify(sectorCutoff)})`,'packaged sector cutoff');
+    await evaluate('document.querySelector("[data-sector-trend=sh881115]").click();true');
+    await wait(`document.querySelector('.sector-history-dates')?.innerText.endsWith(${JSON.stringify(sectorCutoff)})`,'packaged chart shares sector cutoff');
+    const sectorSnapshot=await evaluate(`atradeDesktop.market('market.sectors',{basis:'daily',asOf:${JSON.stringify(sectorCutoff)}})`);
+    assert.equal(sectorSnapshot.ok,true,sectorSnapshot.error);
+    assert.equal(sectorSnapshot.data.asOf,sectorCutoff);
+    assert.equal(sectorSnapshot.data.items[0].date,sectorCutoff);
+    assert.ok(Math.abs(sectorSnapshot.data.items[0].return5-((Math.round(1000+319*.5)/Math.round(1000+314*.5))-1)*100)<1e-9);
+    assert.match(await evaluate('document.querySelector(".statusbar>span:first-child").innerText'),new RegExp(sectorCutoff));
+    assert.match(await evaluate('document.querySelector(".market-explorer-table").innerText'),/5 日涨幅[\s\S]*20 日涨幅/);
+    await fs.mkdir(path.join(root,'artifacts'),{recursive:true});
+    const sectorPicture=await session.command('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await fs.writeFile(path.join(root,'artifacts/portable-sector-cutoff.png'),Buffer.from(sectorPicture.data,'base64'));
+    if(sectorOnly){
+      const enabled=await evaluate("atradeDesktop.market('market.online.configure',{enabled:true,followLocal:true,root:'',refreshSeconds:300})");assert.equal(enabled.ok,true,enabled.error);
+      const connection=await evaluate("atradeDesktop.market('market.online.test')");assert.equal(connection.data.connected,true);
+      await evaluate('AT.marketUI.refresh()');await evaluate('document.querySelector("[data-market-action=refresh-sectors]").click();true');
+      await wait('!!document.querySelector("[data-market-sector=sh881115]")','packaged current membership catalogue');
+      assert.equal(await evaluate('document.querySelector("[data-sector-trend=sh880363]")'),null,'legacy same-name code is excluded');
+      await evaluate('document.querySelector("[data-market-sector=sh881115]").click();true');
+      await wait('AT.state.page==="M03" && document.querySelectorAll(".market-explorer-table [data-stock]").length===2','packaged local list to MCP constituent drilldown');
+      assert.doesNotMatch(await evaluate('document.querySelector("main").innerText'),/没有这个板块|另一套分类/);
+      assert.equal(await evaluate(`[...document.querySelectorAll('.market-explorer-table tr[data-stock-chart-date]')].every(row=>row.dataset.stockChartDate<=${JSON.stringify(sectorCutoff)})`),true);
+      const memberPicture=await session.command('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+      await fs.writeFile(path.join(root,'artifacts/portable-sector-membership.png'),Buffer.from(memberPicture.data,'base64'));
+      assert.deepEqual(await evaluate('__portableErrors'),[]);await session.duplicate();await session.close();session=null;
+      session=await launch(application,directory);
+      await session.wait('AT.state.page==="M02" && !!document.querySelector("[data-market-sector=sh881115]")','packaged restart restores a usable board list');
+      await session.evaluate('document.querySelector("[data-market-sector=sh881115]").click();true');
+      await session.wait('AT.state.page==="M03" && document.querySelectorAll(".market-explorer-table [data-stock]").length===2','packaged constituents after restart');
+      await session.close();session=null;
+      const evidence={passed:true,version:diagnostic.data.app.version,application:original,isolatedWorkspace:directory,sectorAsOf:sectorCutoff,offlineHistory:true,currentSector:'sh881115',excludedLegacy:'sh880363',memberCount:2,hostPythonDisabled:true,restarted:true,duplicateLaunchVerified:true};
+      await fs.writeFile(path.join(root,'artifacts/portable-sector-smoke.json'),JSON.stringify(evidence,null,2)+'\n');
+      console.log('PASS single EXE sector dates, exact membership identity, same-name legacy exclusion, constituent drilldown and restart persistence.');return;
+    }
+    await evaluate('AT.navigate("C08");true');
+    await wait('!!document.querySelector("[data-onboarding-action=verify]")','return to packaged first-use guide');
     await evaluate('AT.marketUI.refresh()');await evaluate('document.querySelector("[data-onboarding-action=verify]").click();true');
     await wait('AT.state.onboarding.sample?.count===120','packaged onboarding reads bundled daily data');
     await evaluate('AT.navigate("M06");true');
@@ -314,10 +379,12 @@ async function main() {
       fullPoolSize: 136, tradingDays: 39, strategies: 2, singleDevelopmentDays: 20, frozenValidationDays: 19,
       strategyCatalogueSize:16,strategyTradeCount:strategyReport.result.trades.length,plateauPoints:4,strategyReportsPersisted:true,
       frozenPlanPersisted: true, validationStatus: validationReport.data.result.validationAudit.status,
-      hostPythonDisabled: true, restarted: true, isolatedWorkspace: directory,singleExecutable:oneFile,duplicateLaunchVerified:oneFile };
+      hostPythonDisabled: true, restarted: true, isolatedWorkspace: directory,singleExecutable:oneFile,duplicateLaunchVerified:oneFile,
+      sectorCutoffValidated:true,sectorAsOf:sectorCutoff,sectorReturn5:sectorSnapshot.data.items[0].return5 };
     if(oneFile)assert.deepEqual(await fs.readdir(path.dirname(application)),[path.basename(application)],'only the exe is needed beside the program');
     await fs.writeFile(path.join(root, 'artifacts/portable-smoke.json'), JSON.stringify(evidence, null, 2) + '\n');
     console.log('PASS packaged launch without host runtimes, 16 strategies, strategy backtest and four-point plateau, unified UI, 136-stock pool, date validation, 39-day portfolio and report/account restart persistence.');
   } finally { session?.kill(); }
 }
-main().catch(error => { console.error(error.stack); process.exitCode = 1; });
+if (require.main === module) main().catch(error => { console.error(error.stack); process.exitCode = 1; });
+module.exports = { launch };

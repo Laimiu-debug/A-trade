@@ -1,0 +1,25 @@
+{
+  "schema": "leader-pullback-retention-context-v1",
+  "decision": "Assess the incremental value of a fixed member price level retained after the original leader's first adjacent close decline, within the same inherited first-breakout queue.",
+  "userDirection": "Research empirical small-loss/large-win behavior without preset profit or holding-duration hurdles. Explore new mechanisms, preserve market-stage differences, and avoid diverting into isolated stock discontinuity repairs.2024-09-24 remains a descriptive evaluation boundary rather than a signal switch.",
+  "previousTurnClassification": "verified progress: completed44th batch,36 new accounts, full matching/account/readout checks and reviewed inline presentation; goal remains active and not achieved",
+  "authoritativeRefresh": {
+    "programSha256": "f8ffd05698431f47d395aa534c3728c1c75384cdb77bb47b8b8183e574d76abe",
+    "completedBatches": 44,
+    "previousDelivery": "artifacts/strategy-search/leader-matched-anchor-v1/delivery.json",
+    "previousDeliverySha256": "6ff2437cd54b9496591457d5bd00eac8cecc0c8d7d96e85efdde0a681c875897",
+    "deliveryMembersFreshlyVerified": 287,
+    "previousFinding": "Real-anchor amount crossing beat scale-matched crossing8/12 but had larger mean losses8/10, only3 profitable accounts and lower participation12/12. After9.24 it beat the common breakout control only1/6. No stable edge was demonstrated."
+  },
+  "sourceDecision": "Use the same six hash-bound raw cohorts and all43 originalTop5 events, not43 admitted schedules or44 matched subset. Keep inherited A-day amount eligibility explicit. This isolates a new fixed price-path predicate without changing parent ownership/ranking or waiting for later breakouts.",
+  "definitionDecision": "P means first adjacent close decline, not material peak drawdown or lost leadership. Stop anchor scan at its first proven decline or required unknown. Anchor bars after provenP do not alter the event. Check the member's exact P-1..T-1 raw validity; T breakout does not rescue earlier breaches. No additional preclose, adjustment or single-stock repair filter.",
+  "noveltyCheck": "Earlier local succession used persistentQ, two-day rank overtake and anchorQ failure; peer expansion, Q recovery, historical lag correlation and individual traded-value crossing do not implement this exact event order. General leadership transfer has been researched already; only this narrow operational difference is new.",
+  "interpretation": "Conditional policy comparison with a changed control population. Less exposure or more selective participation can reduce losses without improving trade quality. No causal leader influence, identified main-force/retail/quant actors, or untouched holdout claim.",
+  "validation": "Preregister before new coverage, complete all six inputs, independently reconstruct price evidence and schedules, then execute all24 accounts once and independently audit accounting and readouts. Preserve failures and all sparse/null outcomes.",
+  "externalContext": [
+    {"url": "https://www.csrc.gov.cn/csrc/c106311/c7508374/content.shtml", "use": "Official2024-09-24 policy event context; no claim that timing alone explains market or strategy returns."},
+    {"url": "https://www.davidhbailey.com/dhbpapers/backtest-prob.pdf", "use": "Repeated-testing and backtest-overfitting methodological context. No PBO statistic was computed or claimed for these dependent development trials."}
+  ],
+  "delivery": "Continue the established Chinese inline comparison with adjacent Sources; persist protocol and research evidence locally. No live trade, commit, push, package, deployment or user-workspace import.",
+  "targetAchieved": false
+}

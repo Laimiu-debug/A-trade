@@ -1,0 +1,83 @@
+{
+  "schema": "leader-lag-followers-protocol-v1",
+  "stage": "development-comparison-before-first-new-signals",
+  "strategyId": "leaderLagFollowersV1",
+  "modes": ["control", "direction"],
+  "labels": {"control": "同期同伴", "direction": "先动后随"},
+  "question": "Within a common board-scoped persistent-strength setup and fixed synchronous peers, does a pre-event one-session directional relation improve full follower accounts?",
+  "novelty": "Old peer expansion bought the anchor; old follower confirmation waited for a subsequent member recovery/breakout. This study signals the fixed member at the anchor activation close and tests only a prior directional-correlation mask. No new outcomes have been used to select these rules.",
+  "source": {
+    "family": "board-coverage-reclaim-v1",
+    "periods": ["2022-2023", "2024-2025"],
+    "boards": ["main", "chinext", "star"],
+    "accounts": 12,
+    "reuse": "Use all six unchanged frozen caches and inherited independent source proof. No securities or bars are added, repaired or removed. Rebuild all leaders and peers in each board; never transplant the old3141 groups or397 events.",
+    "cohort": "Same period-start local-file cohorts with at least61 valid strictly prior observations; this is not point-in-time or delisting-complete market coverage.",
+    "scope": "Leadership and peers are within each board cohort, not all-A-share market leaders or verified industry/theme membership. Cross-board transmission is not measured. No2026 source or pristine holdout claim."
+  },
+  "barValidity": {
+    "calendar": "Exact supplied independent exchange-calendar slots. Ignore numerical data after registered end; never compress missing observations or skip invalid interior bars.",
+    "raw": "Require explicit dataset raw-unadjusted basis; absent per-bar basis inherits it, conflicting per-bar basis is unknown. Require finite positive OHLCV and low<=min(open,close)<=max(open,close)<=high. A malformed explicit knownSuspended flag, knownSuspended=true, or historical tradeStatus false/0/string0 is invalid. Missing historical status remains unverified, not invented.",
+    "benchmark": "Apply the same exact-window OHLCV validity to the supplied sh000300 benchmark. Its volume units differ from stocks but volume is used only for positive-bar validity, never as a cross-security weight.",
+    "eligibility": "Only frozen cohort membership and these observable raw-window requirements define feature eligibility. Do not fabricate archived baseEligibility or inherit the older panel's120-session/5000万元 gates, current-name ST filter, or unknown IPO dates. Legacy account config fields are compatibility fields, not extra FrozenSignalScorer admission gates.",
+    "unknown": "Missing/invalid windows or nonfinite arithmetic remain unknown with reason counts; do not turn them into a failed price pattern or repair source data."
+  },
+  "leadership": {
+    "relativeReturn": "At each day d and horizon h=20 or60, require complete exact h+1 stock and benchmark windows. RS_h=(C_s,d/C_s,d-h)/(C_b,d/C_b,d-h)-1. All intermediate ratios must be finite and positive, final return finite.",
+    "crossSection": "Compute RS20 and RS60 ranks separately among every cohort symbol with a finite respective return, before any leadership, liquidity or account filtering. Ascending exact-value ties with zero-based start i and exclusive stop j receive percentile(i+j)/(2*N). Preserve each day's population and canonical rank digest; never recalculate earlier ranks using a later cross-section.",
+    "history": "At each evaluated d require current exact61 raw stock/benchmark slots and actual RS20 percentiles on all20 sessions d-19..d. Use statistics.mean for the20-rank mean and exact minimum. DD20 is maximum(peak-close)/peak over21 closes; efficiency20=(last-first)/math.fsum(abs(consecutive close changes)). Zero path distance is unknown.",
+    "fiveConditions": {"meanStrengthPercentile20Min": 0.90, "minimumStrengthPercentile20Min": 0.80, "relativeReturn60PercentileMin": 0.90, "closePathMaxDrawdown20Max": 0.10, "signedPathEfficiency20Min": 0.35},
+    "activation": "At A close require all five numerical conditions at A plus close_A strictly greater than maximum high over exact prior5 sessions. F is exactly A-10 source sessions; require all five numerical conditions at F without an F breakout requirement. Unknown prerequisites cannot become false or eligible.",
+    "ranking": "After the F condition, rank all qualifying A events by A meanStrengthPercentile20 descending, A RS60 percentile descending, then symbol ascending. Original leader Top5 is fixed before peer formation, member relationships or account state. Preserve all current candidates and their F known-false/unknown outcomes.",
+    "warmup": "Only activation A must be inside the registered period. F and its complete rank history may use pre-start warmup; compute them from causal source prefixes. Do not copy the old archived-panel first10-day omission. Start the rank clock no later than first target minus29 slots; raw windows can extend earlier.",
+    "identity": "Each selected(A,leader) is a distinct event, including repeated activations while an account holds. These are a new common setup on six cohorts, not a claim of unchanged old temporalTop5 population."
+  },
+  "peers": {
+    "formation": "At F use exact61 aligned closes F-60..F, giving60 stock and benchmark log returns. e_X[k]=log(C_X[k]/C_X[k-1])-log(B[k]/B[k-1]). Require all raw slots and all derived values; no pairwise missing-value deletion.",
+    "correlation": "Two-pass Pearson: reject any exact constant input sequence before centering; mean=math.fsum(values)/n, centered values, variance=math.fsum(dx*dx), covariance=math.fsum(dx*dy), denominator=sqrt(vx)*sqrt(vy). Zero/nonfinite variance, nonpositive/nonfinite denominator or nonfinite result is unknown. Preserve raw rho; use clamp(raw,-1,1) for threshold/ranking/comparisons. No epsilon or significance threshold.",
+    "members": "For each selected leader scan every other symbol in the same fixed board cohort at F. Synchronous60 correlation>=0.30 qualifies; sort correlation descending then symbol ascending and retain first20. Preserve every candidate's reason, raw/projected correlation and rank in streamed group evidence.",
+    "incomplete": "Exactly20 members are required for an actionable group. Retain partial members and all group reasons for incomplete/unknown events, but do not expand them into the trading member queue. Never invent missing members or backfill the leader Top5.",
+    "freeze": "Membership and peer rank stay fixed at F. No A or later price, eligibility, future confirmation or outcome may replace a peer. All return/correlation evidence is strictly at or before F."
+  },
+  "memberSelection": {
+    "expansion": "Every formed original leader group contributes20 raw member edges. Preserve all edge identities(eventId,member), even duplicate same-day members.",
+    "order": "Interleave the original groups by frozenMemberRank ascending, originalLeaderRank ascending, anchorSymbol ascending, memberSymbol ascending. This pre-outcome choice replaces the unregistered memo's leader-first order to avoid automatically awarding every slot to the first leader.",
+    "ownership": "For each(A,member) retain the first edge in that order as owner and retain all alternate ownership edges as duplicateSuppressed evidence. Never choose an owner based on directional relationships or later outcomes.",
+    "top5": "Sort unique owners by the same order and take original member Top5 before calculating/applying three directional correlations. Retain all other owners as dailyRankExcluded and their relationships as notEvaluated, not unknown. No rank-six backfill, reranking or holding-based suppression in the signal builder."
+  },
+  "relationship": {
+    "clock": "Use the owner's same F-frozen60 excess log returns; calculations may be performed lazily at A but cannot use observations after F or claim the future A event was known at F.",
+    "synchronous59": "corr(L[1:60],S[1:60])",
+    "forward59": "corr(L[0:59],S[1:60])",
+    "reverse59": "corr(S[0:59],L[1:60])",
+    "population": "All three coefficients have59 pairs from the same complete61-close source window. Require all three coefficients evaluable under the same Pearson definition, including exact-constant slices. Store numerator, denominator, variances, raw and clamped rho, and aligned date ranges.",
+    "control": "At A close signal every original member Top5 with formed group and jointly evaluable three correlations, irrespective of direction.",
+    "direction": "Same A close, same original Top5 and same complete evidence as control; additionally require clampedForward > max(0,clampedSynchronous59,clampedReverse). Strict comparison; equality fails.",
+    "unknown": "Any required relation unknown means neither policy schedules that opportunity. Keep original rank, owner and reasons. Known direction failure schedules only control. Reverse relation is only a direction check, not a third strategy.",
+    "ordering": "Five-field signals signalId,strategyId,symbol,signalDate,originalRank; signalDate=A. Sort by signalDate,originalRank,symbol,signalId. Same opportunity signalId across policies."
+  },
+  "account": {
+    "startingCapital": 500000,
+    "positions": 5,
+    "entryWeight": 0.2,
+    "execution": "Unchanged noProgress5 ResearchExitAccount,5% close stop,10% close trailing, T+1, board lots/bands and next-open execution/capacity proxies. No profit cap or maximum holding deadline. Keep all original source-quality flags.",
+    "fees": "Same dated historical fee policy for2022-2023 and LegacyFeePolicy for2024-2025,10bp per side, same account configuration except strategy identity.",
+    "cutoff": "A on final target day remains a signal when rules pass; the unavailable in-period next open remains an unexecuted disposition, not a fabricated zero-return trade. Planned next date, actual attempt, fill and exit dates remain distinct."
+  },
+  "evidence": {
+    "api": "build_leader_lag_followers(dataset,start,end,progress=None,on_group=None); on_group streams full group evaluation records separately from progress without mutating source or retained evidence.",
+    "layers": "Daily rank population/digests and candidate/F outcomes; every original leader event and partial group; full streamed group candidate evaluations; all20 edges per formed event and same-day ownership; original member Top5 opportunities; both schedules and complete account dispositions.",
+    "counts": "Formed leader groups contribute exactly20 raw edges; rawEdges=uniqueOwners+duplicateSuppressed. uniqueOwners=selectedTop5+dailyRankExcluded. selectedTop5=knownRelations+unknownRelations; knownRelations=directionPass+directionFail. Per policy selectedTop5=notScheduled+scheduled; scheduled=entered+notEntered; closed/open retained separately.",
+    "readout": "All12 accounts and6 directional-minus-control contrasts;24 annual,48 half-year,96 atlas-stage,12 event-boundary intervals. Attribute original opportunities to A; F is relation-history cutoff, not trade-cohort date. Keep all costs, exposure, realized/unrealized, tails, losing streaks, concentration and valuation quality.",
+    "eventBoundary": "2024-09-24 is descriptive only. Carry continuous equity and positions, do not reset capital, label it causally or use it as an entry filter."
+  },
+  "validation": {
+    "beforeOutcomes": "Meaningful synthetic tests for separate cross-sections/ties, historical rank persistence, F/A chronology, peer order, interleaved ownership before masks, missing/constant slices, strict boundaries, repeated events, future invariance and period cutoff. Freeze protocol, implementation and sources before generating real signals.",
+    "independent": "Independently rebuild all six source prefix ranks, leader populations, group candidates, ownership, relations and12 ordered schedules before accounts. Audit all saved ledgers and reports without executing duplicate accounts.",
+    "trialAccounting": {"newAccounts": 12, "newSetupMechanisms": 1, "newEntryPolicies": 2, "newUniverseVariants": 0, "referenceAccountsReused": 0},
+    "success": "No fixed profit, win-rate, payoff-ratio or holding-period hurdle. No policy/board promotion or stable-return claim from already inspected development data. Preserve failed and null studies without outcome-driven threshold relaxation."
+  },
+  "limitations": ["A conditional lagged correlation is not causal leader influence, investor identity, main-force control or a verified theme.", "Subtracting CSI300 returns is not beta/industry neutral; synchronous-peer selection, serial dependence and overlapping members affect interpretation.", "Next-open entry may miss an overnight response already priced in; use complete executable account paths rather than raw correlation as profit.", "Source survivor coverage, raw-price corporate actions, historical eligibility and opening-capacity limits remain. Numerical checks do not certify economic validity."],
+  "certified": false,
+  "targetAchieved": false
+}

@@ -1,0 +1,157 @@
+{
+  "schema": "sector-long-breakout-complete-system-v4-hypothesis",
+  "status": "fixed-before-implementation-and-V4-account-outcomes",
+  "researchUnit": "Whole strong-market/current-strong-industry/long-leader-and-catchup/portfolio/health-exit system",
+  "parentLifecycleProtocol": {
+    "path": "docs/sector-lifecycle-system-v3.json",
+    "sha256": "e1383ce2e6b43a7f022d26f2cc780a674e116e51f8898c6b1b1ac1e7acf76118"
+  },
+  "parentAccountValidation": {
+    "path": "artifacts/strategy-search/sector-lifecycle-system-v3/price-boundary-repair-v1/attempt-001/validation.json",
+    "sha256": "e51f6ad26bb02ce1196d4d9882118570a23ad7eedada7aa83d6dfe82cc5fe79a"
+  },
+  "parentPrecisionCorrection": {
+    "path": "docs/sector-lifecycle-price-boundary-repair-v1.json",
+    "sha256": "231c0c059d7c213949016f7cd0b08c7c968b5ea46b114b246ce3c180bb5b3ce9"
+  },
+  "additionalV2DevelopmentValidation": {
+    "path": "artifacts/strategy-search/market-sector-stock-base-v2/attempt-001/validation.json",
+    "sha256": "ea2c27fcfe13778cf22a857616793ab3d53bb93f3f66e8e382a902b607243d45"
+  },
+  "historicalLongBreakoutDefinition": {
+    "path": "docs/liquid-trend-breakout-v1.json",
+    "sha256": "a960f7ec8b03253407a6ca63a6abe75b89f7db90a4d58a15a76a233cb323a50c"
+  },
+  "historicalLongBreakoutReadout": {
+    "path": "artifacts/strategy-search/liquid-trend-breakout-v1/readout.json",
+    "sha256": "ccd138f896814cd7487585b61b1630043373855f22266f50d3274247a6300201"
+  },
+  "rationale": {
+    "observedABC": {
+      "A_originalV2_developmentOnly": {
+        "netReturnPct": -2.9277338830679622,
+        "maxDrawdownPct": 8.945484434273732,
+        "payoffRatio": 1.1873870013416763,
+        "profitFactor": 0.6856763448298889,
+        "closed": 16,
+        "meanWinReturnPct": 5.634722079085143,
+        "meanLossReturnPct": -4.745480683819381
+      },
+      "B_correctedExactV2SignalsHealthExit": {
+        "netReturnPct": -1.0504916537419473,
+        "maxDrawdownPct": 10.311869027416432,
+        "payoffRatio": 2.0297130012737132,
+        "profitFactor": 0.8977037766450673,
+        "closed": 16,
+        "meanWinReturnPct": 9.76600766633463,
+        "meanLossReturnPct": -4.81152146151014
+      },
+      "C_correctedActiveAdmissionHealthExit": {
+        "netReturnPct": -6.649834628631945,
+        "maxDrawdownPct": 10.165637745608635,
+        "payoffRatio": 1.3560356739211863,
+        "profitFactor": 0.3536457283679969,
+        "closed": 14,
+        "meanWinReturnPct": 6.524594747645154,
+        "meanLossReturnPct": -4.81152146151014
+      }
+    },
+    "sourceOpportunityChanges": {
+      "policy": "completeSystem",
+      "oldSignals": 23,
+      "newSignals": 21,
+      "retainedStockCloseEvents": 20,
+      "addedStockCloseEvents": 1,
+      "lostStockCloseEvents": 3,
+      "lostReasons": {
+        "healthyActiveIndustryCrowdedOutOfTopThree": 3
+      },
+      "newRoles": {
+        "catchup": 21
+      }
+    },
+    "inference": "Health-based industry exits may preserve larger winners, while active-industry top-three admission has not improved the full account. Five-session prepared leader opportunities remain too sparse. These development comparisons do not establish causality or future profitability.",
+    "hypothesis": "Return entry industry selection to current confirmed strength, keep separate health-based holding exits, and seek established long-horizon leaders on their first120-session breakout before adding the unchanged prepared-catchup branch.",
+    "historyLimit": "The older long-breakout study supplies a previously fixed entry family, not a matched current-period control or a pristine holdout. All4999 stocks stay eligible; no exchange board is chosen from historical profits.",
+    "thresholdSearch": false
+  },
+  "marketAndIndustry": {
+    "marketAdmission": "Unchanged V1 actual-close SH/SZ liquidity/trend/breadth rules; missing evidence blocks entry",
+    "industryAdmission": "Unchanged V1 current raw strength3-consecutive confirmation and top-three score; do not use persistent active status to expand entry shortlist",
+    "industryHoldingExit": "Retain V3 known feature-valid relative60>0 and breadth60>0.5 health definition;3 consecutive known failures queue persistent next-open exits. Unknown interrupts failure count; snapshot changes reset counters.",
+    "marketExit": "Unchanged3-close composite crisis protection",
+    "interpretation": "Fresh current industry strength qualifies new risk; holding continuation uses its distinct longer-trend and internal-breadth test."
+  },
+  "longLeaderBranch": {
+    "completeSourceWindow": "Exactly141 consecutive source-calendar sessions T-140 throughT, all positive valid raw OHLCV and amount, correct OHLC envelopes, no explicit suspension; do not compress missing sessions",
+    "firstBreakout": "C_T>max(H_T-120..T-1) and C_T-1<=max(H_T-121..T-2)",
+    "trend": "C_T>MA60_T>MA120_T>MA120_T-20",
+    "earlyPosition": "C_T-1/C_T-21-1<=0.15; this is the prior fixed trendEarly definition, not a scanned new optimum",
+    "liquidity": "Prior20 mean amount ending T-1>=50000000 CNY, as in the inherited long-breakout family",
+    "industryLeaderRole": "Positive120-session return, industry120-return midrank>=0.8 and above current-industry mean120 return, using only current known membership and source-valid returns",
+    "peerCoverage": "At least5 current cohort members and valid complete121-slot120-return observations for at least95percent of those members; otherwise this branch unknown/unavailable",
+    "failurePrice": "max(prior10 source lows,0.95*signalClose), positive and strictly below signalClose. Explicitly a structural/protective combination; the95percent part is not represented as an observed support low.",
+    "openingGuard": "Use existing V1 fixed-floor/raw-opening ceiling of signalClose*(1+inclusiveT NTR20), one next-session attempt, quantities only decrease. No new NTR<=5percent admission cap or one-NTR minimum failure distance for this long-breakout branch.",
+    "reason": "The failed single volatility-cap and sparse-base experiments do not justify excluding every higher-volatility long leader. Portfolio risk and actual loss tails must still be evaluated; no guaranteed5percent realized loss is claimed."
+  },
+  "catchupBranch": {
+    "definition": "Run the unchanged V2 prepared-base candidate procedure under the corresponding current-market/current-industry admission policy. Retain only its catchup-pattern events; do not backfill a V2 leaderBase selection with another stock.",
+    "anchorIdentity": "Hash-bind original V2 stock-close events and their evidence. New composed policy signal IDs/ranks use a distinct namespace, while source signal IDs/original ranks remain provenance. Reordering is limited to the declared industry/pattern composition, never observed outcomes.",
+    "riskAndOpening": "Preserve the actual prior-five-low failure price, signal risk coherence and both-sided modeled-opening coherence from V2 for this branch.",
+    "relationship": "Distinct healthy leader identified exactly5 calendar sessions earlier in the same published industry snapshot; all original role/relative-return/base/turnover evidence retained."
+  },
+  "composition": {
+    "priority": "For each allowed industry close choose longLeaderBreakout first; use the unchanged V2 catchup event only if that industry has no qualified long leader.",
+    "longWithinIndustry": "Prior20 mean amount descending, industry120-return midrank descending, symbol ascending",
+    "industryOrdering": "Unchanged exact V1 industry composite percentile score and code tie-break; at mostone event per industry andfive globally",
+    "noSubstitution": "Already-held, unaffordable or unfilled candidates are rejected without adding or replacing them from a lower list. Candidate composition is frozen atT close."
+  },
+  "account": {
+    "same": "Continuous500000 CNY, same periods/raw4999 sources/calendar/fees/slippage/status and quality constraints. Stock20percent, industry40percent, planned price risk1percent of close equity, at mostfive positions, actual cash/fees/lot/capacity reservations.",
+    "exits": "Inherited stop5, branch fixed failure, market crisis, health-based industry retirement and prior20NTR three-times profit ratchet; no fixed profit ceiling, persistent first sells, no forced terminal liquidation. Reuse the independently validated16ULP structural-price comparison correction for every branch.",
+    "riskInterpretation": "A close-confirmed next-open exit can lose more than the planned5percent line; actual closed net payoff/PF, loss tails and account drawdown jointly determine evidence."
+  },
+  "newAccountsPlanned": [
+    {
+      "period": "primary",
+      "policy": "completeSystem"
+    },
+    {
+      "period": "primary",
+      "policy": "withoutMarketAdmission"
+    },
+    {
+      "period": "primary",
+      "policy": "withoutSectorAdmission"
+    },
+    {
+      "period": "primary",
+      "policy": "withoutCatchupEntry"
+    },
+    {
+      "period": "primary",
+      "policy": "catchupOnly",
+      "enginePolicy": "completeSystem"
+    },
+    {
+      "period": "weakMarketStress",
+      "policy": "completeSystem"
+    }
+  ],
+  "controlMeaning": "catchupOnly uses the exact corresponding V2 catchup events, with the same new-account common risk/fees/health exit, and no long-leader additions. withoutCatchupEntry is long-leader-only. Reuse the V3 exact-V2-entry/health-exit account as a historical full-method reference, not as the exact new catchupOnly control.",
+  "validationPlan": [
+    "Freeze new code and all6 complete schedules before any V4 account outcome; preserve all failures",
+    "Independently rebuild141-slot source validity, first120-breakout, lagged prior20 return, moving averages, current peer120 ranks/coverage and one-per-industry composition from direct windows",
+    "Hash-bind all inherited V2 catchup anchors and verify exact branch-specific opening guards; poison future data and test missing calendar slots, rank ties, signal-day and opening boundaries",
+    "Independently project original current-industry admission plus V3 health exit to actual account inputs; replay every held day and all cash/fee/quantity/closed-episode calculations",
+    "Evaluate post2024-09-24 full account return/excess, realized net payoff and PF, loss distribution, drawdown, sample size, exposure, annual persistence and concentration together; weak-market profit not required",
+    "No sample shortage or a winning sub-board is accepted as a successful full method; do not relax within this frozen hypothesis after outcomes"
+  ],
+  "numericTargetsHumanConfirmed": false,
+  "numericScreen": "Inherited research proposal only, not a human-confirmed hard target",
+  "holdoutClaim": false,
+  "certified": false,
+  "targetAchieved": false,
+  "corporateActionResearchExpansion": false,
+  "permissionBoundary": "Local isolated research only; no real orders, commits, pushes, packages or publication"
+}

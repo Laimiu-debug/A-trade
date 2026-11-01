@@ -1,0 +1,80 @@
+{
+  "schema": "leader-persistence-admission-protocol-v1",
+  "family": "leader-persistence-admission-v1",
+  "strategyId": "leaderPersistenceAdmissionV1",
+  "candidateIds": [
+    "knownAll",
+    "persistent",
+    "nonpersistent"
+  ],
+  "exits": [
+    "trail10"
+  ],
+  "objective": "Run executable strategies and observe whether actual net payoff distributions and continuous accounts support repeatable small ordinary losses and larger wins. Later human corrections override stale annual30/net30 and3-10day goal wording; no profit, win-rate, payoff, average-winner or holding-duration acceptance threshold.",
+  "question": "On one common current-strength queue, what is the incremental account effect of requiring the same strength qualification ten source sessions earlier?",
+  "previousCompletedBatch": 47,
+  "previousTurnClassification": "progress: completed independently reconstructed coverage diagnosis;70 current-candidate stock-days across32 securities in the fixed policy-launch window all failed the historical F gate. This changes the next action to executable admission comparisons, not more coverage or discontinuity auditing.",
+  "source": {
+    "periods": [
+      "2022-2023",
+      "2024-2025"
+    ],
+    "boards": [
+      "main",
+      "chinext",
+      "star"
+    ],
+    "records": "Reuse all saved34 daily.leaderCandidates from the six exact raw cohorts bound through completed47. They include every A five-condition-plus-breakout candidate, including F passed/failed/unknown. Do not use old leaderRanking, originalLeaderRank or leaderEventIds as the new common queue.",
+    "proof": "Bind47 delivery and all members,47 plan/validation/readout proof; bind34 plan/input-completion/input-validation plus exact group metadata/daily refs. Bind43 account configurations, sourceData and prior execution proof. Hash the exact raw account data; preserve the complete source calendar and full fixed universe.",
+    "symbols": "Parent34 metadata has no full symbol list. Runner supplies a detached symbols extension from the bound accountData.securities, matching counts.sampleCount. Never infer the cohort from candidate symbols.",
+    "history": "2022-2025 repeatedly inspected development history;2026 not used and not pristine. Fixed surviving local cohorts and inherited raw prices/status/rights are not complete historical all-A coverage."
+  },
+  "signals": {
+    "A": "Original A close already satisfies five20-day/60-day strength conditions and strict close breakout over preceding5 exact highs. Its identity is not first-time emergence.",
+    "F": "Original F is exact source slot A-10. Preserve all original evidence and passed/failed/unknown state. Unknown is never false. No new raw-price features or predicate thresholds.",
+    "queue": "For every target A, sort ALL original current candidates by current meanStrengthPercentile20 descending, relativeReturn60Percentile descending, symbol ascending. Freeze first5 before evaluating F masks. Preserve gaps and no replacement after any exclusion.",
+    "policies": {
+      "knownAll": "CommonTop5 with F passed OR failed.",
+      "persistent": "Same commonTop5 with F passed.",
+      "nonpersistent": "Same commonTop5 with F failed."
+    },
+    "opportunities": "One row for every commonTop5 symbol/date, including Funknown and all policy masks; retain every original candidate in daily evidence, with excluded rank>5 kept. New signalId=leaderPersistenceAdmissionV1:A:symbol, shared between arms; not a parent34 formed leaderEventId.",
+    "tradedSecurity": "The current candidate itself. No follower, same-theme attribution, capital-flow ownership or market-wide causal leadership claim.",
+    "comparisons": "Primary knownAll-minus-persistent six comparisons. nonpersistent is independently executed: its return is not a difference of the other accounts. CommonTop5-before-F differs from old F-before-Top5 and is not an exact old-strategy replication.",
+    "timing": "Signals fixed at A close, earliest immediate next source-calendar opening is the only attempt. Daily repeated opportunities stay visible; held/pending/same-day-sold handling is the unchanged engine policy."
+  },
+  "account": {
+    "matrix": "18 new accounts =3 arms x2periods x3boards x1exit;0 reused. All accounts execute after all18 schedules are frozen and independently checked.",
+    "exit": "Use original trail10:5% initial close stop and10% close trailing stop, no take-profit and no fixed holding deadline. Existing numeric controls are exit rules, not required outcome thresholds. Choose this simple inherited exit to isolate the admission comparison, not by its return.",
+    "capital": "500000 per independent account,max5 positions,20% entry budget fixed at signal close, no topups/averaging; original ranks and budget rules retained.",
+    "execution": "Use unchanged FixedSignalAccount/execute_account. Next-session attempts, T+1 lot restrictions, bands/capacity, sell-before-buy actual cash, persistent failed sells, no backfill or buy carry. Close exits are not guaranteed fills at their trigger percentages.",
+    "fees": "Unchanged2022-2023 dated fee policy from frozen account contract and2024-2025 LegacyFeePolicy; commission0.03%,minimum5,10bp each-side slippage and original transfer/stamp schedules. These are simulated assumptions, not actual broker charges.",
+    "valuation": "Retain continuous equity and open holdings with stale/unresolved flags. No fabricated terminal liquidation, no omission of open loss."
+  },
+  "readout": {
+    "absolute": "All18 account metrics: return,drawdown,exposure,costs,realized/open PnL,closed win/loss means and medians,expectancy,payoff/PF,loss/gain tails and profit concentration. Undefined ratios remain null.",
+    "comparison": "Six knownAll-minus-persistent primary rows; show nonpersistent separately. No inferential independent-sample claim from repeated stock-days or dependent trades.",
+    "time": "All36 annual,72 halfyear,144 narrative-phase and18 descriptive9.24 continuous-equity rows. Carry positions/capital across segments; do not annualize unequal pre/post spans or code any date switch.",
+    "coverage": "All6 source rows and18 policy coverage rows; full candidate count,commonTop5,Funknown/failed/passed,rank excluded,scheduled/entered/notEntered/closed/open. Unknown and zero-signal outcomes retained.",
+    "attribution": "Entry-date opportunity/trade splits and continuous-equity segment returns are distinct views. Do not treat them as equal or additive causal contributions."
+  },
+  "validation": {
+    "freeze": "Freeze sources,inputs,protocol and all analysis code before preparing new schedules. Pass synthetic tests before preparation; independently check all schedules before any accounts. Exclusive claims, no automatic restart of nonterminal output.",
+    "independent": "Separate new queue/rank/mask reconstruction from saved audited full daily candidates; inherit and validate raw source34/47 proof chain. Reuse frozen independent cash/fees/fills/holding/exit/summary oracle for all18 accounts without another account execution.",
+    "tests": "Sort allA beforeF,unknown slot no refill,exact rank gaps,ties,duplicates/missing dates/universe mismatch rejection,all-zero/full-calendar retention,signals are copied and future suffix cannot change earlier results; source binding/chronology,policy schedule conservation and readout paired comparison/empty slices/closed-vs-open.",
+    "interpretation": "Coverage is not profitability. All historical results remain development evidence; neither successful tests nor favorable aggregate returns certify stable future returns."
+  },
+  "trialAccounting": {
+    "newSetupMechanisms": 1,
+    "newEntryPolicies": 3,
+    "newAccounts": 18,
+    "referenceAccountsReused": 0,
+    "newUniverseVariants": 0,
+    "completedResearchBatchesAdded": 1
+  },
+  "parameterSearch": false,
+  "profitHurdles": null,
+  "holdoutClaim": false,
+  "certified": false,
+  "targetAchieved": false
+}

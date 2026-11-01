@@ -9,6 +9,7 @@ const { AIService } = require('./ai-service.cjs');
 const { createAccountValuation } = require('./account-valuation.cjs');
 const { buildReviewContext } = require('./review-context.cjs');
 const { externalDocument } = require('./external-links.cjs');
+const { createAppWindow } = require('./app-window.cjs');
 
 const APP_URL = 'atrade://app/index.html';
 const previewRoot = path.resolve(__dirname, '../preview');
@@ -51,18 +52,19 @@ async function installProtocol(reference) {
   });
 }
 
-async function createDesktop({ dataDirectory, show = true, onWindow } = {}) {
+async function createDesktop({ dataDirectory, show = true, onWindow, window } = {}) {
   const store = new StateStore(dataDirectory);
   const initial = store.load(); // Fail before opening a writable workspace if recovery is unsafe.
   const business = new BusinessService(dataDirectory, { mode: 'account' });
-  const workspace = await business.request('workspace');
-  if (!workspace.ok) { business.close(); const error = new Error(workspace.error); error.businessReason = workspace.error; throw error; }
-  const ai = new AIService(dataDirectory, safeStorage);
   const marketBusiness = new MarketService(dataDirectory);
+  const [workspace, market] = await Promise.all([
+    business.request('workspace'), marketBusiness.request('market.status'),
+  ]);
+  if (!workspace.ok) { business.close(); marketBusiness.close(); const error = new Error(workspace.error); error.businessReason = workspace.error; throw error; }
+  const ai = new AIService(dataDirectory, safeStorage);
   const researchBusiness = new BusinessService(dataDirectory, { mode: 'research' });
   const reference = new FinaltradeService(dataDirectory);
   const accountValuation = createAccountValuation({ business, market: marketBusiness });
-  const market = await marketBusiness.request('market.status');
   const bootstrap = { ...initial, storage: store.paths, business: workspace.data, ai: ai.publicConfig(), market,
     app: { version: require('../package.json').version, packaged: require('electron').app.isPackaged } };
   let lastStateSave = { state: 'not-checked', savedAt: null };
@@ -70,27 +72,7 @@ async function createDesktop({ dataDirectory, show = true, onWindow } = {}) {
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
 
-  const win = new BrowserWindow({
-    width: 1480,
-    height: 1000,
-    minWidth: 820,
-    minHeight: 620,
-    show: false,
-    title: 'A-trade',
-    icon: path.join(__dirname, 'assets/app-icon.ico'),
-    frame: false,
-    backgroundColor: '#f4f7fb',
-    autoHideMenuBar: true,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.cjs'),
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: true,
-      webSecurity: true,
-      webviewTag: false,
-    },
-  });
-  win.removeMenu();
+  const win = window || createAppWindow();
   win.webContents.on('before-input-event', (event, input) => {
     // A raw reload would bypass the close/save handshake while a note is pending.
     if (input.key === 'F5' || ((input.control || input.meta) && input.key.toLowerCase() === 'r')) {

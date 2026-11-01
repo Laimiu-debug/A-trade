@@ -773,7 +773,7 @@ class BacktestRunRequest(BaseModel):
     enforce_t1: bool = True
     entry_delay_days: int = Field(default=1, ge=1, le=5)
     delay_invalidation_enabled: bool = True
-    max_symbols: int = Field(default=120, ge=20, le=2000)
+    max_symbols: int = Field(default=0, ge=0, le=2000, description="0 表示回测所选股票池全部股票；正数为主动设置的数量上限")
     pool_roll_mode: BacktestPoolRollMode = "daily"
     enable_advanced_analysis: bool = True
 

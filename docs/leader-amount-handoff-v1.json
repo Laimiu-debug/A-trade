@@ -1,0 +1,82 @@
+{
+  "schema": "leader-amount-handoff-protocol-v1",
+  "stage": "development-definition-before-new-signal-generation",
+  "strategyId": "leaderAmountHandoffV1",
+  "candidateIds": ["control", "handoff"],
+  "labels": {"control": "同伴价格突破", "handoff": "成交额交叉确认"},
+  "question": "Does a member's recent traded-value crossover against its specific frozen leader add useful account-level information at that member's first price breakout?",
+  "novelty": "Earlier local succession required persistent Q and a two-day price-rank overtake; follower confirmation used Q recovery; peer amount studies measured aggregate group shares and bought the anchor. This tests individual member/anchor traded-value role conversion and buys the member. It is not a relaxed Q or lag-correlation threshold.",
+  "source": {
+    "rawFamily": "board-coverage-reclaim-v1",
+    "eventFamily": "leader-lag-followers-v1",
+    "periods": ["2022-2023", "2024-2025"],
+    "boards": ["main", "chinext", "star"],
+    "reuse": "Use all six unchanged raw caches and all hash-bound original leader-events streams. Inherit the independently verified parent leader/peer formation, not its member Top5, directional mask, fills or outcomes. No recomputation of historical ranks or groups and no transplant across boards.",
+    "sourceIdentity": "Bind parent plan, input-completion and passing input-validation, every group completion and leader-events file, raw cache and source-validation. Verify exact source-period/board/cache correspondence before new inputs.",
+    "scope": "Fixed surviving local cohorts and board-local statistical peers. Not complete point-in-time A shares, verified industry/theme membership, or market-wide leadership. No 2026 data or untouched holdout claim."
+  },
+  "barValidity": {
+    "calendar": "Exact ordered unique supplied source-calendar slots, including warmup. Do not compress missing bars. Read numeric bars only through registered end.",
+    "raw": "Reuse frozen research_leader_lag._Series raw OHLCV/status/basis validity: finite positive OHLCV, consistent envelope, explicit raw basis, no known suspension. Amount additionally must be finite positive CNY. Preserve source historical-status and corporate-action limitations; no new individual-stock repair.",
+    "eligibility": "No new Q persistence, liquidity, listing-age, ST, market-state or date admission gate. Parent group selection is inherited; legacy account configuration eligibility fields do not silently add scorer conditions.",
+    "unknown": "Required missing, nonpositive or nonfinite evidence remains unknown. Price evidence and amount evidence have distinct state effects below."
+  },
+  "formation": {
+    "A": "Parent event formationDate: the close at which the original leader Top5 is known.",
+    "F": "Parent peerFormationDate, exactly A minus ten source slots; all20 same-board peers and ranks stay frozen at F. Never select members using A+1 or later outcomes.",
+    "order": "Original events ordered by A, originalLeaderRank, anchorSymbol; contradictory identity/order/group metadata is fatal.",
+    "lock": "Earliest event for an anchor owns A..A+5 inclusive, even when the group is incomplete or all members are rejected/terminate early. Events inside that lock are logged and do not replace or extend it. A+6 is the earliest next formation.",
+    "group": "Only an unlocked group with kind formed, selectedCount20 and exactly20 distinct ordered members creates member episodes. Retain all other group and suppressed events; never refill the original leader Top5.",
+    "amount3": "M3(s,d)=math.fsum(amount_s,d-2, amount_s,d-1, amount_s,d), in CNY. All three exact OHLCV/status bars and amounts must be valid. Sum, not ratio to own historical amount, market share or turnover rate.",
+    "initialMember": "At A require jointly known member and anchor M3. Observe only when member M3<=anchor M3. Equality passes. Unknown and initially-above members remain terminal excluded, never admitted later."
+  },
+  "memberLifecycle": {
+    "window": "Observe the five exact source sessions A+1..A+5. Advance existing episodes before activating new formations. This observation limit is not a holding deadline.",
+    "price": "For each observing member at d require six exact valid raw OHLCV slots d-5..d. Breakout is close_d strictly greater than max(high_d-5..high_d-1); equality does not pass.",
+    "unknownPrice": "First unknown required price window terminates that member permanently as priceUnknown. A later known breakout must not be called the first when an earlier breakout cannot be evaluated.",
+    "firstBreakout": "The first known true price breakout consumes the episode at T, regardless of amount evidence, crossing, duplicate ownership, Top5, position availability or execution. Never wait for a later crossover/breakout.",
+    "amountClock": "Amount evidence before T, other than initial A eligibility, does not cancel the price state machine. At first T require member and anchor M3 on T-1 and T, using four exact source slots T-3..T, with valid OHLCV/status and amounts for both securities.",
+    "crossing": "Handoff is member M3(T-1)<=anchor M3(T-1) AND member M3(T)>anchor M3(T). Strictly adjacent calendar slots, exact finite values without rounding; current equality fails. A former crossing that no longer crosses at T does not pass.",
+    "expiry": "Assess A+5 before expiring a still-observing member. If the registered end arrives before offset5, censor the still-observing member. No extension across cutoff or calendar-gap compression.",
+    "futureInvariance": "Appending later data cannot change earlier formation, lock, initial admission, first terminal, ownership, ranking or signals. Extending end may resolve previously censored episodes only."
+  },
+  "selection": {
+    "rawOrder": ["formationDate ascending", "originalLeaderRank ascending", "anchorSymbol ascending", "frozenMemberRank ascending", "memberSymbol ascending"],
+    "ownership": "Within each T, sort every raw first-breakout confirmation by rawOrder, and let the first edge own each member. Keep every duplicate edge. Ownership is independent of amount evidence and crossover.",
+    "topN": 5,
+    "top5": "First five unique owners in rawOrder, before joint amount completeness, crossing and account state. Preserve rank-excluded owners. No reranking or rank-six replacement.",
+    "control": "Signal original member Top5 only when the four required M3 values are jointly known, without the crossing condition.",
+    "handoff": "Same original slots and common completeness as control, additionally crossing true.",
+    "signals": "Exactly five fields: signalId,strategyId,symbol,signalDate,originalRank. T close decision, one next-source-opening attempt. Same opportunity identity across policies; sorted T,originalRank,symbol,signalId."
+  },
+  "diagnostics": {
+    "ownActivity": "For every original Top5, report member M3(T)/(3*mean amount over exact twenty slots T-20..T-1) when all required amounts/bars are known. Also report anchor equivalent and member/anchor M3 ratios at A,T-1,T. Unknown diagnostics never alter selection or trading.",
+    "interpretation": "The primary alternative explanation is the member's own volume expansion or common news. Account increment does not prove a unique leader relationship, causal influence or main-force capital transfer. A separately preregistered matched pseudo-anchor control would be needed for a relationship-specific claim.",
+    "strata": "Keep all annual, half-year, atlas-stage and 2024-09-24 boundary continuous-account intervals. Dates and retrospective market narrative labels are evaluation strata only."
+  },
+  "account": {
+    "exits": ["trail10", "volatilityTrail"],
+    "startingCapital": 500000,
+    "positions": 5,
+    "entryWeight": 0.2,
+    "execution": "Same frozen FixedSignalAccount / VolatilityTrailAccount implementation and configuration as full-gap-retention-v1, changing scorer identity only. Initial5% close stop; fixed10% close trailing or3x prior20 normalized true-range trailing; T+1, board lots/bands, next-open capacity proxies. No noProgress5 exit, take-profit or fixed holding deadline.",
+    "fees": "Unchanged dated historical fee policy for2022-2023 and LegacyFeePolicy for2024-2025, double-sided10bp slippage and typed integer5 minimum commission. Preserve all fees and source quality flags.",
+    "cutoff": "Signals on the final target day remain signals; absence of a following in-period executable open remains an unfilled disposition. Keep open holdings, cash, realized/unrealized PnL and quality evidence."
+  },
+  "evidence": {
+    "layers": ["all inherited leader event dispositions and fixed locks", "all created member initial states and observed transitions", "all raw breakouts, duplicate ownership and excluded owner ranks", "all original Top5 common amount/crossing/diagnostic evidence", "both frozen schedules", "complete account dispositions and continuous paths"],
+    "reconciliation": ["sourceEvents=lockedEvents+unlockedFormed+unlockedNotFormed", "memberEpisodes=20*unlockedFormed", "memberEpisodes=initialUnknown+initialAbove+observedMembers", "observedMembers=priceUnknown+firstBreakout+expired+censored", "firstBreakout=duplicateSuppressed+uniqueOwners", "uniqueOwners=selectedTop5+rankExcluded", "selectedTop5=jointKnown+jointUnknown", "jointKnown=crossingTrue+crossingFalse", "perPolicy originalTop5=scheduled+notScheduled", "scheduled=entered+notEntered"],
+    "readout": "All24 accounts and12 handoff-minus-control comparisons; full closed distributions, loss streaks, tails, top-profit concentration, exposure, open PnL and valuation limitations. Formation counts use A; decisions use T; intervals carry old positions/equity rather than restarting capital."
+  },
+  "validation": {
+    "beforeAccounts": "Freeze protocol, sources and code before real new signal generation. Meaningful synthetic tests for first trigger, exact amount ties, adjacent crossover, false-after-earlier-cross, unknown price versus amount, locked/incomplete groups, duplicate ownership before masks, original Top5 gaps, final-session censoring, no mutation and future invariance. Independently reconstruct all six schedule populations before accounts.",
+    "independent": "Inherit exact hash-bound leader/peer formation proof; independently rebuild the new temporal and amount state machine from raw source bars and inherited event identities. Audit all new accounts without executing duplicate account trials; independently recompute readout math.",
+    "runPolicy": "Exclusive immutable registration and attempts; preserve failures, no automatic retry, no support-count-driven threshold change, no outcome-based early stopping. Complete the full matrix even for null/sparse cells."
+  },
+  "trialAccounting": {"newSetupMechanisms": 1, "newEntryPolicies": 2, "newAccounts": 24, "referenceAccountsReused": 0, "newUniverseVariants": 0},
+  "profitHurdles": null,
+  "parameterSearch": false,
+  "holdoutClaim": false,
+  "certified": false,
+  "targetAchieved": false
+}
