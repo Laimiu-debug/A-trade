@@ -44,6 +44,7 @@
         status.textContent = '';
       } catch {
         status.textContent = '窗口操作未完成，请重试。';
+        window.AT?.toast?.('窗口操作未完成，请重试。', false, 'error');
       }
     });
     controls.append(button);

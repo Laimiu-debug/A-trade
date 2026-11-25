@@ -168,7 +168,7 @@
   const field = (label,path,value,attrs='') => {
     const axes=isPlateau()?scannedEditorAxes(path):[];
     if(axes.length&&path.startsWith('weights.'))return `<label class="rs-field"><span>${E(label)} · 各组合的基础权重</span><input data-pf-field="${E(path)}" type="number" step="any" value="${E(display(path,value))}" ${attrs}><small>仅 ${E(axes.map(a=>parameterLabel(a.path)).join('、'))} 使用扫描候选；其余组合仍固定使用此值。</small></label>`;
-    return axes.length?`<div class="rs-field pf-scanned-field" data-pf-scanned-field="${E(path)}"><span>${E(label)} · 已设为扫描项</span><strong>${E(axes.map(a=>a.text||'候选值待填写').join(' / '))}</strong><small>逐组使用上述候选值；在第 2 步修改。基础值 ${E(display(path,value))} 不作为固定值。</small></div>`:`<label class="rs-field"><span>${E(label)}</span><input data-pf-field="${E(path)}" type="number" step="any" value="${E(display(path,value))}" ${attrs}></label>`;
+    return axes.length?`<div class="rs-field pf-scanned-field" data-pf-scanned-field="${E(path)}"><span>${E(label)} · 已设为扫描项</span><strong>${E(axes.map(a=>a.text||'候选值待填写').join(' / '))}</strong><small>逐组使用上述候选值；在扫描参数区修改。基础值 ${E(display(path,value))} 不作为固定值。</small></div>`:`<label class="rs-field"><span>${E(label)}</span><input data-pf-field="${E(path)}" type="number" step="any" value="${E(display(path,value))}" ${attrs}></label>`;
   };
   const textField = (label,path,value,type='text') => type==='date'?Dates.field(label,value,{key:scope+':'+path,attrs:`data-pf-field="${E(path)}" data-pf-type="text"`}):`<label class="rs-field"><span>${E(label)}</span><input data-pf-field="${E(path)}" data-pf-type="text" type="${type}" ${path==='name'?'maxlength="100"':''} value="${E(String(value || ''))}"></label>`;
   const select = (label,path,value,options) => `<label class="rs-field"><span>${E(label)}</span><select data-pf-field="${E(path)}" data-pf-type="text">${Object.entries(options).map(([v,t]) => `<option value="${E(v)}" ${v===value?'selected':''}>${E(t)}</option>`).join('')}</select></label>`;
@@ -411,7 +411,7 @@
   }
   function scanEditor(){
     const options=axisOptions(),state=scanState(),system=draft.kind==='systemPlateau';
-    if(draft.kind==='singlePlateau')return '<div class="pf-scan-explanation"><h3>只改变少量关键参数</h3><p>这次所有候选都使用同一回测日期。比较相邻参数的收益、回撤与交易样本，寻找一片稳定区域。此处不使用未来验证区间，也不会自动采用收益最高的参数。</p><p><b>扫描项：</b>每组使用下方候选值替换参考值。<b>其余条件：</b>沿用第 3 步的固定配置。最多 3 项、每项 2–5 个值、合计不超过 27 组。</p><button type="button" class="rs-button" data-pf-action="plateau-example">填入一个参数的邻近示例</button><p class="rs-help">示例仅说明填写方式，不能视为最优参数。</p></div><div class="pf-scan-axes">'+draft.scanAxes.slice(0,3).map((axis,i)=>{const info=axisInfo(axis.path),example=axis.path?exampleValues(axis.path):'';return '<article class="pf-scan-axis" data-pf-axis-row="'+i+'"><div class="rs-fields">'+select('关键参数 '+(i+1),'scanAxes.'+i+'.path',axis.path,options)+(axis.path?'<label class="rs-field"><span>候选值'+(info.unit?'（'+E(info.unit)+'）':'')+' · 2–5 个</span><input data-pf-field="scanAxes.'+i+'.text" data-pf-type="text" value="'+E(axis.text)+'" placeholder="'+E(example)+'" aria-describedby="pf-scan-error-'+i+'"></label>':'<p class="rs-help">留空即不增加扫描维度。</p>')+'</div>'+(axis.path?'<p class="rs-help">基础参考值：<b>'+E(axisValueText(axis.path,info.current))+'</b> · '+E(info.description)+'</p>':'')+'<p id="pf-scan-error-'+i+'" data-pf-axis-error="'+i+'" class="pf-config-error" role="alert">'+E(state.errors[i]||'')+'</p></article>';}).join('')+'</div><div class="pf-scan-overview" data-pf-scan-overview>'+scanOverview()+'</div>';
+    if(draft.kind==='singlePlateau')return '<div class="pf-scan-explanation"><h3>只改变少量关键参数</h3><p>这次所有候选都使用同一回测日期。比较相邻参数的收益、回撤与交易样本，寻找一片稳定区域。此处不使用未来验证区间，也不会自动采用收益最高的参数。</p><p><b>扫描项：</b>每组使用下方候选值替换参考值。<b>其余条件：</b>沿用上方已展开的固定配置。最多 3 项、每项 2–5 个值、合计不超过 27 组。</p><button type="button" class="rs-button" data-pf-action="plateau-example">填入一个参数的邻近示例</button><p class="rs-help">示例仅说明填写方式，不能视为最优参数。</p></div><div class="pf-scan-axes">'+draft.scanAxes.slice(0,3).map((axis,i)=>{const info=axisInfo(axis.path),example=axis.path?exampleValues(axis.path):'';return '<article class="pf-scan-axis" data-pf-axis-row="'+i+'"><div class="rs-fields">'+select('关键参数 '+(i+1),'scanAxes.'+i+'.path',axis.path,options)+(axis.path?'<label class="rs-field"><span>候选值'+(info.unit?'（'+E(info.unit)+'）':'')+' · 2–5 个</span><input data-pf-field="scanAxes.'+i+'.text" data-pf-type="text" value="'+E(axis.text)+'" placeholder="'+E(example)+'" aria-describedby="pf-scan-error-'+i+'"></label>':'<p class="rs-help">留空即不增加扫描维度。</p>')+'</div>'+(axis.path?'<p class="rs-help">基础参考值：<b>'+E(axisValueText(axis.path,info.current))+'</b> · '+E(info.description)+'</p>':'')+'<p id="pf-scan-error-'+i+'" data-pf-axis-error="'+i+'" class="pf-config-error" role="alert">'+E(state.errors[i]||'')+'</p></article>';}).join('')+'</div><div class="pf-scan-overview" data-pf-scan-overview>'+scanOverview()+'</div>';
     return `<div class="pf-scan-explanation"><h3>平原是在测试哪些参数？</h3><p>普通回测只运行一套参数。收益平原把下方候选值交叉组合，检验相邻参数组合的表现是否稳定，再用后续数据验证。</p><p><b>列入扫描的参数：</b>每组用候选值替换基础值；基础值不限制候选范围，也不会自动加入候选。数值参考字段按首个候选值送交校验，避免空白旧值阻碍有效扫描。<br><b>没有列入扫描的参数：</b>全部保持第 3 步的固定设置。</p><p class="rs-help">${system?'本次是四层全系统平原，策略、组合、轮动、持仓各至少选一项。':'本次是滚动样本外验证，可以不扫描或只选择部分参数；固定当前设置也能运行，但不会给出全系统平原认证。'}示例只演示填写方法，不是已验证的收益参数。</p><button class="rs-button" type="button" data-pf-action="plateau-example">填入 16 组四层示例</button></div><div class="pf-scan-axes">${draft.scanAxes.map((axis,i)=>{
       const info=axisInfo(axis.path),error=state.errors[i],example=axis.path?exampleValues(axis.path):'';
       const values=String(axis.text||'').split(/[\s,，;；、]+/),methodChoices={intersection:'交集',union:'并集',weighted:'加权'};
@@ -455,7 +455,7 @@
   const kindLabels={singleBacktest:'单策略固定参数回测',singlePlateau:'单策略关键参数平原',frozenValidation:'其他日期验证',poolPreview:'股票池筛选预览',portfolio:'高级组合回测',comparison:'多策略比较与持续性检验',walkForward:'滚动样本外验证',systemPlateau:'高级全系统参数扫描与收益平原'};
   const poolLabels={base:'基础可交易池',trend:'趋势池',structure:'回调结构池',volume:'量能活跃池',combined:'叠加筛选池'};
   const presetKey='atrade.strategy-presets.v1';
-  const chosenPresets={};
+  const chosenPresets={},presetNameDrafts={};
   function currentStep(){return Math.max(1,Math.min(5,Number(draft?.workflowStep)||1));}
   function setStep(step,kind){if(kind)activateScope(scopeFor(kind));if(!draft)return;draft.workflowStep=Math.max(1,Math.min(5,Number(step)||1));save();}
   function fold(title,id,body){return '<details class="pf-advanced" '+detailAttrs('editor:'+id)+'><summary>'+E(title)+'</summary><div class="pf-advanced-body">'+body+'</div></details>';}
@@ -471,7 +471,7 @@
   function strategyPresets(s){
     const presets=presetsFor(s.id);
     return '<div class="pf-preset-toolbar"><label class="rs-field"><span>已保存参数预设</span><select data-pf-preset-select="'+E(s.id)+'"><option value="">当前参数 / 默认参数</option>'+presets.map(v=>'<option value="'+E(v.id)+'" '+(chosenPresets[s.id]===v.id?'selected':'')+'>'+E(v.name)+'</option>').join('')+'</select></label>'+
-      '<label class="rs-field"><span>预设名称（可留空）</span><input data-pf-preset-name="'+E(s.id)+'" type="text" maxlength="60" placeholder="例如：较宽松的量能条件"></label><div class="rs-actions"><button type="button" class="rs-button" data-pf-action="save-strategy-preset" data-pf-strategy="'+E(s.id)+'">保存当前参数</button><button type="button" class="rs-button rs-quiet" data-pf-action="reset-strategy" data-pf-strategy="'+E(s.id)+'">恢复策略默认参数</button>'+
+      '<label class="rs-field"><span>预设名称（可留空）</span><input data-pf-preset-name="'+E(s.id)+'" type="text" maxlength="60" value="'+E(presetNameDrafts[s.id]||'')+'" placeholder="例如：较宽松的量能条件"></label><div class="rs-actions"><button type="button" class="rs-button" data-pf-action="save-strategy-preset" data-pf-strategy="'+E(s.id)+'">保存当前参数</button><button type="button" class="rs-button rs-quiet" data-pf-action="reset-strategy" data-pf-strategy="'+E(s.id)+'">恢复策略默认参数</button>'+
       (chosenPresets[s.id]?'<button type="button" class="rs-button rs-danger" data-pf-action="delete-strategy-preset" data-pf-strategy="'+E(s.id)+'">删除所选预设</button>':'')+'</div></div>';
   }
   function strategyCard(s){
@@ -565,7 +565,7 @@
   function poolCard(key,title,description,fields){
     const count=screen.result?.poolCounts?.[key],stale=screen.result&&screen.signature!==screenSignature();
     return '<article class="pf-pool-card"><header><h4>'+E(title)+'</h4><span class="pf-pool-count">'+(count==null?'尚未筛选':n(count,0)+' 只'+(stale?' · 旧设置':''))+'</span></header><p class="rs-help">'+E(description)+'</p><div class="rs-fields">'+fields+'</div>'+
-      finePoolForm(key)+'<button type="button" class="rs-button" data-pf-action="screen-pool" data-pf-pool="'+key+'" '+(!screen.result?'disabled':'')+'>查看这个池的股票</button></article>';
+      finePoolForm(key)+(screen.result?'<button type="button" class="rs-button" data-pf-action="screen-pool" data-pf-pool="'+key+'">查看这个池的股票</button>':'')+'</article>';
   }
   function poolForm(standalone=false,layersOnly=false,baseOnly=false){
     const c=draft.config;
@@ -597,7 +597,7 @@
     return '<fieldset class="rs-fieldset"><legend>资金与持仓</legend><div class="rs-fields">'+field('初始资金（元）','config.initialCapital',c.initialCapital,'min="1000"')+
       field('每策略候选 Top N','config.topN',c.topN,'min="1" max="100"')+field('组合最多持股数','config.maxPositions',c.maxPositions,'min="1" max="200"')+
       field('单股新买目标上限（%）','config.maxStockWeight',c.maxStockWeight,'min="0.1" max="100"')+
-      (isSingle()?'<div class="rs-field"><span>研究账户</span><strong>单策略固定配置</strong><small>组合与轮动留到第 6 阶段。</small></div>':isPlateau()?'<div class="rs-field"><span>策略账户比较方式（研究协议）</span><p class="rs-help">逐组比较各策略和等权账户；持续性通过后，再运行软配权、硬切换对照。普通回测的配权模式不用于固定本次研究。</p></div>':select('策略之间的配权','config.allocation.mode',c.allocation.mode,{equal:'参与策略等权',single:'固定一个基础或组合策略',soft_rotation:'动态软配权',hard_rotation:'动态硬切换（对照）'}))+
+      (isSingle()?'<div class="rs-field"><span>研究账户</span><strong>单策略固定配置</strong><small>可在顶部“高级研究”中配置组合与轮动。</small></div>':isPlateau()?'<div class="rs-field"><span>策略账户比较方式（研究协议）</span><p class="rs-help">逐组比较各策略和等权账户；持续性通过后，再运行软配权、硬切换对照。普通回测的配权模式不用于固定本次研究。</p></div>':select('策略之间的配权','config.allocation.mode',c.allocation.mode,{equal:'参与策略等权',single:'固定一个基础或组合策略',soft_rotation:'动态软配权',hard_rotation:'动态硬切换（对照）'}))+
       select('策略内股票权重','config.weighting',c.weighting,{equal:'股票等权',rank:'按排名分数加权'})+'</div></fieldset>'+
       '<fieldset class="rs-fieldset"><legend>持仓与调仓</legend><div class="rs-fields">'+select('调仓方式','config.rebalanceMode',c.rebalanceMode,{risk:'风险退出后补仓',rank:'按排名换仓',hybrid:'排名换仓 + 风险退出'})+
       field('补仓 / 排名调整间隔（交易日）','config.rebalanceEvery',c.rebalanceEvery,'min="1"')+
@@ -1024,7 +1024,7 @@
     return `<p class="rs-help">每格为实际计算的参数组合，颜色表示训练邻域平均净收益。边框标记通过训练邻域门槛的点；样本外证据另列，不用来回选最优点。当前切片显示 ${visible.length} / ${rows.length} 组。</p>${controls}<div class="pf-heat-scroll"><div class="pf-heatmap ${x?'pf-heat-grid':''}" style="${x?'grid-template-columns:150px repeat('+x.values.length+',minmax(140px,1fr))':''}" role="list" aria-label="全系统参数邻域收益热图">${headings}${visible.map(row=>{
       const a=row.neighborhood||{},value=numeric(a.meanNetReturnPct)?Number(a.meanNetReturnPct):null;
       const alpha=value===null?0:Math.min(.65,.12+.5*Math.abs(value)/limit),color=value===null?'transparent':`rgba(${value>=0?'40, 148, 112':'203, 84, 87'}, ${alpha.toFixed(3)})`;
-      return `<details role="listitem" class="pf-heat-cell ${a.passed?'pf-heat-pass':''}" style="background:${color};${x?'grid-column:'+(x.values.findIndex(v=>String(v)===String(row.params?.[x.path]))+2)+';grid-row:'+(y?y.values.findIndex(v=>String(v)===String(row.params?.[y.path]))+2:2):''}"><summary><small>${E(row.candidateId)}</small><strong>${p(value)}</strong><span>${a.passed?'训练邻域通过':'训练邻域未通过'}</span><span>${row.rotationExecuted===false?'持续性未通过，含等权替代结果':row.rotationExecuted?'已计算轮动系统':''}</span></summary><p>${E(Object.entries(row.params||{}).map(([path,v])=>parameterLabel(path)+' = '+(numeric(v)?display(path,v):v)).join(' · '))}</p><p>邻域 ${n(a.size,0)} 点 · 标准差 ${n(a.stdNetReturnPct)} 个百分点 · 正收益占比 ${p(numeric(a.positiveFraction)?a.positiveFraction*100:null)}</p><p>训练单点均值 ${p(row.trainingMeanNetReturnPct)} · 样本外均值 ${p(row.oosMeanNetReturnPct)}</p></details>`;
+      return `<details role="listitem" class="pf-heat-cell ${a.passed?'pf-heat-pass':''}" ${detailAttrs('heat:'+row.candidateId)} style="background:${color};${x?'grid-column:'+(x.values.findIndex(v=>String(v)===String(row.params?.[x.path]))+2)+';grid-row:'+(y?y.values.findIndex(v=>String(v)===String(row.params?.[y.path]))+2:2):''}"><summary><small>${E(row.candidateId)}</small><strong>${p(value)}</strong><span>${a.passed?'训练邻域通过':'训练邻域未通过'}</span><span>${row.rotationExecuted===false?'持续性未通过，含等权替代结果':row.rotationExecuted?'已计算轮动系统':''}</span></summary><p>${E(Object.entries(row.params||{}).map(([path,v])=>parameterLabel(path)+' = '+(numeric(v)?display(path,v):v)).join(' · '))}</p><p>邻域 ${n(a.size,0)} 点 · 标准差 ${n(a.stdNetReturnPct)} 个百分点 · 正收益占比 ${p(numeric(a.positiveFraction)?a.positiveFraction*100:null)}</p><p>训练单点均值 ${p(row.trainingMeanNetReturnPct)} · 样本外均值 ${p(row.oosMeanNetReturnPct)}</p></details>`;
     }).join('')}</div></div>`;
   }
   function experimentResult(r) {
@@ -1039,7 +1039,7 @@
     const cards=candidates.map(candidate=>{
       const m=candidate.metrics||{},a=candidate.neighborhood||{},id=E(candidate.candidateId),failures=[...(candidate.qualityFailures||[]),...(a.failures||[])];
       const action=(label,key,ready,primary=false)=>'<button type="button" class="rs-button '+(primary?'rs-primary':'')+'" data-pf-action="'+key+'" data-pf-candidate="'+id+'" '+(!complete||!ready?'disabled':'')+'>'+label+'</button>';
-      return '<article class="pf-candidate '+(a.passed?'is-stable':'')+'" data-pf-candidate="'+id+'"><header><strong>'+id+'</strong><span>'+(a.passed?'附近参数表现稳定':'未达到稳定条件')+'</span></header><p class="pf-candidate-values">'+Object.entries(candidate.params||{}).map(([path,v])=>'<span>'+E(parameterLabel(path))+'<b>'+E(axisValueText(path,v))+'</b></span>').join('')+'</p><div class="pf-candidate-metrics"><div><span>本组收益</span><strong>'+p(m.totalReturnPct)+'</strong></div><div><span>最大回撤</span><strong>'+p(m.maxDrawdownPct)+'</strong></div><div><span>已完成买卖波段</span><strong>'+n(m.closedTradeCount,0)+'</strong></div></div><p class="rs-help">附近 '+n(a.size,0)+' 组 · 平均收益 '+p(a.meanNetReturnPct)+' · 中位收益 '+p(a.medianNetReturnPct)+' · 盈利占比 '+p(numeric(a.positiveFraction)?a.positiveFraction*100:null)+' · 不同交易路径 '+n(a.distinctBehaviorCount,0)+'</p>'+(failures.length?'<details class="pf-candidate-reasons"><summary>为什么未达到条件</summary><p class="pf-config-error">'+E([...new Set(failures)].map(readable).join('；'))+'</p></details>':'')+'<div class="rs-actions pf-candidate-actions">'+action('回填到回测','apply-candidate',hooks?.applyCandidate,true)+action('保存参数','save-candidate',hooks?.freeze)+action('查看买卖记录','replay-candidate',hooks?.replayCandidate)+action('用其他日期验证','validate-candidate',hooks?.validateCandidate)+'</div><details><summary>查看这组完整参数</summary>'+configuration(candidate.config||r.config||{},r.selection||{})+'</details></article>';
+      return '<article class="pf-candidate '+(a.passed?'is-stable':'')+'" data-pf-candidate="'+id+'"><header><strong>'+id+'</strong><span>'+(a.passed?'附近参数表现稳定':'未达到稳定条件')+'</span></header><p class="pf-candidate-values">'+Object.entries(candidate.params||{}).map(([path,v])=>'<span>'+E(parameterLabel(path))+'<b>'+E(axisValueText(path,v))+'</b></span>').join('')+'</p><div class="pf-candidate-metrics"><div><span>本组收益</span><strong>'+p(m.totalReturnPct)+'</strong></div><div><span>最大回撤</span><strong>'+p(m.maxDrawdownPct)+'</strong></div><div><span>已完成买卖波段</span><strong>'+n(m.closedTradeCount,0)+'</strong></div></div><p class="rs-help">附近 '+n(a.size,0)+' 组 · 平均收益 '+p(a.meanNetReturnPct)+' · 中位收益 '+p(a.medianNetReturnPct)+' · 盈利占比 '+p(numeric(a.positiveFraction)?a.positiveFraction*100:null)+' · 不同交易路径 '+n(a.distinctBehaviorCount,0)+'</p>'+(failures.length?'<details class="pf-candidate-reasons" '+detailAttrs('candidate-reasons:'+candidate.candidateId)+'><summary>为什么未达到条件</summary><p class="pf-config-error">'+E([...new Set(failures)].map(readable).join('；'))+'</p></details>':'')+'<div class="rs-actions pf-candidate-actions">'+action('回填到回测','apply-candidate',hooks?.applyCandidate,true)+action('保存参数','save-candidate',hooks?.freeze)+action('查看买卖记录','replay-candidate',hooks?.replayCandidate)+action('用其他日期验证','validate-candidate',hooks?.validateCandidate)+'</div><details '+detailAttrs('candidate-cfg:'+candidate.candidateId)+'><summary>查看这组完整参数</summary>'+configuration(candidate.config||r.config||{},r.selection||{})+'</details></article>';
     }).join('');
     return panel('收益平原 · 参数测试结果','<div class="rs-body"><p>已完成 '+n(r.completedTrials??candidates.length,0)+' / '+n(r.plannedTrials??axes.reduce((count,axis)=>count*axis.values.length,1),0)+' 组；回测日期 '+E(period.startDate||'未记录')+' — '+E(period.endDate||'未记录')+'。</p>'+note('比较附近参数的收益、回撤与实际交易。结果只说明本次日期内的表现，不会自动采用收益最高点。')+identifiabilityEvidence(r)+'<details data-pf-single-thresholds><summary>查看判定条件和扫描参数</summary>'+table(['条件','本次设定'],[...thresholds,...axes.map(axis=>[parameterLabel(axis.path),(axis.values||[]).map(value=>axisValueText(axis.path,value)).join('、')])].map(([label,value])=>'<tr><td>'+E(label)+'</td><td>'+E(value)+'</td></tr>'))+'</details></div>')+
       panel('比较结果，选择要使用的参数','<div class="rs-body pf-single-candidates">'+cards+'</div>')+
@@ -1082,7 +1082,10 @@
     save();queueReview();renderScanFeedback();
   }
   document.addEventListener('toggle',event=>{const key=event.target?.dataset?.pfDetail;if(key){event.target.open?expandedDetails.add(key):expandedDetails.delete(key);}},true);
-  document.addEventListener('input',event=>{if(event.target.matches?.('[data-pf-field]'))capture(event.target);});
+  document.addEventListener('input',event=>{
+    if(event.target.dataset?.pfPresetName!==undefined){presetNameDrafts[event.target.dataset.pfPresetName]=String(event.target.value||'').slice(0,60);return;}
+    if(event.target.matches?.('[data-pf-field]'))capture(event.target);
+  });
   document.addEventListener('change',event=>{if(event.target.dataset?.pfDateSelect!==undefined)selectDay(event.target.dataset.pfPath||'',event.target.value);});
   document.addEventListener('click',event=>{
     const svg=event.target.closest?.('[data-pf-chart]');if(svg?.dataset?.pfChart===undefined)return;
@@ -1168,7 +1171,7 @@
     if(el.dataset.pfAction==='validate-candidate'){if(!hooks?.validateCandidate)return;el.disabled=true;void Promise.resolve(hooks.validateCandidate({id:hooks.activeTaskId?.(),candidateId:el.dataset.pfCandidate})).catch(hooks.error).finally(()=>{el.disabled=false;});return;}
     if(el.dataset.pfAction==='apply-candidate'){if(!hooks?.applyCandidate)return;el.disabled=true;void Promise.resolve(hooks.applyCandidate({id:hooks.activeTaskId?.(),candidateId:el.dataset.pfCandidate})).catch(hooks.error).finally(()=>{el.disabled=false;});return;}
     if(el.dataset.pfAction==='replay-candidate'){if(!hooks?.replayCandidate)return;el.disabled=true;void Promise.resolve(hooks.replayCandidate({id:hooks.activeTaskId?.(),candidateId:el.dataset.pfCandidate})).catch(hooks.error).finally(()=>{el.disabled=false;});return;}
-    if(el.dataset.pfAction==='workflow-step'){setStep(el.dataset.pfStep);hooks.refresh();document.querySelector?.('.pf-workbench')?.scrollIntoView?.({block:'start',behavior:'instant'});return;}
+    if(el.dataset.pfAction==='workflow-step'){setStep(el.dataset.pfStep);hooks.refresh();document.querySelector?.('.pf-workbench')?.scrollIntoView?.(AT.motion?.scrollOptions?.('start')||{block:'start',behavior:'instant'});return;}
     if(el.dataset.pfAction==='review-settings'){void reviewSettings().catch(()=>{});return;}
     if(['scan-example','plateau-example'].includes(el.dataset.pfAction)){
       if(!seedPlateauAxes(draft)){hooks.error(new Error(isSingle()?'请先选择一个策略。':'四层示例需要至少两个已启用的基础策略，请先到第 1 步选择策略。'));return;}
@@ -1184,15 +1187,24 @@
     }
     if(el.dataset.pfAction==='reset-strategy'){
       const id=el.dataset.pfStrategy,s=definition.strategies.find(s=>s.id===id);if(!s)return;
-      draft.params[id]=Object.fromEntries(s.parameters.map(p=>[p.key,p.default]));delete chosenPresets[id];save();queueReview();hooks.refresh();return;
+      const prevParams=structuredClone(draft.params[id]),prevChosen=chosenPresets[id];
+      draft.params[id]=Object.fromEntries(s.parameters.map(p=>[p.key,p.default]));delete chosenPresets[id];save();queueReview();hooks.refresh();
+      AT.toast?.(`已恢复「${s.name}」默认参数`,{label:'撤销',duration:10000,onAction:()=>{draft.params[id]=prevParams;if(prevChosen)chosenPresets[id]=prevChosen;save();queueReview();hooks.refresh();}});
+      return;
     }
     if(el.dataset.pfAction==='save-strategy-preset'){
       const id=el.dataset.pfStrategy,s=definition.strategies.find(s=>s.id===id);if(!s)return;
-      const name=document.querySelector?.('[data-pf-preset-name="'+id+'"]')?.value.trim().slice(0,60)||s.name+' · 预设 '+(presetsFor(id).length+1);
+      const rawName=document.querySelector?.('[data-pf-preset-name="'+id+'"]')?.value??presetNameDrafts[id]??'';
+      const name=rawName.trim().slice(0,60)||s.name+' · 预设 '+(presetsFor(id).length+1);
       const preset={id:'preset-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),name,params:structuredClone(draft.params[id]),pool:draft.pools[id]};
-      writePresets(id,[preset,...presetsFor(id)].slice(0,30));chosenPresets[id]=preset.id;hooks.feedback('已保存策略参数预设：'+name);return;
+      writePresets(id,[preset,...presetsFor(id)].slice(0,30));chosenPresets[id]=preset.id;presetNameDrafts[id]='';hooks.feedback('已保存策略参数预设：'+name);AT.toast?.('已保存策略参数预设：'+name,{tone:'success'});return;
     }
-    if(el.dataset.pfAction==='delete-strategy-preset'){const id=el.dataset.pfStrategy;writePresets(id,presetsFor(id).filter(p=>p.id!==chosenPresets[id]));delete chosenPresets[id];hooks.feedback('所选参数预设已删除，当前参数保留。');return;}
+    if(el.dataset.pfAction==='delete-strategy-preset'){
+      const id=el.dataset.pfStrategy,currentList=presetsFor(id),removedId=chosenPresets[id],removed=currentList.find(p=>p.id===removedId);
+      writePresets(id,currentList.filter(p=>p.id!==removedId));delete chosenPresets[id];hooks.feedback('所选参数预设已删除，当前参数保留。');
+      if(removed)AT.toast?.(`已删除策略预设「${removed.name}」`,{label:'撤销',duration:10000,onAction:()=>{writePresets(id,[removed,...presetsFor(id)].slice(0,30));chosenPresets[id]=removed.id;hooks.refresh();AT.toast?.('已恢复策略预设',{tone:'success'});}});
+      return;
+    }
     if(el.dataset.pfAction==='screen-preview'){
       if(screen.busy)return;
       try{const request=screenPayload(),signature=screenSignature(),target=screen,value=draft,name=scope;target.busy=true;hooks.refresh();void hooks.screenCreate(request).then(created=>{if(!created?.id)return;target.serial++;Object.assign(target,{task:created.id,meta:created,result:null,offset:0,query:'',signature});saveScope(name,value,target);if(target===screen)void loadScreen().catch(hooks.error);}).catch(hooks.error).finally(()=>{target.busy=false;hooks.refresh();});}catch(error){screen.busy=false;hooks.error(error);}return;
@@ -1232,7 +1244,11 @@
       }).catch(hooks.error).finally(()=>{importingHistory=false;hooks.refresh();});return;
     }
     if(el.dataset.pfAction==='configure-plateau'){activateScope('plateau');queueReview();AT.navigate?.('R15');return;}
-    if(el.dataset.pfAction==='reset'){newTask(draft.kind);hooks.refresh();}
+    if(el.dataset.pfAction==='reset'){
+      const prevDraft=structuredClone(draft),prevScope=scope,prevEdit=editingTaskId,prevNote=editorNote;
+      newTask(draft.kind);hooks.refresh();
+      AT.toast?.('已恢复默认设置',{label:'撤销',duration:10000,onAction:()=>{activateScope(prevScope);draft=prevDraft;editingTaskId=prevEdit;editorNote=prevNote;save();queueReview();hooks.refresh();AT.toast?.('已恢复原配置',{tone:'success'});}});
+    }
     if(el.dataset.pfAction==='save'){save();hooks.feedback((isPlateau()?'收益平原':'回测')+'设置已保存在本机。');}
     if(el.dataset.pfAction==='rotation-page'){hooks?.rotationPage?.(Number(el.dataset.pfOffset),el.dataset.pfPath||'');}
     if(el.dataset.pfAction==='select-day')selectDay(el.dataset.pfPath||'',el.dataset.pfDate);

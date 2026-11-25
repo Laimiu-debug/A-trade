@@ -1,41 +1,80 @@
 /* JavaScript resolves the saved preference and the default compact breakpoint. */
 body.nav-collapsed { --sidebar:72px; }
 
-.sidebar > .brand { gap:7px; padding:0 19px; }
+.sidebar > .brand { gap:6px; padding:0 12px 0 16px; }
+.brand-link {
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-width:0;
+  flex:1;
+  text-decoration:none;
+  color:inherit;
+  -webkit-app-region:no-drag;
+}
 .sidebar-toggle {
   position:relative;
   display:grid;
   place-items:center;
-  flex:0 0 44px;
-  width:44px;
-  height:44px;
+  flex:0 0 28px;
+  width:28px;
+  height:28px;
   padding:0;
-  border-radius:12px;
+  border-radius:7px;
+  color:var(--secondary);
+  background:transparent;
+  opacity:.78;
   -webkit-app-region:no-drag;
+  transition:background-color var(--motion-fast) var(--ease-standard),color var(--motion-fast) var(--ease-standard),opacity var(--motion-fast) var(--ease-standard),transform var(--motion-micro) var(--ease-standard);
+}
+.sidebar-toggle:is(:hover,:focus-visible) {
+  opacity:1;
+  color:var(--primary);
+  background:var(--hover);
+}
+.sidebar-toggle:active {
+  transform:scale(var(--motion-press));
 }
 .sidebar-toggle-glyph {
-  position:absolute;
-  inset:4px;
   display:grid;
   place-items:center;
-  border-radius:10px;
-  background:linear-gradient(145deg,#299bff,#2457e5 70%);
-  color:white;
-  opacity:0;
-  transition:opacity .14s ease;
   pointer-events:none;
 }
-.sidebar-toggle:is(:hover,:focus-visible) .sidebar-toggle-glyph { opacity:1; }
-.sidebar-toggle-glyph .icon { width:22px; height:22px; }
+.sidebar-toggle-glyph .icon { width:17px; height:17px; }
 .sidebar-toggle:focus-visible { outline-offset:0; }
-.brand-name { white-space:nowrap; }
-@media(prefers-reduced-motion:reduce) { .sidebar-toggle-glyph { transition:none; } }
-.reduce-motion .sidebar-toggle-glyph { transition:none; }
+.brand-name { white-space:nowrap; font-size:20px; line-height:1.2; min-width:0; }
+.brand-name small { letter-spacing:.5px; }
+@media(max-width:1270px) {
+  .sidebar > .brand { padding:0 8px 0 12px; gap:4px; }
+  .brand-link { gap:7px; }
+  .brand-name { font-size:19px; }
+}
+@media(prefers-reduced-motion:reduce) { .sidebar-toggle { transition:none; } }
+.reduce-motion .sidebar-toggle { transition:none; }
 
 body.nav-collapsed .sidebar > .brand {
-  height:75px;
-  padding:0;
+  height:auto;
+  padding:14px 0 8px;
+  flex-direction:column;
   justify-content:center;
+  gap:8px;
+}
+body.nav-collapsed .sidebar .brand-link {
+  flex:0 0 auto;
+  gap:0;
+}
+body.nav-collapsed .sidebar .sidebar-toggle {
+  flex:0 0 24px;
+  width:36px;
+  height:24px;
+  border-radius:6px;
+  background:var(--subtle);
+  opacity:.9;
+}
+body.nav-collapsed .sidebar .sidebar-toggle:is(:hover,:focus-visible) {
+  background:var(--hover);
+  color:var(--primary);
+  opacity:1;
 }
 body.nav-collapsed .sidebar .brand-name,
 body.nav-collapsed .sidebar .nav-main > span,

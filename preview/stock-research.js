@@ -75,7 +75,9 @@
     return `<strong>${E(day || '所选交易日')}</strong><span>${events.length?events.map(E).join('；'):signals.length?`${signals.length} 条已保存回测信号，详情见下表`:'该日没有已保存的回测买卖记录'}</span>`;
   }
   function legend({symbol,date}) {
-    const entry = cache.get(symbol); if(!entry) return '';
+    const entry = cache.get(symbol); if(!entry?.data) return '';
+    const hasData = (entry.data.trades?.length || entry.data.signals?.length || entry.scan?.signals?.length || entry.draft?.start_date);
+    if(!hasData) return '';
     const legacy=filtered(entry,entry.data?.runs).some(row=>row.warning);
     return `<div class="stock-research-legend"><span><i class="sr-buy"></i>回测买入</span><span><i class="sr-sell"></i>回测卖出</span><span><i class="sr-signal"></i>策略信号</span><span><i class="sr-note"></i>人工启动日</span><a href="#stock-strategy-evidence">查看策略与回测记录 ↓</a>${legacy?'<strong class="stock-research-legacy">包含旧版节奏波结果，需重新回测</strong>':''}</div><div class="stock-research-selected" data-stock-research-selected>${selected(entry,date)}</div>`;
   }
@@ -91,7 +93,7 @@
     };
     for(const row of filtered(entry,entry.data.trades)){
       add(row.entry_date,'buy','买',`${row.strategy_name} · ${row.run_name} · ${row.quantity}股 / ${number(row.entry_price)}元`,row.entry_price);
-      if(row.position_state==='closed')add(row.exit_date,'sell','卖',`${row.strategy_name} · ${row.exit_reason} · ${number(row.exit_price)}元`,row.exit_price);
+      if(row.position_state==='closed')add(row.exit_date,'sell','卖',`${row.strategy_name} · ${exitName(row.exit_reason)} · ${number(row.exit_price)}元`,row.exit_price);
     }
     for(const row of filtered(entry,entry.data.signals))add(row.signal_date,'signal','信',`${row.strategy_name} · 回测信号 ${row.entry_signal}`,0);
     if(entry.showScan)for(const row of filtered(entry,entry.scan?.signals))add(row.signal_date,'signal','信',`${row.strategy_name} · 默认参数扫描 ${row.entry_signal}`,0);
@@ -139,7 +141,8 @@
     if(entry.error)return `<section class="panel stock-research-panel" id="stock-strategy-evidence">${header}<p class="stock-research-empty" role="alert">${E(entry.error)}</p></section>`;
     const data=entry.data,signal=data.signal,runs=(data.runs || []).filter(row=>!entry.filter||row.strategy_id===entry.filter);
     const metrics=signal?[['结构阶段',signal.wyckoff_phase || signal.phase_hint || '—'],['入场质量',number(signal.entry_quality_score)],['健康评分',number(signal.health_score)],['事件评分',number(signal.event_score)],['风险评分',number(signal.risk_score)],['信号确认',confirmName(signal.confirmation_status)]]:[];
-    return `<section class="panel stock-research-panel" id="stock-strategy-evidence" data-stock-research-symbol="${entry.symbol}">${header}<p class="stock-research-help">日线结构快照截至 ${E(data.as_of_date || '—')}。下方买卖记录来自保存的模拟回测，信号与成交分别列示。</p>${metrics.length?`<div class="stock-research-metrics">${metrics.map(([label,value])=>`<div><span>${label}</span><strong>${E(value)}</strong></div>`).join('')}</div>`:'<p class="stock-research-empty">当前日线不足以生成结构评分。</p>'}${forceStatistics(data)}${signal?.wy_event_chain?.length?`<details class="market-chart-details"><summary>结构事件与判定依据（${signal.wy_event_chain.length} 项）</summary><div class="stock-research-events">${signal.wy_event_chain.map(row=>`<span>${dateButton(row.date)} · ${E(row.event)} · ${confirmName(signal.event_confirmation_map?.[row.event])}</span>`).join('')}</div></details>`:''}<div class="stock-research-filters"><label>策略<select data-stock-research-filter><option value="">全部策略</option>${strategyOptions(entry)}</select></label><label>回测来源<select data-stock-research-run><option value="">全部已保存回测 / 报告</option>${runs.map(row=>`<option value="${E(runKey(row))}" ${entry.run===runKey(row)?'selected':''}>${E(row.run_name)} · ${E(row.range.date_from)} 至 ${E(row.range.date_to)}</option>`).join('')}</select></label><label class="stock-research-check"><input type="checkbox" data-stock-research-show-scan ${entry.showScan?'checked':''}>在图上显示扫描信号</label></div>${entry.scanError?`<p role="alert">${E(entry.scanError)}</p>`:''}${history(entry)}${data.warnings.map(w=>`<p class="stock-research-help" role="status">${E(w)}</p>`).join('')}${noteForm(entry)}</section>`;
+    const showStrategyFilter=!!(entry.data.strategies?.length||entry.filter),showRunFilter=!!(runs.length||entry.run);
+    return `<section class="panel stock-research-panel" id="stock-strategy-evidence" data-stock-research-symbol="${entry.symbol}">${header}<p class="stock-research-help">日线结构快照截至 ${E(data.as_of_date || '—')}。下方买卖记录来自保存的模拟回测，信号与成交分别列示。</p>${metrics.length?`<div class="stock-research-metrics">${metrics.map(([label,value])=>`<div><span>${label}</span><strong>${E(value)}</strong></div>`).join('')}</div>`:'<p class="stock-research-empty">当前日线不足以生成结构评分。</p>'}${forceStatistics(data)}${signal?.wy_event_chain?.length?`<details class="market-chart-details"><summary>结构事件与判定依据（${signal.wy_event_chain.length} 项）</summary><div class="stock-research-events">${signal.wy_event_chain.map(row=>`<span>${dateButton(row.date)} · ${E(row.event)} · ${confirmName(signal.event_confirmation_map?.[row.event])}</span>`).join('')}</div></details>`:''}<div class="stock-research-filters">${showStrategyFilter?`<label>策略<select data-stock-research-filter><option value="">全部策略</option>${strategyOptions(entry)}</select></label>`:''}${showRunFilter?`<label>回测来源<select data-stock-research-run><option value="">全部已保存回测 / 报告</option>${runs.map(row=>`<option value="${E(runKey(row))}" ${entry.run===runKey(row)?'selected':''}>${E(row.run_name)} · ${E(row.range.date_from)} 至 ${E(row.range.date_to)}</option>`).join('')}</select></label>`:''}<label class="stock-research-check"><input type="checkbox" data-stock-research-show-scan ${entry.showScan?'checked':''}>在图上显示扫描信号</label></div>${entry.scanError?`<p class="business-error" role="alert">${E(entry.scanError)}</p>`:''}${history(entry)}${data.warnings.map(w=>`<p class="stock-research-help" role="status">${E(w)}</p>`).join('')}${noteForm(entry)}</section>`;
   }
   async function scan(entry) {
     if(entry.scanning)return;entry.scanning=true;entry.scanError='';entry.tab='scan';repaint(entry);
@@ -164,7 +167,11 @@
   document.addEventListener('submit',event=>{
     const form=event.target.closest('form[data-stock-research-note]');if(!form)return;event.preventDefault();
     const entry=cache.get(form.dataset.stockResearchNote);if(!entry||entry.saving)return;
-    if(!validDate(entry.draft.start_date)){entry.feedback='请先选择人工启动日。';repaint(entry);return;}
+    if(!validDate(entry.draft.start_date)){
+      const chartDay=document.querySelector('[data-market-date]')?.value;
+      if(validDate(chartDay))entry.draft.start_date=chartDay;
+      else {entry.feedback='请先选择人工启动日。';repaint(entry);return;}
+    }
     const payload={...entry.draft,symbol:entry.symbol,updated_by:'manual'};
     entry.saving=true;entry.feedback='';repaint(entry);
     const write=api('/api/atrade/stocks/'+entry.symbol+'/annotation',{method:'PUT',body:payload});writes.add(write);

@@ -24,7 +24,11 @@
   const selectionKey=value=>value?.plan?.id||[value?.id,value?.candidateId||'fixed'].join(':');
   function draftFor(value){
     const key=selectionKey(value),plan=value.plan||value;
-    if(!drafts.has(key)){drafts.set(key,{name:'',startDate:nextDay(plan.developmentEnd),endDate:''});saveDrafts();}
+    if(!drafts.has(key)){
+      const start=nextDay(plan.developmentEnd),latest=AT.marketUI?.status?.latestDate||'';
+      const end=/^\d{4}-\d{2}-\d{2}$/.test(latest)&&start&&latest>=start?latest:'';
+      drafts.set(key,{name:'',startDate:start,endDate:end});saveDrafts();
+    }
     return drafts.get(key);
   }
   async function load(){
@@ -54,7 +58,7 @@
     selection=await source(payload);error='';hooks.refresh();
     // Opening the form does not write a plan. The server fixes the completed
     // source configuration when the user actually starts validation.
-    document.querySelector?.('[data-workflow-inline]')?.scrollIntoView?.({block:'start',behavior:'smooth'});
+    document.querySelector?.('[data-workflow-inline]')?.scrollIntoView?.(AT.motion?.scrollOptions?.('start')||{block:'start',behavior:'smooth'});
   }
   function validationForm(value){
     const plan=value.plan||value,draft=draftFor(value),old=plan.versionCompatible===false;

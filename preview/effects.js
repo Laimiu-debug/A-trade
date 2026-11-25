@@ -85,8 +85,9 @@
   }
   const toggle=(key,title,desc)=>`<label class="fx-effect-heading"><span><strong>${title}</strong><small>${desc}</small></span><input class="switch" type="checkbox" data-fx="${key}" aria-label="${title}" ${AT.state.effects[key]?'checked':''}></label>`;
   const range=(key,title,unit='%',hint='')=>`<label class="fx-range"><span>${title}<output data-fx-output="${key}" data-unit="${unit}">${AT.state.effects[key]}${unit}</output></span><input type="range" data-fx="${key}" min="${limits[key][0]}" max="${limits[key][1]}" step="1" value="${AT.state.effects[key]}" aria-label="${title}">${hint?`<small>${hint}</small>`:''}</label>`;
+  const settingsNav=()=>`<nav class="context-nav" aria-label="相关设置">${AT.groups.find(g=>g.id==='C').pages.map(p=>`<button type="button" data-nav="${p.id}" ${p.id==='C05'?'aria-current="page"':''}>${AT.icon(p.icon)}${AT.escape(p.title)}</button>`).join('')}</nav>`;
   // Use the shared heading so settings navigation stays above the content cards.
-  AT.effectsSettings=()=>AT.head('显示与交互','给研究工作台一点光，调成适合自己的样子。',`<button class="btn" data-fx-reset>${AT.icon('refresh')}恢复视觉默认</button>`)+`
+  AT.effectsSettings=()=>AT.head('显示与交互','给研究工作台一点光，调成适合自己的样子。',`<button class="btn" data-fx-reset>${AT.icon('refresh')}恢复视觉默认</button>`)+settingsNav()+`
     <div class="fx-settings-grid"><div class="fx-controls-column"><section class="panel fx-reading"><div class="panel-head"><h2>阅读与动态</h2></div>${[['compact','紧凑表格','缩小表格行间距。'],['largeText','大号文字','放大按钮、列表和表格文字。'],['reduced','减少动态效果','暂停粒子与光效动画，保留静态质感。']].map(([id,title,desc])=>`<label class="setting-row"><div><h3>${title}</h3><p>${desc}</p></div><input class="switch right" type="checkbox" data-pref="${id}" aria-label="${title}" ${AT.state[id]?'checked':''}></label>`).join('')}</section><section class="panel fx-presets-panel"><div class="fx-presets-title"><div><h2>视觉氛围</h2><p>即时生效 · ${AT.isDesktop?'自动保存到本机':'自动保存到当前浏览器'}</p></div><label class="fx-master"><span>视觉效果总开关</span><input class="switch" type="checkbox" data-fx="enabled" aria-label="视觉效果总开关"></label></div>
     <div class="fx-presets">${[['clear','清透日常','柔和玻璃 · 淡淡流光'],['luminous','流光氛围','彩色光晕 · 漂浮微粒'],['focus','专注阅读','纯净工作面 · 关闭装饰']].map(([id,name,desc])=>`<button class="fx-preset fx-preset-${id}" data-fx-preset="${id}" aria-pressed="false"><span class="fx-preset-art" aria-hidden="true"><i></i><i></i><i></i></span><span><strong>${name}</strong><small>${desc}</small></span>${AT.icon('check')}</button>`).join('')}</div></section>
       <details class="fx-advanced"><summary>高级视觉效果<small>磨砂玻璃、光效、粒子与渐变参数</small></summary><div class="fx-advanced-body">
@@ -105,7 +106,13 @@
   document.addEventListener('input',edit);document.addEventListener('change',edit);
   document.addEventListener('click',event=>{
     const el=event.target.closest('[data-fx-preset],[data-fx-palette],[data-fx-reset]');if(!el)return;
-    if(el.hasAttribute('data-fx-reset'))AT.state.effects={...defaults};
+    if(el.hasAttribute('data-fx-reset')){
+      const previous={...AT.state.effects};
+      if(same(previous,defaults)){AT.toast?.('当前已是默认视觉配置');return;}
+      AT.state.effects={...defaults};apply();AT.persist();
+      AT.toast?.('已恢复默认视觉效果',{label:'撤销恢复',onAction:()=>{AT.state.effects=normalize(previous);apply();AT.persist();AT.toast?.('已还原之前的视觉配置');}});
+      return;
+    }
     else if(el.dataset.fxPreset)AT.state.effects={...presets[el.dataset.fxPreset]};
     else {const [colorA,colorB]=palettes[el.dataset.fxPalette];Object.assign(AT.state.effects,{colorA,colorB});}
     apply();AT.persist();

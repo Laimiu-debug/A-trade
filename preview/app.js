@@ -1,8 +1,8 @@
 (() => {
   const $ = (s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)], E=AT.escape, I=AT.icon, B=AT.button;
-  const main=$('#main'),workspaceRoot=$('#workspace-root'); let toastTimer,modalReturnFocus,resizeTimer,noteTimer,renderFrame,workspaceSession;
+  const main=$('#main'),workspaceRoot=$('#workspace-root'); let toastTimer,toastClearTimer,toastAction=null,toastRemaining=0,toastStarted=0,modalReturnFocus,resizeTimer,noteTimer,renderFrame,workspaceSession,workspaceStack=[],lastFlyoutGroup=null,lastRenderedPage=null,milestoneEventDraft=null;
   const chartStateKeys=['activeTask','researchParams','strategyIds','stockPool','researchMode','heat','plateauRatio','plateauStrategies','resultTab','chartZoom','pathContext'];
-  const scrollRegions=['#navigation','.local-tabs','.context-nav','.pass-viewport','.workspace-tabs','.table-wrap','.rs-table-wrap','.pf-heat-scroll','.rs-heatmap','.pf-pool-evidence-body','.research-config','.modal','.modal-body'];
+  const scrollRegions=['#navigation','.local-tabs','.context-nav','.pass-viewport','.workspace-tabs','.table-wrap','.rs-table-wrap','.pf-heat-scroll','.rs-heatmap','.pf-pool-evidence-body','.research-config','.modal','.modal-body','.stock-kline-table-wrap','.stock-research-table-wrap','.emotion-table-scroll','.exp-task-list','.exp-table-wrap'];
   const compactNavigation=()=>typeof AT.state.sidebarCollapsed==='boolean'?AT.state.sidebarCollapsed:matchMedia('(max-width:1080px)').matches;
   const navigationPage=page=>page==='G01'?(AT.ui.stockOrigin||'M04'):page;
   const navigationGroup=page=>navigationPage(page)[0]==='G'?'R':navigationPage(page)[0];
@@ -12,7 +12,7 @@
     const popup=$('.nav-flyout'),trigger=$(`[data-nav-group="${AT.ui.navGroup}"]`);if(!popup||!trigger)return;
     const top=Math.max(76,Math.min(trigger.getBoundingClientRect().top,window.innerHeight-popup.offsetHeight-40));popup.style.top=top+'px';
   }
-  function closeSubnav(focus=false){const id=AT.ui.navGroup;if(!compactNavigation()||!id)return;AT.ui.navGroup=null;updateShell();if(focus)$(`[data-nav-group="${id}"]`)?.focus({preventScroll:true})}
+  function closeSubnav(focus=false){const id=AT.ui.navGroup;if(!compactNavigation()||!id)return;const popup=$('.nav-flyout');if(popup)AT.motion?.exitGhost?.(popup,'flyout','nav-flyout');AT.ui.navGroup=null;lastFlyoutGroup=null;updateShell();if(focus)$(`[data-nav-group="${id}"]`)?.focus({preventScroll:true})}
   function capturePosition(){return {x:window.scrollX,y:window.scrollY,regions:scrollRegions.flatMap(selector=>$$(selector).map((el,index)=>({selector,index,x:el.scrollLeft,y:el.scrollTop})))}}
   function restorePosition(position){
     for(const item of position.regions||[]){const el=$$(item.selector)[item.index];if(el){el.scrollLeft=item.x;el.scrollTop=item.y}}
@@ -33,24 +33,86 @@
   }
   function preservePosition(update){const position=capturePosition(),focus=captureFocus();update();restoreFocus(focus);restorePosition(position)}
   AT.ui.taskSelection=new Set(); AT.ui.researchParams={take:15,stop:6,reduce:50};
-  function toast(text,undo=false){const el=$('#toast');el.innerHTML=`<span>${E(text)}</span>${undo?'<button data-action="undo-delete">撤销删除</button>':''}`;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>{el.classList.remove('show');el.replaceChildren()},undo?10000:3500)}
+  function hideToast(){
+    const el=$('#toast');if(!el)return;
+    clearTimeout(toastTimer);clearTimeout(toastClearTimer);toastAction=null;
+    el.classList.remove('show');
+    toastClearTimer=setTimeout(()=>{if(!el.classList.contains('show'))el.replaceChildren()},AT.motion?.reduced?.()?0:220);
+  }
+  function scheduleToastHide(ms){
+    clearTimeout(toastTimer);toastRemaining=ms;toastStarted=Date.now();
+    toastTimer=setTimeout(hideToast,ms);
+  }
+  function toast(text,undo=false,tone=''){
+    const el=$('#toast');if(!el)return;
+    clearTimeout(toastTimer);clearTimeout(toastClearTimer);
+    const customAction=undo&&typeof undo==='object'&&typeof undo.onAction==='function'?undo:null;
+    toastAction=customAction?customAction.onAction:null;
+    const hasUndo=undo===true||Boolean(customAction);
+    const actionBtn=undo===true?'<button type="button" data-action="undo-delete">撤销删除</button>':customAction?`<button type="button" data-action="toast-custom">${E(customAction.label||'撤销')}</button>`:'';
+    el.dataset.tone=tone||'';
+    el.setAttribute('role',tone==='error'?'alert':'status');
+    el.innerHTML=`<span>${E(text)}</span>${actionBtn}<button type="button" class="toast-close" data-action="dismiss-toast" aria-label="关闭提示">×</button>`;
+    requestAnimationFrame(()=>el.classList.add('show'));
+    scheduleToastHide(hasUndo?10000:tone==='error'?4200:3400);
+  }
+  const toastHost=$('#toast');
+  if(toastHost){
+    const pauseToast=()=>{if(!toastHost.classList.contains('show')||!toastTimer)return;clearTimeout(toastTimer);toastTimer=0;toastRemaining=Math.max(1200,toastRemaining-(Date.now()-toastStarted))};
+    const resumeToast=()=>{if(!toastHost.classList.contains('show')||toastTimer)return;scheduleToastHide(toastRemaining||2500)};
+    toastHost.addEventListener('mouseenter',pauseToast);toastHost.addEventListener('mouseleave',resumeToast);
+    toastHost.addEventListener('focusin',pauseToast);toastHost.addEventListener('focusout',resumeToast);
+  }
   AT.toast=toast;
-  function applyPrefs(){document.body.classList.toggle('reduce-motion',AT.state.reduced);document.body.classList.toggle('dense',AT.state.compact);document.body.classList.toggle('reading-large',AT.state.largeText);AT.effects.apply()}
+  function applyPrefs(){document.documentElement.classList.toggle('reduce-motion',AT.state.reduced);document.body.classList.toggle('reduce-motion',AT.state.reduced);document.body.classList.toggle('dense',AT.state.compact);document.body.classList.toggle('reading-large',AT.state.largeText);AT.motion?.syncReduced?.();AT.effects.apply()}
+  function updateBreadcrumb(extraTitle=''){
+    const page=AT.pages[AT.state.page]||AT.pages.A02,navPage=AT.pages[navigationPage(page.id)],group=AT.groups.find(g=>g.id===navPage.group),parent=AT.pageParentFor(navPage.id);
+    $('#breadcrumb').innerHTML=`${group.label}<b>/</b><span>${parent?.title||page.title}</span>${parent&&parent.id!==page.id?`<b>/</b><span>${page.title}</span>`:''}${extraTitle?`<b>/</b><span>${E(extraTitle)}</span>`:''}`;
+  }
   function updateShell(){
-    const page=AT.pages[AT.state.page]||AT.pages.A02,navPage=AT.pages[navigationPage(page.id)],group=AT.groups.find(g=>g.id===navPage.group),running=AT.state.tasks.filter(t=>t.status==='running').length,queued=AT.state.tasks.filter(t=>t.status==='queued').length;
-    const parent=AT.pageParentFor(navPage.id),compact=compactNavigation();
+    const page=AT.pages[AT.state.page]||AT.pages.A02,navPage=AT.pages[navigationPage(page.id)],running=AT.state.tasks.filter(t=>t.status==='running').length,queued=AT.state.tasks.filter(t=>t.status==='queued').length;
+    const compact=compactNavigation();
     document.body.classList.toggle('nav-collapsed',compact);
     const toggle=$('[data-action="toggle-sidebar"]'),toggleLabel=compact?'展开导航栏':'收起导航栏';
     toggle.setAttribute('aria-expanded',String(!compact));toggle.setAttribute('aria-label',toggleLabel);toggle.title=toggleLabel;
     $('.sidebar-toggle-glyph',toggle).innerHTML=I(compact?'expandNav':'collapseNav');
-    $('#breadcrumb').innerHTML=`${group.label}<b>/</b><span>${parent?.title||page.title}</span>${parent&&parent.id!==page.id?`<b>/</b><span>${page.title}</span>`:''}`;
-    $('#sidebar-tasks').textContent=`${running} 项运行 · ${queued} 项排队`;
-    $('#top-task-count').textContent=`运行 ${running} · 排队 ${queued}`;
+    updateBreadcrumb(workspaceSession?$('#workspace-title')?.textContent||'':'');
+    $('#sidebar-tasks').textContent=running||queued?`${running} 项运行 · ${queued} 项排队`:'暂无运行任务';
+    $('#top-task-count').textContent=running||queued?`运行 ${running} · 排队 ${queued}`:'研究任务';
+    const topDot=$('.task-top .status-dot');if(topDot)topDot.style.opacity=running||queued?'1':'0.35';
     if(AT.ui.navGroup===undefined)AT.ui.navGroup=compact?null:navigationGroup(page.id);
-    const nav=$('#navigation'),scroll=nav.scrollTop;
-    nav.innerHTML=AT.groups.filter(g=>g.id!=='G').map(g=>`<div class="nav-group"><button class="nav-main ${navPage.group===g.id?'active':''}" data-nav-group="${g.id}" title="${g.label}" aria-label="${g.label}" aria-expanded="${AT.ui.navGroup===g.id}" aria-controls="nav-${g.id}">${I(g.icon)}<span>${g.label}</span>${I('chevronDown')}</button>${compact?'':`<div class="nav-children" id="nav-${g.id}" ${AT.ui.navGroup!==g.id?'hidden':''}>${navItems(g,navPage.id)}</div>`}</div>`).join('');
-    const expanded=AT.groups.find(g=>g.id===AT.ui.navGroup);
-    $('#nav-flyout-root').innerHTML=compact&&expanded?`<nav class="nav-flyout" id="nav-${expanded.id}" aria-label="${expanded.label}子页面"><header><strong>${expanded.label}</strong><button class="icon-button" data-action="close-subnav" aria-label="收起子页面">${I('close')}</button></header><div class="nav-flyout-items">${navItems(expanded,navPage.id)}</div></nav>`:'';
+    const nav=$('#navigation'),scroll=nav.scrollTop,groups=AT.groups.filter(g=>g.id!=='G');
+    const canPatch=nav.dataset.compact===String(compact)&&nav.children.length===groups.length;
+    if(canPatch){
+      groups.forEach((g,index)=>{
+        const box=nav.children[index],mainBtn=$('.nav-main',box),isOpen=AT.ui.navGroup===g.id;
+        mainBtn.classList.toggle('active',navPage.group===g.id);
+        mainBtn.setAttribute('aria-expanded',String(isOpen));
+        const children=$('.nav-children',box);
+        if(children){
+          children.hidden=!isOpen;
+          $$('.nav-item',children).forEach(item=>{
+            const entry=AT.navPages(g).find(p=>p.id===item.dataset.nav),active=Boolean(entry&&navEntryActive(entry,navPage.id));
+            item.classList.toggle('active',active);
+            if(active)item.setAttribute('aria-current','page');else item.removeAttribute('aria-current');
+          });
+        }
+      });
+    }else{
+      nav.dataset.compact=String(compact);
+      nav.innerHTML=groups.map(g=>`<div class="nav-group"><button class="nav-main ${navPage.group===g.id?'active':''}" data-nav-group="${g.id}" title="${g.label}" aria-label="${g.label}" aria-expanded="${AT.ui.navGroup===g.id}" aria-controls="nav-${g.id}">${I(g.icon)}<span>${g.label}</span>${I('chevronDown')}</button>${compact?'':`<div class="nav-children" id="nav-${g.id}" ${AT.ui.navGroup!==g.id?'hidden':''}>${navItems(g,navPage.id)}</div>`}</div>`).join('');
+    }
+    const expanded=AT.groups.find(g=>g.id===AT.ui.navGroup),nextFlyout=compact&&expanded?expanded.id:null;
+    if(nextFlyout!==lastFlyoutGroup||nextFlyout&&!$('.nav-flyout')){
+      lastFlyoutGroup=nextFlyout;
+      $('#nav-flyout-root').innerHTML=nextFlyout?`<nav class="nav-flyout" id="nav-${expanded.id}" aria-label="${expanded.label}子页面"><header><strong>${expanded.label}</strong><button class="icon-button" data-action="close-subnav" aria-label="收起子页面">${I('close')}</button></header><div class="nav-flyout-items">${navItems(expanded,navPage.id)}</div></nav>`:'';
+    }else if(nextFlyout){
+      $$('.nav-flyout .nav-item').forEach(item=>{
+        const entry=AT.navPages(expanded).find(p=>p.id===item.dataset.nav),active=Boolean(entry&&navEntryActive(entry,navPage.id));
+        item.classList.toggle('active',active);
+        if(active)item.setAttribute('aria-current','page');else item.removeAttribute('aria-current');
+      });
+    }
     nav.scrollTop=scroll;
     positionSubnav();
     document.title=`${page.title} · A-trade ${AT.isDesktop?(window.atradeDesktop?.bootstrap?.app?.packaged?'便携版':'桌面开发版'):'HTML 预览'}`;
@@ -83,10 +145,12 @@
     if(main.dataset.renderedPage===AT.state.page&&window.ResearchDates?.isEditing(main)){dateRenderPending=true;updateShell();return;}
     dateRenderPending=false;window.ResearchDates?.close();
     // In-page actions use the live position, never the last navigation snapshot.
-    const viewport=position||capturePosition(),focus=position?null:captureFocus();
-    cancelAnimationFrame(renderFrame);main.style.minHeight=main.getBoundingClientRect().height+'px';
+    const viewport=position||capturePosition(),focus=position?null:captureFocus(),pageChanged=lastRenderedPage!==null&&lastRenderedPage!==AT.state.page;
+    cancelAnimationFrame(renderFrame);
+    if(!pageChanged)main.style.minHeight=main.getBoundingClientRect().height+'px';else main.style.minHeight='';
     applyPrefs();updateShell();main.innerHTML=window.ExperimentalStrategies?.handles(AT.state.page)?window.ExperimentalStrategies.render():window.ResearchModule?.handles(AT.state.page)?window.ResearchModule.render(AT.state.page):AT.view(AT.state.page);AT.hydrateIcons();AT.effects.mount();
-    main.dataset.renderedPage=AT.state.page;
+    main.dataset.renderedPage=AT.state.page;lastRenderedPage=AT.state.page;
+    if(pageChanged)AT.motion?.enter?.(main,'at-page-enter');
     // A second data response can cancel this frame; keep the current reading
     // position and focus available to that render before deferred chart mounting.
     restoreFocus(focus);
@@ -104,7 +168,7 @@
   function go(page,stock,backState=null,fromHistory=false){
     if(!AT.pages[page])return;
     cancelSearch();
-    closeModal();closeBusinessWorkspace();
+    closeModal();closeBusinessWorkspace(true);
     const entryPage=page;page=AT.accountEntries[page]?.page||page;
     const samePage=page===AT.state.page&&(!stock||stock===AT.state.stock),position=samePage?capturePosition():null;
     if(!fromHistory&&!backState&&(page!==AT.state.page||stock&&stock!==AT.state.stock)){savePosition();AT.ui.history.push(snapshot())}
@@ -123,7 +187,7 @@
   function restoreRoute(){
     const [page,query]=(location.hash.slice(1)||'A02').split('?'),stock=new URLSearchParams(query||'').get('stock');
     if(!AT.pages[page]||(page===AT.state.page&&(!stock||stock===AT.state.stock)))return;
-    closeModal();closeBusinessWorkspace();
+    closeModal();closeBusinessWorkspace(true);
     savePosition();readRoute();
     const saved=AT.accountEntries[page]?null:AT.ui.positions[AT.state.page];
     go(AT.state.page,AT.state.stock,saved||{page:AT.state.page,query:'',board:'全部',range:AT.ui.range,metric:AT.ui.metric,scroll:0,selected:[]},true);
@@ -131,35 +195,52 @@
   window.addEventListener('popstate',restoreRoute);
   window.addEventListener('hashchange',restoreRoute);
   function openBusinessWorkspace(title,body,{wide=false,className='',footer=''}={}){
-    const key=title+'|'+className,same=workspaceSession?.key===key;
+    const key=title+'|'+className,same=workspaceSession?.key===key,fresh=!workspaceSession;
     const position=same?capturePosition():{x:0,y:0},focus=same?captureFocus():null;
     if($('.overlay'))closeOverlay();
-    if(!workspaceSession)workspaceSession={position:capturePosition(),focus:captureFocus()};
+    if(!workspaceSession){workspaceSession={position:capturePosition(),focus:captureFocus()};workspaceStack=[];}
+    else if(!same&&workspaceSession.view){workspaceStack.push({...workspaceSession.view,position:capturePosition(),focus:captureFocus()});}
     workspaceSession.key=key;
-    workspaceRoot.innerHTML=`<section class="page-workspace ${wide?'wide':''} ${E(className)}"><header class="workspace-head"><button type="button" class="workspace-back" data-action="close-workspace" aria-label="返回${E(AT.pages[AT.state.page]?.title||'上一页')}" title="返回${E(AT.pages[AT.state.page]?.title||'上一页')}">${I('back')}</button><h1 id="workspace-title">${E(title)}</h1></header><div class="workspace-content modal-body">${body}</div>${footer?`<footer class="workspace-footer modal-footer">${footer}</footer>`:''}</section>`;
+    workspaceSession.view={title,body,wide,className,footer,key};
+    const backTarget=workspaceStack.length?workspaceStack.at(-1).title:(AT.pages[AT.state.page]?.title||'上一页');
+    workspaceRoot.innerHTML=`<section class="page-workspace ${wide?'wide':''} ${E(className)}"><header class="workspace-head"><button type="button" class="workspace-back" data-action="close-workspace" aria-label="返回${E(backTarget)}" title="返回${E(backTarget)} (Esc)">${I('back')}</button><h1 id="workspace-title">${E(title)}</h1></header><div class="workspace-content modal-body">${body}</div>${footer?`<footer class="workspace-footer modal-footer">${footer}</footer>`:''}</section>`;
     main.hidden=true;workspaceRoot.hidden=false;document.body.classList.add('workspace-open');
+    updateBreadcrumb(title);
     $('.skip-link').href='#workspace-root';AT.hydrateIcons();
+    if(fresh||!same)AT.motion?.enter?.(workspaceRoot,'at-workspace-enter');
     restorePosition(position);
     if(same)restoreFocus(focus);
     else workspaceRoot.focus({preventScroll:true});
   }
-  function closeBusinessWorkspace(){
+  function closeBusinessWorkspace(forceAll=false){
     if(!workspaceSession)return;
     cancelSearch(false);
     AT.businessUI?.captureDraft();
-    const saved=workspaceSession;workspaceSession=null;
+    if(!forceAll&&workspaceStack.length){
+      const prev=workspaceStack.pop();
+      workspaceSession.key=prev.key;workspaceSession.view=prev;
+      const backTarget=workspaceStack.length?workspaceStack.at(-1).title:(AT.pages[AT.state.page]?.title||'上一页');
+      workspaceRoot.innerHTML=`<section class="page-workspace ${prev.wide?'wide':''} ${E(prev.className)}"><header class="workspace-head"><button type="button" class="workspace-back" data-action="close-workspace" aria-label="返回${E(backTarget)}" title="返回${E(backTarget)} (Esc)">${I('back')}</button><h1 id="workspace-title">${E(prev.title)}</h1></header><div class="workspace-content modal-body">${prev.body}</div>${prev.footer?`<footer class="workspace-footer modal-footer">${prev.footer}</footer>`:''}</section>`;
+      updateBreadcrumb(prev.title);AT.hydrateIcons();AT.motion?.enter?.(workspaceRoot,'at-workspace-enter');
+      restorePosition(prev.position||{x:0,y:0});restoreFocus(prev.focus);
+      return;
+    }
+    const saved=workspaceSession;workspaceSession=null;workspaceStack=[];
     workspaceRoot.replaceChildren();workspaceRoot.hidden=true;main.hidden=false;
     document.body.classList.remove('workspace-open');$('.skip-link').href='#main';
+    updateBreadcrumb('');
     restorePosition(saved.position);restoreFocus(saved.focus);
     if(saved.focus?.original.isConnected)saved.focus.original.focus({preventScroll:true});
     requestAnimationFrame(()=>{AT.drawCharts();AT.drawCandles();});
   }
   function openModal(title,body,{wide=false,drawer=false,confirmation=false,className='',footer=''}={}){
     if(!drawer&&!confirmation){AT.businessUI?.captureDraft();openBusinessWorkspace(title,body,{wide,className,footer});return}
-    if(!$('.overlay'))modalReturnFocus=document.activeElement;$('#overlay-root').innerHTML=`<div class="overlay"><section class="modal ${wide?'wide':''} ${drawer?'drawer':''} ${E(className)}" role="dialog" aria-modal="true" aria-labelledby="modal-title"><header class="modal-head"><h2 id="modal-title">${E(title)}</h2><button class="icon-button" data-action="close-modal" aria-label="关闭弹窗">${I('close')}</button></header><div class="modal-body">${body}</div>${footer?`<footer class="modal-footer">${footer}</footer>`:''}</section></div>`;
+    AT.motion?.cancelGhost?.('overlay');
+    if(!$('.overlay'))modalReturnFocus=document.activeElement;$('#overlay-root').innerHTML=`<div class="overlay"><section class="modal ${wide?'wide':''} ${drawer?'drawer':''} ${E(className)}" role="dialog" aria-modal="true" aria-labelledby="modal-title"><header class="modal-head"><h2 id="modal-title">${E(title)}</h2><button class="icon-button" data-action="close-modal" aria-label="关闭弹窗" title="关闭 (Esc)">${I('close')}</button></header><div class="modal-body">${body}</div>${footer?`<footer class="modal-footer">${footer}</footer>`:''}</section></div>`;
+    document.documentElement.classList.add('overlay-open');
     document.body.style.overflow='hidden';requestAnimationFrame(()=>{($$('.modal input:not([type=checkbox]):not([readonly]),.modal textarea,.modal select').find(el=>!el.disabled&&el.getClientRects().length)||$('.modal button'))?.focus({preventScroll:true})});
   }
-  function closeOverlay(){const had=!!$('.overlay');$('#overlay-root').innerHTML='';document.body.style.overflow='';if(had&&modalReturnFocus?.isConnected)modalReturnFocus.focus({preventScroll:true})}
+  function closeOverlay(){const overlay=$('.overlay');if(overlay){AT.motion?.exitGhost?.(overlay,overlay.querySelector('.modal.drawer')?'drawer':'overlay','overlay');}$('#overlay-root').innerHTML='';document.documentElement.classList.remove('overlay-open');document.body.style.overflow='';if(overlay&&modalReturnFocus?.isConnected)modalReturnFocus.focus({preventScroll:true})}
   function closeModal(){if($('.overlay'))closeOverlay();else closeBusinessWorkspace()}
   AT.openBusinessWorkspace=openBusinessWorkspace;
   AT.closeBusinessWorkspace=closeBusinessWorkspace;
@@ -168,7 +249,7 @@
   AT.navigate=go;
   AT.openDayDetail=payload=>{
     if(!payload.points[payload.index])return;
-    const updating=!!$('.day-drawer'),focus=updating?captureFocus():null;
+    const updating=!!$('.day-drawer'),prevIndex=updating?AT.ui.dayDetail?.index:null,focus=updating?captureFocus():null,prevScroll=updating?$('.day-drawer .modal-body')?.scrollTop||0:0;
     AT.ui.dayDetail=structuredClone(payload);
     const {context,points,index}=AT.ui.dayDetail,date=points[index].date;
     AT.selectChartDate(context,date);
@@ -177,23 +258,27 @@
     }
     $('#modal-title').textContent=AT.dayDetailTitle(context);
     const input=$('[data-day-date]');input.min=points[0].date;input.max=points.at(-1).date;input.value=date;
-    $('[data-day-step="-1"]').disabled=index===0;$('[data-day-step="1"]').disabled=index===points.length-1;
-    $('#day-detail-content').innerHTML=AT.dayDetailContent(AT.ui.dayDetail);
-    if(updating){restoreFocus(focus);if(document.activeElement.disabled)input.focus({preventScroll:true});$('.day-drawer .modal-body').scrollTop=0}
+    const prevBtn=$('[data-day-step="-1"]'),nextBtn=$('[data-day-step="1"]');
+    prevBtn.disabled=index===0;prevBtn.title=index===0?'已是当前曲线最早交易日':'查看前一个交易日';
+    nextBtn.disabled=index===points.length-1;nextBtn.title=index===points.length-1?'已是当前曲线最新交易日':'查看后一个交易日';
+    const contentEl=$('#day-detail-content');
+    contentEl.innerHTML=AT.dayDetailContent(AT.ui.dayDetail);
+    if(updating){
+      if(prevIndex!==null&&prevIndex!==index)AT.motion?.step?.(contentEl,index-prevIndex);
+      restoreFocus(focus);if(document.activeElement.disabled)input.focus({preventScroll:true});
+      $('.day-drawer .modal-body').scrollTop=prevScroll;
+    }
   };
   function showInfo(){openModal(AT.isDesktop?'桌面开发版与数据说明':'数据与预览说明',`<div class="report-text"><h3>当前可体验</h3><p>页面导航、滚轮通行证、曲线悬停、股票详情与返回、股票筛选、多任务控制、笔记保存和参数预览。</p><h3>数据来源</h3><p>全部行情、账户与回测结果为合成示例。预览没有连接 TDX、MCP、财务数据或券商，不执行真实回测或交易。</p><h3>本地状态</h3><p>${AT.isDesktop?'目标配置、演示任务、跟踪池与笔记自动保存到本机数据文件；每次有效变更保留上一有效版本备份。桌面启动后演示任务保持暂停，可手动继续。浏览器预览与桌面数据分别保存。':'目标配置、演示任务、跟踪池与笔记保存在当前浏览器。关闭页面后任务计时器停止；重新打开从已保存的进度继续。'}</p></div>`,{footer:B('知道了','check','data-action="close-modal"','primary')})}
   function wirePass(){
     const el=$('.pass-viewport');if(!el)return;
     if(AT.ui.passPosition!==null)el.scrollLeft=AT.ui.passPosition;
     else {const active=$('.milestone.current',el);if(active)el.scrollLeft=Math.max(0,active.offsetLeft-el.clientWidth*.38)}
-    // Keep wheel gestures inside the entire milestone area, including both ends.
+    if(AT.motion?.wireMomentumScroll){
+      AT.motion.wireMomentumScroll(el,el.closest('.pass-panel'),left=>{AT.ui.passPosition=left;});
+      return;
+    }
     el.closest('.pass-panel').addEventListener('wheel',e=>{if(e.ctrlKey)return;e.preventDefault();e.stopPropagation();const unit=e.deltaMode===1?16:e.deltaMode===2?el.clientWidth:1;const delta=(Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:-e.deltaY)*unit;el.scrollLeft=Math.max(0,Math.min(el.scrollWidth-el.clientWidth,el.scrollLeft+delta));AT.ui.passPosition=el.scrollLeft},{passive:false});
-    let dragging=false,startX=0,startScroll=0,moved=false;
-    el.addEventListener('pointerdown',e=>{if(e.pointerType==='touch')return;dragging=true;startX=e.clientX;startScroll=el.scrollLeft;moved=false});
-    el.addEventListener('pointermove',e=>{if(!dragging)return;if(Math.abs(e.clientX-startX)>4){moved=true;el.classList.add('dragging');el.scrollLeft=startScroll-(e.clientX-startX)}});
-    const end=()=>{dragging=false;el.classList.remove('dragging');AT.ui.passPosition=el.scrollLeft};el.addEventListener('pointerup',end);el.addEventListener('pointerleave',end);
-    el.addEventListener('click',e=>{if(moved){e.preventDefault();e.stopPropagation();moved=false}},true);
-    el.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();el.scrollLeft+=e.key==='ArrowRight'?156:-156;AT.ui.passPosition=el.scrollLeft}if(e.key==='Home'){e.preventDefault();el.scrollLeft=0}if(e.key==='End'){e.preventDefault();el.scrollLeft=el.scrollWidth}});
   }
   function initView(){
     AT.onboarding?.mount();
@@ -228,8 +313,13 @@
       $$('[data-milestone-filter]',drawer).forEach(button=>{const next=$(`[data-milestone-filter="${button.dataset.milestoneFilter}"]`,template.content);button.setAttribute('aria-pressed',next.getAttribute('aria-pressed'));$('span',button).textContent=$('span',next).textContent});
       content.scrollTop=scroll;
     }else{
+      const form=$('#milestone-event-form',drawer);
+      if(form&&!form.hidden){const fd=new FormData(form);const titleVal=String(fd.get('event-title')||'').trim(),noteVal=String(fd.get('event-note')||'').trim();if(titleVal||noteVal)milestoneEventDraft={title:titleVal,note:noteVal,category:String(fd.get('event-category')||''),code:String(fd.get('event-stock')||'')};}
       const nextFocused=document.activeElement?.textContent?.includes('下一阶段');
       $('#modal-title').textContent=title;content.innerHTML=body;$('.modal-footer',drawer).innerHTML=footer;content.scrollTop=0;
+      if(previous)AT.motion?.step?.(content,stage-Number(previous));
+      const newForm=$('#milestone-event-form',drawer);
+      if(newForm&&milestoneEventDraft){$('[name="event-title"]',newForm).value=milestoneEventDraft.title;$('[name="event-note"]',newForm).value=milestoneEventDraft.note;if(milestoneEventDraft.category)$('[name="event-category"]',newForm).value=milestoneEventDraft.category;if(milestoneEventDraft.code)$('[name="event-stock"]',newForm).value=milestoneEventDraft.code;}
       ($(`[data-milestone="${nextFocused?stage+1:stage-1}"]:not(:disabled)`,drawer)||$('.modal-head button',drawer)).focus({preventScroll:true});
     }
   }
@@ -244,7 +334,8 @@
     const q=query.trim().toLowerCase(),request=searchRequests.get(page),serial=request.serial,hostPage=AT.state.page;
     const targetSelector=page?'#page-search-results':'#search-results',inputSelector=page?'[data-page-search]':'[data-global-search]',target=$(targetSelector),input=$(inputSelector);
     if(!target)return;
-    const pages=Object.values(AT.pages).filter(p=>p.title.toLowerCase().includes(q)).slice(0,q?12:5),pageHtml=pages.map(p=>`<button type="button" class="search-result" data-nav="${E(p.id)}">${I(p.icon)}<span>${E(p.title)}</span><small>页面</small></button>`).join('');
+    const hiddenRoutes=new Set(['G03','G05','G06','M03']);
+    const pages=Object.values(AT.pages).filter(p=>!hiddenRoutes.has(p.id)&&(p.title.toLowerCase().includes(q)||p.id.toLowerCase().includes(q))).slice(0,q?12:5),pageHtml=pages.map(p=>`<button type="button" class="search-result" data-nav="${E(p.id)}">${I(p.icon)}<span>${E(p.title)}</span><small>页面</small></button>`).join('');
     const stockHtml=stocks=>stocks.slice(0,8).map(s=>`<button type="button" class="search-result" data-stock="${E(s.symbol||s.code)}">${I('market')}<span>${E(s.name)} <span class="muted">${E(s.code)}</span></span><small>${E(s.board||({sh:'沪市股票',sz:'深市股票',bj:'北交所股票'}[s.market])||'股票')}</small></button>`).join('');
     const message=text=>`<div class="field-hint" role="status">${E(text)}</div>`;
     if(!AT.isDesktop){target.innerHTML=stockHtml(AT.stocks.filter(s=>(s.name+s.code).toLowerCase().includes(q)))+pageHtml||'<div class="empty-state">没有匹配结果</div>';return}
@@ -264,7 +355,12 @@
       }catch(error){if(current())target.innerHTML=message(error.message||'股票搜索暂不可用，请稍后重试。')+pageHtml}
     },200);
   }
-  function search(){openModal('搜索股票与页面',`<div class="search-field">${I('search')}<input data-global-search aria-label="搜索股票与页面" placeholder="股票名称、代码、拼音首字母或页面关键词" maxlength="100" autocomplete="off"></div><div id="search-results" style="margin-top:12px"></div>`);renderSearch('');$('[data-global-search]')?.focus({preventScroll:true})}
+  function search(){
+    if($('.overlay'))return;
+    const existing=$('[data-global-search]');
+    if(existing&&workspaceSession&&!workspaceRoot.hidden){existing.focus({preventScroll:true});existing.select();return;}
+    openModal('搜索股票与页面',`<div class="search-field">${I('search')}<input data-global-search aria-label="搜索股票与页面" placeholder="股票名称、代码、拼音首字母或页面关键词" maxlength="100" autocomplete="off"></div><div id="search-results" style="margin-top:12px"></div>`);renderSearch('');$('[data-global-search]')?.focus({preventScroll:true})
+  }
   function updateValuation(){const form=$('#valuation-form');if(!form)return;const data=new FormData(form),values=['profit','growth','pe','water','emotion','actual'].map(k=>Number(data.get(k)));if(values.some(v=>!Number.isFinite(v)||v<=0)){$('#valuation-value').textContent='请输入有效参数';$('#valuation-gap').textContent='所有参数应大于 0。';return}const [profit,growth,pe,water,emotion,actual]=values,value=profit*growth*pe*water*emotion;$('#valuation-value').innerHTML=`${AT.money(value,1)} <small>亿</small>`;$('#valuation-gap').textContent=`情景市值相对实际市值 ${AT.sign((value/actual-1)*100)}% · 输入驱动的示例`}
   function schedule(){let slots=AT.state.concurrency-AT.state.tasks.filter(t=>t.status==='running').length;for(const t of AT.state.tasks){if(slots<=0)break;if(t.status==='queued'){t.status='running';t.step=t.type==='收益平原'?'参数扫描':'日线模拟';slots--}}}
   function taskAction(id,action,redraw=true){const t=AT.state.tasks.find(t=>t.id===id);if(!t)return;let changed=false;if(action==='pause'&&['running','queued'].includes(t.status)){t.status='paused';changed=true}if(action==='resume'&&['paused','stopped'].includes(t.status)){t.status='queued';t.step='等待计算额度';changed=true}if(action==='stop'&&['running','queued','paused'].includes(t.status)){t.status='stopped';changed=true}if(!changed)return;schedule();AT.persist();if(redraw){render();toast(`${t.name}：${AT.statusNames[t.status]}`)}}
@@ -303,7 +399,7 @@
     const focus=captureFocus();
     let transition=false;for(const t of AT.state.tasks){if(t.status!=='running')continue;t.progress=Math.min(100,+(t.progress+.14).toFixed(2));if(t.progress>=100){t.status='complete';t.step='报告已生成';transition=true}else t.step=t.type==='收益平原'?'参数扫描':t.progress<15?'数据准备':t.progress<35?'历史筛选':t.progress<90?'日线模拟':'指标统计'}
     if(transition)schedule();AT.persist();const run=AT.state.tasks.filter(t=>t.status==='running').length,queue=AT.state.tasks.filter(t=>t.status==='queued').length;$('#top-task-count').textContent=`运行 ${run} · 排队 ${queue}`;$('#sidebar-tasks').textContent=`${run} 项运行 · ${queue} 项排队`;
-    $$('[data-task-row]').forEach(row=>{const t=AT.state.tasks.find(t=>t.id===row.dataset.taskRow);if(!t)return;$('[data-live-status]',row).innerHTML=AT.statusTag(t.status);$('[data-live-step]',row).textContent=t.step;$('[data-live-percent]',row).textContent=t.progress.toFixed(1)+'%';$('.progress',row).setAttribute('aria-valuenow',t.progress);$('.progress i',row).style.width=t.progress+'%';$('[data-live-actions]',row).innerHTML=AT.taskActions(t)});
+    $$('[data-task-row]').forEach(row=>{const t=AT.state.tasks.find(t=>t.id===row.dataset.taskRow);if(!t)return;$('[data-live-status]',row).innerHTML=AT.statusTag(t.status);$('[data-live-step]',row).textContent=t.step;$('[data-live-percent]',row).textContent=t.progress.toFixed(1)+'%';$('.progress',row).setAttribute('aria-valuenow',t.progress);if(AT.motion?.patchProgress)AT.motion.patchProgress($('.progress i',row),t.progress);else $('.progress i',row).style.width=t.progress+'%';$('[data-live-actions]',row).innerHTML=AT.taskActions(t)});
     const strip=$('.task-strip');if(strip&&!$('.overlay'))strip.outerHTML=AT.taskStrip();restoreFocus(focus);if(transition&&AT.state.page==='G02'&&!$('.overlay'))render()
   }
   function download(name,content,type='text/plain;charset=utf-8'){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);toast('已导出到浏览器下载目录')}
@@ -318,9 +414,11 @@
     'export-ledger':()=>AT.ui.ledgerMode==='cash'?download('A-trade-演示资金流水.csv',`日期,类型,金额,说明\n2026-01-05,期初资金,${AT.state.startCapital},账户演示起算资金`,'text/csv;charset=utf-8'):exportTrades(),
     'export-account-summary':()=>download('A-trade-复盘分享.txt',`A-trade · 账户复盘\n2026.01 — 2026.10 · 演示数据\n累计收益 +25.86%\n\n${AT.state.notes.A09||AT.state.notes.A08||'回顾判断，记录执行。'}\n\n不包含账户姓名、资产金额及持仓数量。`),
     'close-subnav':()=>closeSubnav(true),
-    'task-trash':taskTrash,'undo-delete':()=>restoreTasks(AT.ui.lastDeleted||[]),'restore-all-tasks':()=>restoreTasks(AT.state.taskTrash.map(entry=>entry.task.id)),
-    'milestone-add-event':()=>{const form=$('#milestone-event-form');if(!form||AT.milestoneData(AT.ui.milestoneNumber).status==='future')return;form.hidden=false;form.scrollIntoView({block:'nearest'});$('[name="event-title"]',form).focus({preventScroll:true})},
-    'milestone-cancel-event':()=>{const form=$('#milestone-event-form');if(form){form.reset();form.hidden=true}},
+    'dismiss-toast':hideToast,
+    'toast-custom':()=>{const fn=toastAction;hideToast();fn?.();},
+    'task-trash':taskTrash,'undo-delete':()=>{hideToast();restoreTasks(AT.ui.lastDeleted||[])},'restore-all-tasks':()=>restoreTasks(AT.state.taskTrash.map(entry=>entry.task.id)),
+    'milestone-add-event':()=>{const form=$('#milestone-event-form');if(!form||AT.milestoneData(AT.ui.milestoneNumber).status==='future')return;if(!form.hidden){form.hidden=true;return;}form.hidden=false;form.scrollIntoView({block:'nearest',...(AT.motion?.scrollOptions?.()||{})});$('[name="event-title"]',form).focus({preventScroll:true})},
+    'milestone-cancel-event':()=>{const form=$('#milestone-event-form');milestoneEventDraft=null;if(form){form.reset();form.hidden=true}},
     'search':search,'close-modal':closeModal,'close-workspace':closeBusinessWorkspace,'data-info':showInfo,'account-settings':accountSettings,'back':back,'note':quickNote,'stock-picker':picker,'add-trade':addTrade,
     'export-trades':exportTrades,'export-report':()=>download('A-trade-演示研究摘要.txt',reportText()),
     'backup':()=>{try{const backup=AT.workspaceBackup.create(AT.state,{settings:AT.settingsState});download(AT.isDesktop?'A-trade-界面状态备份.json':'A-trade-预览备份.json',JSON.stringify(backup),'application/json;charset=utf-8')}catch(error){toast(error.message||'界面状态无法导出，请检查本机状态。')}},
@@ -406,7 +504,7 @@
     if(el.dataset.pref){AT.state[el.dataset.pref]=el.checked;applyPrefs();AT.persist();AT.drawCharts();AT.drawCandles()}
     if(el.hasAttribute('data-plateau-ratio')){AT.ui.plateauRatio=+el.value;render();toast(`首次减仓比例设为 ${el.value}%，已切换演示曲线`)}
     if(el.hasAttribute('data-plateau-strategies')){AT.ui.plateauStrategies=el.value.split(',');render()}
-    if(el.hasAttribute('data-day-date')){const index=AT.ui.dayDetail.points.findIndex(p=>p.date===el.value);if(index<0){el.value=AT.ui.dayDetail.points[AT.ui.dayDetail.index].date;toast('所选日期不在当前曲线的样例数据中');return}AT.openDayDetail({...AT.ui.dayDetail,index})}
+    if(el.hasAttribute('data-day-date')){let index=AT.ui.dayDetail.points.findIndex(p=>p.date===el.value);if(index<0){const prior=AT.ui.dayDetail.points.reduce((best,p,i)=>p.date<=el.value?i:best,-1);index=prior>=0?prior:0;const snapped=AT.ui.dayDetail.points[index].date;el.value=snapped;toast(`所选日期非交易日，已定位至最近交易日 ${snapped}`);}AT.openDayDetail({...AT.ui.dayDetail,index})}
     if(el.id==='restore-file'&&el.files[0])readBackup(el.files[0]);
   });
   document.addEventListener('submit',async e=>{
@@ -416,7 +514,7 @@
       if(!title||!note){toast('请填写事件标题和内容');return}
       const key=AT.milestoneEventKey(AT.ui.milestoneNumber),items=AT.state.milestoneEvents[key];
       AT.state.milestoneEvents[key]=[...(Array.isArray(items)?items:[]),{kind:'event',local:true,date:d.get('event-date'),time:new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Taipei'}),title,note,category:d.get('event-category'),code:d.get('event-stock')}];
-      form.reset();form.hidden=true;AT.ui.milestoneFilter='event';milestoneDetail(AT.ui.milestoneNumber);const saved=await AT.persist();toast(saved?'日期事件已保存到此里程碑':'保存失败，事件暂留在当前会话');return;
+      form.reset();form.hidden=true;milestoneEventDraft=null;AT.ui.milestoneFilter='event';milestoneDetail(AT.ui.milestoneNumber);const firstRec=$('.milestone-drawer .milestone-record');if(firstRec)AT.motion?.flashSuccess?.(firstRec);const saved=await AT.persist();toast(saved?'日期事件已保存到此里程碑':'保存失败，事件暂留在当前会话');return;
     }
     if(e.target.id==='rule-form'){e.preventDefault();await AT.settingsPage.saveRules(e.target)}});
   async function readBackup(file){
@@ -427,7 +525,7 @@
       const {candidate,summary}=AT.workspaceBackup.prepare(data,AT.state,{settings:AT.settingsState,isDesktop:AT.isDesktop});
       AT.ui.restoreCandidate=data;
       const prefs=['compact','largeText','reduced'].map(key=>`${{compact:'紧凑表格',largeText:'大号文字',reduced:'减少动态'}[key]}：${candidate[key]?'开启':'关闭'}`).join(' · ');
-      openModal('恢复界面状态',`<div class="report-text"><p>文件：${E(file.name)}</p><p>${summary.tasks} 个演示任务 · ${summary.notes} 份历史笔记 · ${summary.reviews} 份复盘草稿 · ${summary.customTrades} 笔演示流水</p><p>${E(prefs)}</p><p>将恢复文件包含的显示偏好、侧栏、费率与仓位规则等界面状态。${summary.legacy?'旧备份未包含的字段保持现值。':''}${AT.isDesktop?'运行中或排队的演示任务保持暂停。':''}</p><p>正式账户账本、真实跟踪池、行情缓存、研究任务与 AI 配置不在此恢复范围。</p><p class="business-error" data-interface-restore-error role="alert" hidden></p></div>`,{confirmation:true,footer:B('取消','','data-action="close-modal"')+B('确认恢复界面状态','backup','data-action="confirm-restore"','primary')});
+      openModal('恢复界面状态',`<div class="report-text"><p>文件：${E(file.name)}</p><p>${summary.tasks} 个演示任务 · ${summary.notes} 份历史笔记 · ${summary.reviews} 份复盘草稿 · ${summary.customTrades} 笔演示流水</p><p>${E(prefs)}</p><p>将恢复文件包含的显示偏好、侧栏、费率与仓位规则等界面状态。${summary.legacy?'旧备份未包含的字段保持现值。':''}${AT.isDesktop?'运行中或排队的演示任务保持暂停。':''}</p><p>正式账户账本、真实跟踪池、行情缓存、研究任务与 AI 配置不在此恢复范围。</p><p class="business-error" data-interface-restore-error role="alert" hidden></p></div>`,{confirmation:true,footer:B('取消','','data-action="close-modal"')+B('确认恢复界面状态','backup','data-action="confirm-restore"','danger')});
     }catch(error){toast(error.message||'无法读取备份文件')}
     finally{const input=$('#restore-file');if(input)input.value=''}
   }
@@ -455,15 +553,31 @@
       const result=$(e.target.hasAttribute('data-page-search')?'#page-search-results .search-result':'#search-results .search-result');
       if(result){e.preventDefault();if(e.key==='Enter')result.click();else result.focus({preventScroll:true})}return;
     }
+    if(e.target.matches('.search-result')&&['ArrowDown','ArrowUp','Home','End'].includes(e.key)){
+      const container=e.target.closest('#search-results,#page-search-results');if(!container)return;
+      const list=$$('.search-result',container),idx=list.indexOf(e.target);if(idx<0)return;
+      e.preventDefault();
+      if(e.key==='ArrowUp'&&idx===0){$(container.id==='page-search-results'?'[data-page-search]':'[data-global-search]')?.focus({preventScroll:true});return;}
+      const next=e.key==='Home'?0:e.key==='End'?list.length-1:Math.max(0,Math.min(list.length-1,idx+(e.key==='ArrowDown'?1:-1)));
+      list[next]?.focus({preventScroll:true});return;
+    }
+    if(e.target.matches('.nav-flyout .nav-item')&&['ArrowDown','ArrowUp','Home','End'].includes(e.key)){
+      const list=$$('.nav-flyout .nav-item'),idx=list.indexOf(e.target);if(idx<0)return;
+      e.preventDefault();
+      const next=e.key==='Home'?0:e.key==='End'?list.length-1:(idx+(e.key==='ArrowDown'?1:-1)+list.length)%list.length;
+      list[next]?.focus({preventScroll:true});return;
+    }
     if(e.target.matches('.local-tab')&&['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){
       e.preventDefault();const tabs=$$('.local-tab',e.target.closest('[role="tablist"]')),index=tabs.indexOf(e.target),next=e.key==='Home'?0:e.key==='End'?tabs.length-1:(index+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;tabs[next].focus({preventScroll:true});tabs[next].click();return;
     }
     if(e.key==='Escape'&&$('.nav-flyout')){e.preventDefault();closeSubnav(true);return}
     if(e.key==='ArrowDown'&&e.target.matches('[data-nav-group]')&&$('.nav-flyout')){e.preventDefault();$('.nav-flyout .nav-item')?.focus({preventScroll:true});return}
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();search()}
-    if(e.key==='Escape'&&$('.overlay'))closeModal();
+    if(e.key==='Escape'&&$('.overlay')){e.preventDefault();closeOverlay();return}
+    if(e.key==='Escape'&&workspaceSession&&!workspaceRoot.hidden&&!e.isComposing){e.preventDefault();closeBusinessWorkspace();return}
     if(e.key==='Tab'&&$('.overlay .modal')){const items=$$('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href]', $('.overlay .modal')).filter(x=>x.getClientRects().length),first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}}
   });
+  window.addEventListener('blur',()=>{if(compactNavigation()&&AT.ui.navGroup)closeSubnav(false)});
   window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{const compact=compactNavigation();if(compact!==document.body.classList.contains('nav-collapsed')){AT.ui.navGroup=compact?null:navigationGroup(AT.state.page);updateShell()}positionSubnav();AT.drawCharts();AT.drawCandles()},100)});
   if(!AT.isDesktop)window.addEventListener('beforeunload',()=>{AT.persist()});
   if(AT.isDesktop){

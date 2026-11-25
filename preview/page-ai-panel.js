@@ -95,8 +95,9 @@
   }
   function messages(scroll=true) {
     const list=$('.page-ai-messages');
-    list.innerHTML=current.messages.length?current.messages.map((item,index)=>
-      `<article class="page-ai-message page-ai-${item.role}"><header><strong>${item.role==='user'?'你':'AI'}</strong>${item.role==='assistant'?`<button type="button" data-page-ai-copy="${index}" aria-label="复制回答">复制</button>`:''}</header>${item.role==='assistant'?`<div class="page-ai-answer">${markdown(item.content)}</div><small class="page-ai-answer-source">${escape(item.source||'')} · ${escape(item.model||'文本 AI')}</small>`:`<p class="page-ai-question-text">${escape(item.content)}</p>`}</article>`).join(''):
+    const pendingHtml=current.request&&current.pendingQuestion?`<article class="page-ai-message page-ai-user"><header><strong>你</strong></header><p class="page-ai-question-text">${escape(current.pendingQuestion)}</p></article><article class="page-ai-message page-ai-assistant page-ai-pending"><header><strong>AI</strong></header><div class="page-ai-thinking" role="status"><span class="page-ai-thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span><span>${escape(current.stage||'正在分析本次页面数据…')}</span></div></article>`:'';
+    list.innerHTML=(current.messages.length||pendingHtml)?current.messages.map((item,index)=>
+      `<article class="page-ai-message page-ai-${item.role}"><header><strong>${item.role==='user'?'你':'AI'}</strong>${item.role==='assistant'?`<button type="button" data-page-ai-copy="${index}" aria-label="复制回答">复制</button>`:''}</header>${item.role==='assistant'?`<div class="page-ai-answer">${markdown(item.content)}</div><small class="page-ai-answer-source">${escape(item.source||'')} · ${escape(item.model||'文本 AI')}</small>`:`<p class="page-ai-question-text">${escape(item.content)}</p>`}</article>`).join('')+pendingHtml:
       '<div class="page-ai-welcome"><span class="page-ai-welcome-symbol" aria-hidden="true">✦</span><h3>围绕这一页，继续追问</h3><p>直接输入股票名称或代码，也可以比较两三只股票。发送后才读取对应日线；没有指定日期时使用本页截止日。</p><small>页面、观察日期与个股话题分别保留。打开面板不会调用 AI。</small></div>';
     if(scroll)list.scrollTop=list.scrollHeight;
   }
@@ -106,7 +107,7 @@
       context=AT.pageAIContext.capture();
       const next=sessionFor(context),changed=current!==next;
       current=next;
-      if(changed){$('#page-ai-question').value=current.draft;messages();$('.page-ai-evidence').hidden=true;}
+      if(changed){$('#page-ai-question').value=current.draft;messages();$('.page-ai-evidence').hidden=true;const ctxBtn=$('[data-page-ai="context"]');if(ctxBtn){ctxBtn.setAttribute('aria-expanded','false');const hint=$('.page-ai-context-hint');if(hint)hint.textContent='查看材料';}}
       const shown=current.material||context,source=dates(shown);
       $('.page-ai-context').textContent=`${shown.page.title}${source?' · '+source:' · 日期以页面说明为准'}`;
       showMaterial(current.material||context);
@@ -126,12 +127,19 @@
     $('.page-ai-material-summary').innerHTML=materialSummary(snapshot);
     $('.page-ai-evidence pre').textContent=JSON.stringify(snapshot,null,2);
   }
+  function redrawChartsSoon() {
+    setTimeout(()=>{AT.drawCharts?.();AT.drawCandles?.();},AT.motion?.reduced?.()?0:270);
+  }
   function open(question='') {
+    AT.motion?.cancelGhost?.('page-ai');
     opened=true;panel.hidden=false;trigger.setAttribute('aria-expanded','true');document.body.classList.add('page-ai-open');
     refresh();messages();if(typeof question==='string'&&question.trim()&&!current?.draft.trim())current.draft=question.slice(0,4000);$('#page-ai-question').value=current?.draft||'';controls();$('#page-ai-question').focus({preventScroll:true});
+    redrawChartsSoon();
   }
   function close() {
+    if(opened)AT.motion?.exitGhost?.(panel,'panel','page-ai');
     opened=false;panel.hidden=true;trigger.setAttribute('aria-expanded','false');document.body.classList.remove('page-ai-open');trigger.focus({preventScroll:true});
+    redrawChartsSoon();
   }
   function analyzeStock(stock) {
     open();if(!context||!stock?.symbol)return;
@@ -146,11 +154,12 @@
     const before=current;
     refresh();
     if(before&&before!==current){current.notice='页面已切换，请为当前页面输入问题。';controls();return;}
-    if(!current||current.request||!ready()||!context)return;
+    if(!current||current.request||!context)return;
+    if(!ready()){current.error=AT.isDesktop?'请先在「设置 → AI 模型」配置并启用文本 AI。':'请在桌面应用中配置并使用页面 AI。';controls();return;}
     const question=current.draft.trim();if(!question)return;
     if(question.length>4000){current.error='问题最多 4000 字，请适当缩短。';controls();return;}
     const item=current, snapshot=structuredClone(context), requestId=crypto.randomUUID(), base=scope(snapshot);
-    item.request=requestId;item.sent=false;item.error='';item.notice='';item.stage='正在整理本次材料…';controls();
+    item.request=requestId;item.sent=false;item.error='';item.notice='';item.pendingQuestion=question;item.stage='正在整理本次材料…';controls();if(current===item&&opened)messages();
     try {
       const check=()=>{
         if(item.request!==requestId)throw Error('已停止');
@@ -159,9 +168,9 @@
       const market=async(method,payload)=>{const result=await window.atradeDesktop.market(method,payload);if(!result?.ok)throw Error(typeof result?.error==='string'?result.error:result?.error?.message||'读取行情失败，请检查行情目录。');return result.data;};
       const selected=focus?.stock||(snapshot.page.id==='G01'&&/^(sh|sz|bj)\d{6}$/.test(AT.state.stock||'')?{symbol:AT.state.stock}:null);
       const material=await AT.pageAIMaterials.collect({question,context:snapshot,market,focus:selected,previous:item.stocks,previousDate:item.material?AT.pageAIMaterials.pageDate(item.material):'',check,
-        progress:text=>{if(item.request!==requestId)return;item.stage=text;if(current===item)controls();}});
+        progress:text=>{if(item.request!==requestId)return;item.stage=text;if(current===item){controls();const t=$('.page-ai-thinking > span:last-child');if(t)t.textContent=text;}}});
       check();item.material=material.context;item.stage='正在分析本次页面数据…';item.sent=true;
-      if(current===item){showMaterial(item.material);controls();}
+      if(current===item){showMaterial(item.material);controls();const t=$('.page-ai-thinking > span:last-child');if(t)t.textContent=item.stage;}
       const asOf=AT.pageAIMaterials.pageDate(material.context),history=historyFor(item.messages.filter(message=>!message.asOf||message.asOf<=asOf));
       const result=await window.atradeDesktop.ai('page.ask',{requestId,question,context:material.context,history});
       if(item.request!==requestId)return;
@@ -170,14 +179,14 @@
       item.messages.push({role:'user',content:question,asOf},{role:'assistant',content:result.data.answer,asOf,model:result.data.model,
         source:material.context.page.title+(dates(material.context)?' · '+dates(material.context):'')+(material.stocks.length?' · '+material.stocks.map(stock=>stock.name||stock.symbol).join('、'):''),generatedAt:result.data.generatedAt});
       item.stocks=material.stocks;
-      item.messages=item.messages.slice(-16);item.draft='';
+      item.messages=item.messages.slice(-16);item.draft='';item.pendingQuestion='';
       if(current===item&&opened){$('#page-ai-question').value='';messages();}
     } catch(error) {if(item.request===requestId)item.error=error.message||'连接失败，问题已保留，请重试。';}
-    finally {if(item.request===requestId){item.request=null;item.stage='';}controls();}
+    finally {if(item.request===requestId){item.request=null;item.stage='';item.pendingQuestion='';}if(current===item&&opened)messages(false);controls();}
   }
   async function stop() {
     const item=current,id=item?.request;if(!id)return;
-    item.request=null;item.stage='';item.notice='已停止，问题已保留。';controls();
+    item.request=null;item.stage='';item.pendingQuestion='';item.notice='已停止，问题已保留。';if(current===item&&opened)messages(false);controls();
     if(item.sent)try{await window.atradeDesktop.ai('page.cancel',{requestId:id});}catch{/* Late responses are ignored by request identity. */}
     $('#page-ai-question').focus({preventScroll:true});
   }
@@ -195,16 +204,26 @@
     trigger.addEventListener('click',()=>opened?close():open());
     panel.addEventListener('click',async event=>{
       const suggestion=event.target.closest('[data-page-ai-suggestion]');
-      if(suggestion&&!suggestion.disabled){current.draft=suggestion.dataset.pageAiSuggestion;current.autoDraft=false;$('#page-ai-question').value=current.draft;current.error='';controls();$('#page-ai-question').focus();return;}
+      if(suggestion&&!suggestion.disabled){
+        current.draft=suggestion.dataset.pageAiSuggestion;current.autoDraft=false;
+        const input=$('#page-ai-question');input.value=current.draft;current.error='';controls();input.focus();
+        const match=/【[^】]+】/.exec(current.draft);
+        if(match&&input.setSelectionRange)input.setSelectionRange(match.index,match.index+match[0].length);
+        return;
+      }
       const copy=event.target.closest('[data-page-ai-copy]');
-      if(copy){try{await navigator.clipboard.writeText(current.messages[Number(copy.dataset.pageAiCopy)].content);copy.textContent='已复制';}catch{current.error='复制未完成，可以选中回答后手动复制。';controls();}return;}
+      if(copy){try{await navigator.clipboard.writeText(current.messages[Number(copy.dataset.pageAiCopy)].content);copy.textContent='✓ 已复制';clearTimeout(copy._resetTimer);copy._resetTimer=setTimeout(()=>{if(copy.isConnected)copy.textContent='复制';},2000);}catch{current.error='复制未完成，可以选中回答后手动复制。';controls();}return;}
       const action=event.target.closest('[data-page-ai]');if(!action||action.disabled)return;
       if(action.dataset.pageAi==='close')close();
       if(action.dataset.pageAi==='send')send();
       if(action.dataset.pageAi==='stop')stop();
-      if(action.dataset.pageAi==='clear'){current.messages=[];current.draft='';current.stocks=[];current.material=null;$('#page-ai-question').value='';current.error='';current.notice='已开始新话题。';messages();refresh();}
+      if(action.dataset.pageAi==='clear'){
+        const sessionRef=current, backup={messages:[...current.messages],draft:current.draft,stocks:[...current.stocks],material:current.material};
+        current.messages=[];current.draft='';current.stocks=[];current.material=null;$('#page-ai-question').value='';current.error='';current.notice='已开始新话题。';messages();refresh();
+        if(backup.messages.length)AT.toast?.('已清空当前对话，开始新话题',{label:'撤销',onAction:()=>{if(!sessionRef)return;Object.assign(sessionRef,backup);if(current===sessionRef&&opened){$('#page-ai-question').value=sessionRef.draft;messages();refresh();}AT.toast?.('已恢复刚才的对话');}});
+      }
       if(action.dataset.pageAi==='page-topic'){focus=null;refresh();messages();}
-      if(action.dataset.pageAi==='context'){const evidence=$('.page-ai-evidence');evidence.hidden=!evidence.hidden;action.setAttribute('aria-expanded',String(!evidence.hidden));}
+      if(action.dataset.pageAi==='context'){const evidence=$('.page-ai-evidence');evidence.hidden=!evidence.hidden;action.setAttribute('aria-expanded',String(!evidence.hidden));const hint=$('.page-ai-context-hint');if(hint)hint.textContent=evidence.hidden?'查看材料':'收起材料';}
       if(action.dataset.pageAi==='settings'){close();AT.navigate('C07');}
     });
     $('#page-ai-question').addEventListener('input',event=>{if(!current)return;current.draft=event.target.value;current.autoDraft=false;current.error='';current.notice='';controls();});
@@ -212,7 +231,11 @@
     $('#page-ai-question').addEventListener('compositionend',()=>{composing=false;});
     document.addEventListener('keydown',event=>{
       if(!opened)return;
-      if(event.key==='Escape'&&!document.querySelector('.overlay')){event.preventDefault();event.stopImmediatePropagation();close();return;}
+      if(event.key==='Escape'&&!document.querySelector('.overlay')){
+        const evidence=$('.page-ai-evidence');
+        if(evidence&&!evidence.hidden){event.preventDefault();event.stopImmediatePropagation();evidence.hidden=true;$('[data-page-ai="context"]')?.setAttribute('aria-expanded','false');const hint=$('.page-ai-context-hint');if(hint)hint.textContent='查看材料';return;}
+        event.preventDefault();event.stopImmediatePropagation();close();return;
+      }
       if(event.target.id==='page-ai-question'&&event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&!composing&&event.keyCode!==229){event.preventDefault();event.stopImmediatePropagation();send();}
     },true);
     const observer=new MutationObserver(()=>{if(!opened)return;clearTimeout(timer);timer=setTimeout(refresh,120);});

@@ -27,7 +27,7 @@ html { scrollbar-gutter:stable; }
 .nav-main.active,.nav-item.active { background:var(--selected); }
 .pass-viewport { overscroll-behavior:none; }
 .fx-glass .modal { background:rgb(250 252 255/.96); border-color:#ffffff70; }
-.modal.milestone-drawer { width:590px; max-width:calc(100vw - 18px); display:flex; flex-direction:column; overflow:hidden; border-radius:0; animation:none; }
+.modal.milestone-drawer { width:590px; max-width:calc(100vw - 18px); display:flex; flex-direction:column; overflow:hidden; border-radius:12px 0 0 12px; }
 .milestone-drawer .modal-head { flex-shrink:0; padding:23px 26px 20px; border-color:#788eae13; background:transparent; }
 .milestone-drawer .modal-head h2 { font-size:18px; }
 .milestone-drawer .modal-body { flex:1; min-height:0; padding:0 26px 24px; overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; }
@@ -198,6 +198,21 @@ html { scrollbar-gutter:stable; }
 .btn.primary:active { background:var(--color-primary-pressed); border-color:var(--color-primary-pressed); }
 .btn:not(.primary):not(.danger):hover { background:var(--hover); border-color:var(--primary); }
 :is(.field input,.field select,.field textarea,.select,.search-input,.search-field,.global-search) { border-color:var(--color-control-border); color:var(--text); }
+.select {
+  appearance:none;
+  -webkit-appearance:none;
+  height:34px;
+  line-height:32px;
+  padding:0 30px 0 12px;
+  border-radius:8px;
+  background-color:var(--surface);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%2359677a' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 10px center;
+  vertical-align:middle;
+}
+.data-table td .secondary { white-space:normal; line-height:1.55; }
+.data-table th:last-child,.data-table td:last-child { padding-right:21px; }
 :is(input,textarea)::placeholder { color:var(--color-disabled); }
 .tag { background:var(--subtle); color:var(--secondary); }
 .tag.blue { color:var(--primary); background:var(--selected); }

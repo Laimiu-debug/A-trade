@@ -3,7 +3,7 @@
   const E=AT.escape,I=AT.icon,B=AT.button,bridge=window.atradeDesktop;
   const $=(selector,root=document)=>root.querySelector(selector);
   const $$=(selector,root=document)=>[...root.querySelectorAll(selector)];
-  const targets=['text','vision'],pending=new Map(),writes=new Set();
+  const targets=['text','vision'],pending=new Map(),pendingMode=new Map(),writes=new Set();
   const labels={text:'文本 AI',vision:'图片 AI'};
   const feedback={text:null,vision:null};
   // Drafts, including an unsubmitted key, stay in this closure for this session only.
@@ -45,12 +45,14 @@
   }
   const field=(label,name,value='',extra='')=>`<label class="field"><span>${E(label)}</span><input name="${name}" value="${E(value)}" ${extra}></label>`;
   function controls(form) {
-    const busy=pending.has(form.dataset.aiProfile),offline=!AT.isDesktop;
+    const target=form.dataset.aiProfile,busy=pending.has(target),mode=pendingMode.get(target),offline=!AT.isDesktop;
     form.setAttribute('aria-busy',String(busy));
     for(const input of $$('input',form))input.disabled=busy||offline;
-    for(const button of $$('[data-ai-action]',form))button.disabled=busy||offline||(button.dataset.aiAction==='test'&&!form.elements.enabled.checked)||(['save','discard'].includes(button.dataset.aiAction)&&!dirty(form.dataset.aiProfile));
-    $('[data-ai-action="discard"]',form).hidden=!dirty(form.dataset.aiProfile);
-    $('[data-ai-action="save"]',form).innerHTML=I('save')+(busy?'正在处理…':'保存配置');
+    for(const button of $$('[data-ai-action]',form))button.disabled=busy||offline||(button.dataset.aiAction==='test'&&!form.elements.enabled.checked)||(['save','discard'].includes(button.dataset.aiAction)&&!dirty(target));
+    $('[data-ai-action="discard"]',form).hidden=!dirty(target);
+    $('[data-ai-action="save"]',form).innerHTML=(busy&&mode==='save'?'<span class="at-spinner" aria-hidden="true"></span>':I('save'))+(busy&&mode==='save'?'正在保存…':'保存配置');
+    const testBtn=$('[data-ai-action="test"]',form);
+    if(testBtn){testBtn.innerHTML=(busy&&mode==='test'?'<span class="at-spinner" aria-hidden="true"></span>':I('check'))+(busy&&mode==='test'?'正在检测…':'保存并测试');testBtn.title=!form.elements.enabled.checked?'请先打开上方“启用”开关后再测试连接':'';}
   }
   function updateStatus(target) {
     const form=$(`form[data-ai-profile="${target}"]`);if(!form)return;
@@ -84,8 +86,8 @@
     </form>`;
   }
   function view() {
-    return AT.head('AI 模型','全局管理文字与图片任务，可分别使用不同服务商和模型')
-      +`<nav class="context-nav" aria-label="相关功能">${AT.groups.find(g=>g.id==='C').pages.map(p=>`<button type="button" data-nav="${p.id}" ${p.id==='C07'?'aria-current="page"':''}>${I(p.icon)}${E(p.title)}</button>`).join('')}</nav>`
+    return AT.head('AI 模型','全局管理文本与图片任务，可分别使用不同服务商和模型')
+      +`<nav class="context-nav" aria-label="相关设置">${AT.groups.find(g=>g.id==='C').pages.map(p=>`<button type="button" data-nav="${p.id}" ${p.id==='C07'?'aria-current="page"':''}>${I(p.icon)}${E(p.title)}</button>`).join('')}</nav>`
       +(!AT.isDesktop?'<p class="ai-settings-note">请在桌面应用中配置 AI。浏览器预览不会保存密钥或发送请求。</p>':'')
       +`<p class="ai-settings-note ai-settings-warning" data-ai-config-warning ${config.warning?'':'hidden'}>${E(config.warning||'')}</p>`
       +`<div class="ai-settings-grid">${targets.map(card).join('')}</div><div class="ai-settings-note"><span>${I('shield')}</span><p>配置供整个应用共用。仅在你使用 AI 功能时发送对应材料；文本和图片分别使用各自的地址、模型与密钥。<br>支持兼容 OpenAI Chat Completions 的接口。提示词会随策略、回测和大盘研究功能继续完善。</p></div>`;
@@ -137,9 +139,9 @@
         feedback[target]={tone:'success',message:`${labels[target]}配置已保存，连接检测通过。`};
       }
     })();
-    pending.set(target,operation);updateStatus(target);
-    try{await operation;}catch(error){feedback[target]={tone:'error',message:(saved?'配置已保存，测试未通过：':'')+(error.message||'操作未完成，请重试。')};}
-    finally{delete payload.apiKey;pending.delete(target);updateStatus(target);}
+    pending.set(target,operation);pendingMode.set(target,test?'test':'save');updateStatus(target);
+    try{await operation;}catch(error){feedback[target]={tone:'error',message:(saved?'配置已保存，测试未通过：':'')+(error.message||'操作未完成，请重试。')};const form=$(`form[data-ai-profile="${target}"]`);if(form)AT.motion?.shake?.(form.querySelector('[data-ai-feedback]'));}
+    finally{delete payload.apiKey;pending.delete(target);pendingMode.delete(target);updateStatus(target);}
     return saved;
   }
   function discard(target) {

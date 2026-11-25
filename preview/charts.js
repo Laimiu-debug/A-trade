@@ -3,10 +3,11 @@
   const name=context=>context.scope==='account'?context.account:context.scope==='stock'?`${AT.findStock(context.code).name} ${context.code}`:context.title;
   const attributes=context=>'data-chart-context="'+E(JSON.stringify(context))+'"';
   const read=wrap=>JSON.parse(wrap.dataset.chartContext);
-  const hint='<p class="chart-drill-hint">点击日期查看当天记录 · 方向键选日，Enter 打开 <span>● 有操作</span></p>';
+  const hint=hasOps=>`<p class="chart-drill-hint">点击日期查看当天记录 · 方向键选日，Enter 打开${hasOps?' <span>● 有操作</span>':''}</p>`;
   AT.chart=(kind='account',height=242,source=kind==='drawdown'?'account':kind)=>{
     const context=typeof source==='string'?AT.chartContext(source):source;
-    return `<div class="chart-wrap" data-chart="${kind}" ${attributes(context)} style="min-height:${height}px"><svg class="line-chart" style="height:${height}px"></svg><div class="chart-tooltip hidden"></div></div>${hint}`;
+    const hasOps=AT.operationDates(context).size>0;
+    return `<div class="chart-wrap" data-chart="${kind}" ${attributes(context)} style="min-height:${height}px"><svg class="line-chart" style="height:${height}px"></svg><div class="chart-tooltip hidden"></div></div>${hint(hasOps)}`;
   };
   AT.candles=()=>'<div class="chart-wrap" data-candles '+attributes(AT.chartContext('stock'))+'><svg class="candle-chart"></svg><div class="chart-tooltip hidden"></div></div><p class="chart-drill-hint">点击日 K 查看当天分时 · 方向键选日，Enter 打开</p>';
   AT.spark=(seed=1,positive=true,code=AT.state.stock)=>'<svg class="sparkline" data-spark '+attributes(AT.chartContext('stock',{code}))+' viewBox="0 0 80 28"></svg>';
@@ -24,13 +25,20 @@
       const guide=svg.querySelector('.guide'),point=svg.querySelector('.hover-point');
       if(guide){guide.setAttribute('x1',x(index));guide.setAttribute('x2',x(index));guide.setAttribute('visibility',visible?'visible':'hidden')}
       if(point){point.setAttribute('cx',x(index));point.setAttribute('cy',y(points[index]));point.setAttribute('visibility',visible?'visible':'hidden')}
+      svg.querySelectorAll('.operation-marker').forEach(dot=>dot.classList.toggle('is-active',visible&&dot.dataset.date===points[index]?.date));
     }
     function select(index){current=selected=index;AT.ui.chartDates[key]=points[index].date;mark(index);label()}
     wrap.selectDate=date=>{const index=points.findIndex(p=>p.date===date);if(index>=0)select(index)};
     const hit=e=>{const rect=svg.getBoundingClientRect(),px=(e.clientX-rect.left)*w/rect.width;return Math.max(0,Math.min(points.length-1,Math.round((px-left)/(right-left)*(points.length-1))))};
     svg.onpointermove=e=>{
       current=hit(e);mark(current);label();
-      if(tooltip){const rect=svg.getBoundingClientRect();tooltip.innerHTML='<span>'+E(name(context))+'</span><b>'+points[current].date+'</b><span>'+E(format(points[current]))+'</span><span>点击查看当天'+(context.scope==='stock'?'分时':'记录')+' · 演示</span>';tooltip.style.left=Math.max(0,Math.min(e.clientX-rect.left+18,wrap.clientWidth-220))+'px';tooltip.classList.remove('hidden')}
+      if(tooltip){
+        const rect=svg.getBoundingClientRect(),relX=e.clientX-rect.left;
+        tooltip.innerHTML='<span>'+E(name(context))+'</span><b>'+points[current].date+'</b><span>'+E(format(points[current]))+'</span><span>点击查看当天'+(context.scope==='stock'?'分时':'记录')+' · 演示</span>';
+        const tipWidth=tooltip.offsetWidth||172,tx=relX+18+tipWidth>wrap.clientWidth?Math.max(8,relX-tipWidth-14):Math.max(8,relX+18);
+        tooltip.style.transform=`translate3d(${tx.toFixed(0)}px, 18px, 0)`;
+        tooltip.classList.remove('hidden');
+      }
     };
     svg.onpointerleave=()=>{tooltip?.classList.add('hidden');current=selected<0?points.length-1:selected;mark(current,selected>=0);label()};
     svg.onclick=e=>{
@@ -41,6 +49,8 @@
     svg.onkeydown=e=>{
       if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){
         e.preventDefault();select(e.key==='Home'?0:e.key==='End'?points.length-1:Math.max(0,Math.min(points.length-1,current+(e.key==='ArrowLeft'?-1:1))));
+      }else if(e.key==='Escape'&&selected>=0){
+        selected=-1;delete AT.ui.chartDates[key];mark(current,false);tooltip?.classList.add('hidden');
       }else if(e.key==='Enter'||e.key===' '){e.preventDefault();select(current);AT.openDayDetail({context:structuredClone(context),points:structuredClone(points),index:current})}
     };
     label();if(selected>=0)mark(selected);
@@ -55,7 +65,7 @@
     let grid='';
     for(let j=0;j<5;j++){const v=min+(max-min)*j/4,yy=y(v);grid+=`<line class="grid" x1="${l}" x2="${w-r}" y1="${yy}" y2="${yy}"/><text x="${l-11}" y="${yy+3}" text-anchor="end">${v.toFixed(0)}%</text>`}
     for(let j=0;j<5;j++){const i=Math.round((points.length-1)*j/4);grid+=`<text x="${x(i)}" y="${h-10}" text-anchor="${j===0?'start':j===4?'end':'middle'}">${points[i].date.slice(5)}</text>`}
-    const dates=AT.operationDates(context),markers=points.map((p,i)=>dates.has(p.date)?`<circle class="operation-marker" cx="${x(i)}" cy="${y(p.value)}" r="3.8" fill="${color}" stroke="var(--surface)" stroke-width="1.5"/>`:'').join('');
+    const dates=AT.operationDates(context),markers=points.map((p,i)=>dates.has(p.date)?`<circle class="operation-marker" data-date="${p.date}" cx="${x(i)}" cy="${y(p.value)}" r="3.8" fill="${color}" stroke="var(--surface)" stroke-width="1.5"/>`:'').join('');
     svg.setAttribute('viewBox','0 0 '+w+' '+h);
     svg.innerHTML=`<defs><linearGradient id="${id}" x1="0" x2="0" y1="0" y2="1"><stop stop-color="${color}" stop-opacity=".13"/><stop offset="1" stop-color="${color}" stop-opacity=".005"/></linearGradient></defs>${grid}<path d="${path('value')} L${x(points.length-1)},${y(isDD?0:min)} L${l},${y(isDD?0:min)} Z" fill="url(#${id})"/>${isDD?'':`<path d="${path('benchmark')}" stroke="var(--color-axis)" stroke-width="1.5" stroke-dasharray="4 5" fill="none"/>`}<path d="${path('value')}" stroke="${color}" stroke-width="2.3" fill="none" stroke-linejoin="round"/>${markers}<line class="guide" y1="${t}" y2="${h-b}" stroke="var(--color-zero)" stroke-dasharray="3 4" visibility="hidden"/><circle class="hover-point" r="5" fill="var(--surface)" stroke="${color}" stroke-width="2" visibility="hidden"/><rect x="${l}" y="${t}" width="${pw}" height="${ph}" fill="transparent" class="chart-click"/>`;
     bind(wrap,svg,context,points,{w,left:l,right:w-r,x,y:p=>y(p.value),format:p=>(isDD?'回撤':context.scope==='market'?'指数变动':'累计收益')+' '+AT.sign(p.value)+'%'});

@@ -5,7 +5,7 @@
   AT.dayDetailTitle=context=>({account:'账户当天操作',research:'策略当天记录',stock:'个股当天行情',market:'市场当天快照'})[context.scope];
   AT.dayContextLabel=context=>context.scope==='account'?context.account:context.scope==='stock'?`${AT.findStock(context.code).name} ${context.code}`:context.title;
   function tradeView(t,research){
-    return `<article class="day-trade"><header><span class="tag ${t.action==='买入'?'red':'green'}">${E(t.action)}</span>${AT.stockLink(t.code)}<span class="day-time">${research?'次日模拟成交':E(t.time||'当日成交')}</span></header><dl class="day-facts">${fact('成交数量',M(t.qty,0)+' 股')}${fact('成交价格','¥ '+M(t.price))}${fact('成交金额','¥ '+M(t.qty*t.price))}${fact('信号日期',E(t.signal))}${Number.isFinite(t.position)?fact('操作后持仓',M(t.position,0)+' 股'):''}</dl><p class="day-reason">${E(t.reason)}</p></article>`;
+    return `<article class="day-trade"><header><span class="tag ${t.action==='买入'?'blue':'orange'}">${E(t.action)}</span>${AT.stockLink(t.code)}<span class="day-time">${research?'次日模拟成交':E(t.time||'当日成交')}</span></header><dl class="day-facts">${fact('成交数量',M(t.qty,0)+' 股')}${fact('成交价格','¥ '+M(t.price))}${fact('成交金额','¥ '+M(t.qty*t.price))}${fact('信号日期',E(t.signal))}${Number.isFinite(t.position)?fact('操作后持仓',M(t.position,0)+' 股'):''}</dl><p class="day-reason">${E(t.reason)}</p></article>`;
   }
   function accountContent(context,date){
     const d=AT.dayRecords(context,date);

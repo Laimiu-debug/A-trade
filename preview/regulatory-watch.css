@@ -6,3 +6,6 @@
 .regulatory-watch-security-type{display:inline-block;margin-left:6px;font-size:9px;font-weight:400;padding:1px 5px;border-radius:4px;background:#eaf1fc;color:#7489a6;vertical-align:middle}.regulatory-watch-source-status{display:flex;gap:8px 18px;flex-wrap:wrap;margin:10px 0}.regulatory-watch-source-status span,.regulatory-watch-source-status button{padding:4px 8px;border-radius:6px;background:#edf4fa;color:#638098}.regulatory-watch-source-status .warning{background:#fff2df;color:#9d7a48}
 
 .regulatory-watch-table td>.regulatory-watch-row-stale{color:#a17b3c}.regulatory-watch-table td>.regulatory-watch-title{color:#75849b}.regulatory-watch-source-status button{font-size:10px;line-height:1.9}.regulatory-watch-source-status button:hover{color:var(--primary);background:#e4edff}
+.regulatory-watch-status.expiring{color:#b45309;background:#ffedd5;font-weight:600}
+.regulatory-watch-remaining.due{color:#c2410c;font-weight:650}
+.regulatory-watch-table tbody tr[data-record-status="expiring"]{background:rgba(255,237,213,.24)}

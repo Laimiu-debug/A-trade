@@ -50,6 +50,8 @@
 .exp-replay-action{display:flex;align-items:center;gap:14px;margin-top:22px}
 .experimental-strategies .exp-primary{background:var(--color-primary);color:#fff;border-color:var(--color-primary);font-weight:600;min-height:42px;padding:9px 18px;flex-shrink:0}
 .experimental-strategies .exp-primary:hover:not(:disabled){background:var(--color-primary-hover);color:#fff}
+.experimental-strategies .exp-danger{color:var(--color-error,#d9383a);border-color:rgba(217,56,58,.32);background:var(--color-surface)}
+.experimental-strategies .exp-danger:hover:not(:disabled){background:#fff0f0;border-color:var(--color-error,#d9383a);color:#b82528}
 .exp-replay-action>span{font-size:12px;color:var(--color-secondary)}
 .exp-history{margin-top:24px}.exp-section-head p{font-size:13px;margin-top:5px}
 .exp-section-head>button{flex-shrink:0}

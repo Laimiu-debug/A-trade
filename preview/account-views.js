@@ -60,7 +60,7 @@
     if(['T04','T08'].includes(page))links=[['T04','趋势龙头'],['T08','连板梯队']];
     if(['T06','T07'].includes(page))links=[['T06','异动监管'],['T07','断板再涨停']];
     if(page.startsWith('C'))links=AT.groups.find(g=>g.id==='C').pages.map(p=>[p.id,p.title]);
-    if(links.length)html=html.replace('</section>','</section>'+`<nav class="context-nav" aria-label="相关功能">${links.map(([id,title])=>`<button type="button" data-nav="${id}" ${page===id?'aria-current="page"':''}>${I(AT.pages[id].icon)}${title}</button>`).join('')}</nav>`);
+    if(links.length&&!html.includes('class="context-nav"'))html=html.replace('</section>','</section>'+`<nav class="context-nav" aria-label="${page.startsWith('C')?'相关设置':'相关功能'}">${links.map(([id,title])=>`<button type="button" data-nav="${id}" ${page===id?'aria-current="page"':''}>${I(AT.pages[id].icon)}${title}</button>`).join('')}</nav>`);
     return html;
   };
 })();

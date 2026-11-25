@@ -70,8 +70,8 @@
   if (typeof module === 'object' && module.exports) module.exports=helpers;
   if (typeof window === 'undefined') return;
 
-  const state={catalogue:null,tasks:[],strategyId:null,sourceIds:{},selectedTask:null,detail:null,error:'',notice:'',loading:false,creating:false,pendingRequest:null,root:null,timer:null,refreshing:false,
-    scans:[],selectedScan:null,scanDetail:null,scanError:'',scanCreating:false,scanRefreshing:false,scanRequest:null,scanTimer:null,openDetails:new Set()};
+  const state={catalogue:null,tasks:[],strategyId:null,sourceIds:{},selectedTask:null,detail:null,detailLoading:false,error:'',notice:'',loading:false,creating:false,pendingRequest:null,root:null,timer:null,refreshing:false,confirmStopTask:false,
+    scans:[],selectedScan:null,scanDetail:null,scanDetailLoading:false,scanError:'',scanCreating:false,scanRefreshing:false,scanRequest:null,scanTimer:null,confirmStopScan:false,openDetails:new Set()};
   const handles=page=>page==='R16';
   const active=()=>state.root?.isConnected && (!window.AT?.state || handles(window.AT.state.page));
   const strategy=()=>state.catalogue?.strategies?.find(s=>s.id===state.strategyId);
@@ -99,7 +99,10 @@
   }
   function scannerPanel() {
     const task=state.scanDetail?.task || state.scans.find(t=>t.id===state.selectedScan),busy=alive(task),p=progressValue(task);
-    return `<section class="exp-panel exp-scanner" aria-labelledby="exp-scan-title"><header class="exp-section-head"><div><h2 id="exp-scan-title">分析本地行情</h2><p>读取已完成的日线，给出环境概况和三套规则各自符合的股票。</p></div><div class="exp-scan-actions"><button type="button" class="exp-primary" data-exp-action="scan-create" ${state.scanCreating||busy?'disabled':''}>${state.scanCreating?'正在创建扫描…':busy?'正在分析…':'分析当前环境与选股'}</button>${busy?`<button type="button" data-exp-action="scan-stop" ${task.status==='stopping'?'disabled':''}>${task.status==='stopping'?'正在停止…':'停止扫描'}</button>`:''}</div></header>${state.scanError?`<div class="exp-error" role="alert">${escape(state.scanError)}</div>`:''}${busy?`<div class="exp-scan-progress" aria-live="polite"><p>${escape(taskLabel(task))}${task.progress?.date?' · '+escape(task.progress.date):''}${p===null?'':' · 当前阶段 '+number(p,0)+'%'}</p><progress aria-label="当前扫描阶段进度" ${p===null?'':`value="${p}"`} max="100"></progress></div>`:''}${task?.error?`<div class="exp-error">${escape(errorMessage(task.error))}</div>`:''}${scanResult(state.scanDetail?.result,state.scanDetail?.freshness)}<details class="exp-scan-history" data-exp-detail="scan-history"><summary>已保存的扫描记录 ${state.scans.length?'（'+state.scans.length+'）':''}</summary><div class="exp-section-head"><p>重新打开页面只读取记录，不自动扫描。</p><button type="button" data-exp-action="scan-refresh" ${state.scanRefreshing?'disabled':''}>刷新扫描状态</button></div>${state.scans.length?`<div class="exp-task-list">${state.scans.map(t=>`<button type="button" data-exp-scan="${escape(t.id)}" class="exp-task${t.id===state.selectedScan?' is-selected':''}" aria-pressed="${t.id===state.selectedScan}"><span>本地行情扫描<small>${escape(t.createdAt||'')}</small></span><span class="exp-status">${escape(taskLabel(t))}</span></button>`).join('')}</div>`:'<p class="exp-muted">尚无扫描记录。</p>'}</details></section>`;
+    const stopControls = !busy ? '' : state.confirmStopScan
+      ? `<button type="button" class="exp-danger" data-exp-action="scan-stop-confirm" ${task.status==='stopping'?'disabled':''}>确认停止</button><button type="button" data-exp-action="scan-stop-cancel">取消</button>`
+      : `<button type="button" data-exp-action="scan-stop" ${task.status==='stopping'?'disabled':''}>${task.status==='stopping'?'正在停止…':'停止扫描'}</button>`;
+    return `<section class="exp-panel exp-scanner" aria-labelledby="exp-scan-title"><header class="exp-section-head"><div><h2 id="exp-scan-title">分析本地行情</h2><p>读取已完成的日线，给出环境概况和三套规则各自符合的股票。</p></div><div class="exp-scan-actions"><button type="button" class="exp-primary" data-exp-action="scan-create" ${state.scanCreating||busy?'disabled':''}>${state.scanCreating?'正在创建扫描…':busy?'正在分析…':'分析当前环境与选股'}</button>${stopControls}</div></header>${state.scanError?`<div class="exp-error" role="alert">${escape(state.scanError)}</div>`:''}${busy?`<div class="exp-scan-progress" aria-live="polite"><p>${escape(taskLabel(task))}${task.progress?.date?' · '+escape(task.progress.date):''}${p===null?'':' · 当前阶段 '+number(p,0)+'%'}</p><progress aria-label="当前扫描阶段进度" ${p===null?'':`value="${p}"`} max="100"></progress></div>`:''}${task?.error?`<div class="exp-error">${escape(errorMessage(task.error))}</div>`:''}<div class="${state.scanDetailLoading?'at-updating':''}">${scanResult(state.scanDetail?.result,state.scanDetail?.freshness)}</div><details class="exp-scan-history" data-exp-detail="scan-history"><summary>已保存的扫描记录 ${state.scans.length?'（'+state.scans.length+'）':''}</summary><div class="exp-section-head"><p>重新打开页面只读取记录，不自动扫描。</p><button type="button" data-exp-action="scan-refresh" ${state.scanRefreshing?'disabled':''}>刷新扫描状态</button></div>${state.scans.length?`<div class="exp-task-list">${state.scans.map(t=>`<button type="button" data-exp-scan="${escape(t.id)}" class="exp-task${t.id===state.selectedScan?' is-selected':''}" aria-pressed="${t.id===state.selectedScan}"><span>本地行情扫描<small>${escape(t.createdAt||'')}</small></span><span class="exp-status">${escape(taskLabel(t))}</span></button>`).join('')}</div>`:'<p class="exp-muted">尚无扫描记录。</p>'}</details></section>`;
   }
   function cataloguePanel() {
     const selected=strategy(),items=state.catalogue?.strategies || [];
@@ -108,16 +111,19 @@
   }
   function historyPanel() {
     const selected=state.detail?.task || state.tasks.find(t=>t.id===state.selectedTask),progress=progressValue(selected);
-    return `<section class="exp-panel exp-history" aria-labelledby="exp-history-title"><header class="exp-section-head"><div><h2 id="exp-history-title">复现任务</h2><p>已保存的任务与结果，独立于原研究归档。</p></div><button type="button" data-exp-action="refresh-tasks" ${state.refreshing?'disabled':''}>刷新状态</button></header>${state.tasks.length?`<div class="exp-task-list" aria-label="选择复现任务">${state.tasks.map(t=>`<button type="button" data-exp-task="${escape(t.id)}" class="exp-task${t.id===state.selectedTask?' is-selected':''}" aria-pressed="${t.id===state.selectedTask}"><span><strong>${escape(t.name || state.catalogue?.strategies?.find(s=>s.id===t.strategyId)?.name || '实验复现')}</strong><small>${escape(t.createdAt || '')}${t.sourceLabel?' · '+escape(t.sourceLabel):''}</small></span><span class="exp-status exp-status-${escape(t.status||'unknown')}">${escape(taskLabel(t))}</span></button>`).join('')}</div>`:'<div class="exp-empty">尚未创建复现任务。上方三组实验策略已生成，等待你选择区间。</div>'}${selected?`<section class="exp-task-detail" aria-live="polite"><div class="exp-section-head"><div><h3>${escape(selected.name || '选中任务')}</h3><p>${escape(taskLabel(selected))}${selected.message?' · '+escape(selected.message):''}</p></div>${alive(selected)?`<button type="button" data-exp-action="stop" ${selected.status==='stopping'?'disabled':''}>${selected.status==='stopping'?'正在停止…':'停止此任务'}</button>`:''}</div>${alive(selected)&&progress!==null?`<progress max="100" value="${progress}" aria-label="复现进度"></progress><p class="exp-muted">${escape(progressLabel(selected))} · 当前阶段 ${number(progress,0)}%</p>`:''}${selected.error?`<p class="exp-error">${escape(errorMessage(selected.error))}</p>`:''}${summaryView(state.detail?.summary || selected.summary)}${state.detail?.resultRef?'<p class="exp-muted">完整执行结果已保存至此任务的独立记录。</p>':''}</section>`:''}</section>`;
+    const stopBtns=!alive(selected)?'':state.confirmStopTask
+      ? `<div class="exp-scan-actions"><button type="button" class="exp-danger" data-exp-action="stop-confirm" ${selected.status==='stopping'?'disabled':''}>确认停止</button><button type="button" data-exp-action="stop-cancel">取消</button></div>`
+      : `<button type="button" data-exp-action="stop" ${selected.status==='stopping'?'disabled':''}>${selected.status==='stopping'?'正在停止…':'停止此任务'}</button>`;
+    return `<section class="exp-panel exp-history" aria-labelledby="exp-history-title"><header class="exp-section-head"><div><h2 id="exp-history-title">复现任务</h2><p>已保存的任务与结果，独立于原研究归档。</p></div><button type="button" data-exp-action="refresh-tasks" ${state.refreshing?'disabled':''}>刷新状态</button></header>${state.tasks.length?`<div class="exp-task-list" aria-label="选择复现任务">${state.tasks.map(t=>`<button type="button" data-exp-task="${escape(t.id)}" class="exp-task${t.id===state.selectedTask?' is-selected':''}" aria-pressed="${t.id===state.selectedTask}"><span><strong>${escape(t.name || state.catalogue?.strategies?.find(s=>s.id===t.strategyId)?.name || '实验复现')}</strong><small>${escape(t.createdAt || '')}${t.sourceLabel?' · '+escape(t.sourceLabel):''}</small></span><span class="exp-status exp-status-${escape(t.status||'unknown')}">${escape(taskLabel(t))}</span></button>`).join('')}</div>`:'<div class="exp-empty">尚未创建复现任务。上方三组实验策略已生成，等待你选择区间。</div>'}${selected?`<section class="exp-task-detail${state.detailLoading?' at-updating':''}" aria-live="polite"><div class="exp-section-head"><div><h3>${escape(selected.name || '选中任务')}</h3><p>${escape(taskLabel(selected))}${selected.message?' · '+escape(selected.message):''}</p></div>${stopBtns}</div>${alive(selected)&&progress!==null?`<progress max="100" value="${progress}" aria-label="复现进度"></progress><p class="exp-muted">${escape(progressLabel(selected))} · 当前阶段 ${number(progress,0)}%</p>`:''}${selected.error?`<p class="exp-error">${escape(errorMessage(selected.error))}</p>`:''}${summaryView(state.detail?.summary || selected.summary)}${state.detail?.resultRef?'<p class="exp-muted">完整执行结果已保存至此任务的独立记录。</p>':''}</section>`:''}</section>`;
   }
   function overview() {
     const data=state.catalogue?.researchOverview || state.catalogue?.overview;
     const findings=data?.findings || data?.conclusions || state.catalogue?.limitations;
     const rows=data?.families || data?.researchFamilies || [];
-    return `<details class="exp-panel exp-overview" data-exp-detail="all-research"><summary>全部研究与选择依据</summary><p>49 批研究已收束。保存这三种不同机制供实验复现，不代表已找到稳定盈利策略；不会自动增加新试验。</p>${data?list([data.meaning,data.scope,data.execution].filter(Boolean)):""}${findings?list(findings):'<p>选择兼顾净账户收益、回撤、不同年份与板块、费用、仓位、未平仓和盈利集中度。同一入场家族的退出或模型变体不会重复占据三个名额。</p>'}${Array.isArray(rows)&&rows.length?`<ul class="exp-family-list">${rows.map(row=>`<li><strong>${escape(row.name || row.title || row.family || row.id)}</strong><span>${escape(row.conclusion || row.reason || row.status || '')}</span></li>`).join('')}</ul>`:''}<p class="exp-muted">全部历史属于开发证据。日线量价不能识别主力、散户或量化资金身份；平均盈利大于平均亏损，也不等于净账户长期盈利。</p></details>`;
+    return `<details class="exp-panel exp-overview" data-exp-detail="all-research"><summary>全部研究与选择依据</summary><p>以下保存三种不同机制供实验复现，不代表已找到稳定盈利策略；不会自动增加新试验。</p>${data?list([data.meaning,data.scope,data.execution].filter(Boolean)):""}${findings?list(findings):'<p>选择兼顾净账户收益、回撤、不同年份与板块、费用、仓位、未平仓和盈利集中度。同一入场家族的退出或模型变体不会重复占据三个名额。</p>'}${Array.isArray(rows)&&rows.length?`<ul class="exp-family-list">${rows.map(row=>`<li><strong>${escape(row.name || row.title || row.family || row.id)}</strong><span>${escape(row.conclusion || row.reason || row.status || '')}</span></li>`).join('')}</ul>`:''}<p class="exp-muted">全部历史属于开发证据。日线量价不能识别主力、散户或量化资金身份；平均盈利大于平均亏损，也不等于净账户长期盈利。</p></details>`;
   }
   function content() {
-    return `<header class="exp-page-head"><div><span class="exp-eyebrow">三组实验策略 · 当前观察</span><h1>当前环境与选股</h1><p>先核对本地行情截止日，再看环境和符合规则的股票。</p></div><span class="exp-badge">实验用途</span></header><div class="exp-notice">扫描只做分析和选股，不发送实盘委托。历史开发结果不保证当前有效。</div>${scannerPanel()}<details class="exp-historical" data-exp-detail="historical"><summary>策略规则、研究结果与历史复现 <span>辅助核对 · 不自动执行</span></summary>${state.error?`<div class="exp-error" role="alert">${escape(state.error)} <button type="button" data-exp-action="dismiss-error">收起</button></div>`:''}${state.notice?`<div class="exp-success" role="status">${escape(state.notice)}</div>`:''}${cataloguePanel()}${historyPanel()}${overview()}</details>`;
+    return `<header class="exp-page-head"><div><span class="exp-eyebrow">三组实验策略 · 当前观察</span><h1>当前环境与选股</h1><p>先核对本地行情截止日，再看环境和符合规则的股票。</p></div><span class="exp-badge">实验用途</span></header><div class="exp-notice">扫描只做分析和选股，不发送实盘委托。历史开发结果不保证当前有效。</div>${state.error?`<div class="exp-error" role="alert">${escape(state.error)} <button type="button" data-exp-action="dismiss-error">收起</button></div>`:''}${state.notice?`<div class="exp-success" role="status">${escape(state.notice)}</div>`:''}${scannerPanel()}<details class="exp-historical" data-exp-detail="historical"><summary>策略规则、研究结果与历史复现 <span>辅助核对 · 不自动执行</span></summary>${cataloguePanel()}${historyPanel()}${overview()}</details>`;
   }
   function rememberDetails() {
     const host=state.root?.querySelector('[data-experimental-page]');
@@ -148,8 +154,13 @@
     if(active()&&state.scans.some(alive))state.scanTimer=setTimeout(()=>{if(active())void refreshScans();},2200);
   }
   async function scanDetail(id) {
-    const data=await rpc('scan.get',{id});
-    if(state.selectedScan===id){state.scanDetail=data;if(data.task)state.scans=state.scans.map(t=>t.id===id?data.task:t);paint();}
+    try {
+      const data=await rpc('scan.get',{id});
+      if(state.selectedScan===id){state.scanDetail=data;state.scanDetailLoading=false;if(data.task)state.scans=state.scans.map(t=>t.id===id?data.task:t);paint();}
+    } catch(error) {
+      if(state.selectedScan===id)state.scanDetailLoading=false;
+      throw error;
+    }
   }
   async function refreshScans() {
     if(state.scanRefreshing)return;state.scanRefreshing=true;
@@ -181,8 +192,13 @@
     catch(error){state.scanError=errorMessage(error);await refreshScans();}paint();
   }
   async function detail(id,paintAfter=true) {
-    const value=await rpc('get',{id});
-    if (state.selectedTask===id) {state.detail=value;if (value.task) state.tasks=state.tasks.map(t=>t.id===id?value.task:t);if (paintAfter)paint();}
+    try {
+      const value=await rpc('get',{id});
+      if (state.selectedTask===id) {state.detail=value;state.detailLoading=false;if (value.task) state.tasks=state.tasks.map(t=>t.id===id?value.task:t);if (paintAfter)paint();}
+    } catch(error) {
+      if (state.selectedTask===id) state.detailLoading=false;
+      throw error;
+    }
   }
   async function refreshTasks(showError=true) {
     if (state.refreshing) return;
@@ -226,14 +242,18 @@
   function clicked(event) {
     const button=event.target.closest('button');if (!button || !state.root?.contains(button) || button.disabled) return;
     if (button.dataset.expStrategy) {state.strategyId=button.dataset.expStrategy;state.error='';state.notice='';paint();return;}
-    if (button.dataset.expTask) {state.selectedTask=button.dataset.expTask;state.detail=null;paint();void detail(state.selectedTask).catch(e=>{state.error=errorMessage(e);paint();});return;}
-    if (button.dataset.expScan) {state.selectedScan=button.dataset.expScan;state.scanDetail=null;paint();void scanDetail(state.selectedScan).catch(e=>{state.scanError=errorMessage(e);paint();});return;}
+    if (button.dataset.expTask) {state.selectedTask=button.dataset.expTask;state.confirmStopTask=false;state.detailLoading=true;paint();void detail(state.selectedTask).catch(e=>{state.detailLoading=false;state.error=errorMessage(e);paint();});return;}
+    if (button.dataset.expScan) {state.selectedScan=button.dataset.expScan;state.confirmStopScan=false;state.scanDetailLoading=true;paint();void scanDetail(state.selectedScan).catch(e=>{state.scanDetailLoading=false;state.scanError=errorMessage(e);paint();});return;}
     const action=button.dataset.expAction;
     if (action==='scan-create')void createScan();
-    else if(action==='scan-stop')void stopScan();
+    else if(action==='scan-stop'){state.confirmStopScan=true;paint();}
+    else if(action==='scan-stop-cancel'){state.confirmStopScan=false;paint();}
+    else if(action==='scan-stop-confirm'){state.confirmStopScan=false;void stopScan();}
     else if(action==='scan-refresh')void refreshScans();
     else if (action==='create') void create();
-    else if (action==='stop') void stop();
+    else if (action==='stop') {state.confirmStopTask=true;paint();}
+    else if (action==='stop-cancel') {state.confirmStopTask=false;paint();}
+    else if (action==='stop-confirm') {state.confirmStopTask=false;void stop();}
     else if (action==='refresh') void load();
     else if (action==='refresh-tasks') void refreshTasks();
     else if (action==='dismiss-error') {state.error='';paint();}

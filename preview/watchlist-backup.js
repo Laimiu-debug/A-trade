@@ -23,7 +23,7 @@
     let backup;try{backup=JSON.parse(await file.text());}catch{throw new Error('无法读取跟踪池 JSON 备份。');}
     const summary=await call('preview',{backup});if(serial!==readSerial)return;
     candidate=backup;
-    AT.openBusinessModal('恢复真实跟踪池',`<div class="report-text"><p>文件：${E(file.name)}</p><p>备份包含 <strong>${summary.total}</strong> 条记录，其中 ${summary.archived} 条已归档；将替换当前 <strong>${summary.currentTotal}</strong> 条跟踪记录。</p><p>备份时间：${E(new Date(summary.exportedAt).toLocaleString('zh-CN'))}</p><p>确认后重新校验整份文件，一次性替换跟踪池并下载恢复前副本。行情缓存、账户账本与研究任务保持原状。</p><p class="business-error" data-watchlist-backup-error role="alert" hidden></p></div>`,{className:'business-modal',footer:button('取消','cancel')+button('确认恢复跟踪池','restore',true)});
+    AT.openBusinessModal('恢复真实跟踪池',`<div class="report-text"><p>文件：${E(file.name)}</p><p>备份包含 <strong>${summary.total}</strong> 条记录，其中 ${summary.archived} 条已归档；将替换当前 <strong>${summary.currentTotal}</strong> 条跟踪记录。</p><p>备份时间：${E(new Date(summary.exportedAt).toLocaleString('zh-CN'))}</p><p>确认后重新校验整份文件，一次性替换跟踪池并下载恢复前副本。行情缓存、账户账本与研究任务保持原状。</p><p class="business-error" data-watchlist-backup-error role="alert" hidden></p></div>`,{className:'business-modal',footer:button('取消','cancel')+B('确认替换恢复','backup','data-watchlist-backup="restore"','danger')});
   }
   document.addEventListener('change',event=>{const input=event.target;if(!input.matches('[data-watchlist-backup-file]')||!input.files?.[0]||busy)return;const file=input.files[0];input.value='';setBusy(true);read(file).catch(error).finally(()=>setBusy(false));});
   document.addEventListener('click',event=>{

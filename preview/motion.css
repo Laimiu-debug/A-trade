@@ -1,0 +1,685 @@
+/* Unified state-transition motion language across all A-trade surfaces.
+   GPU-composited properties (transform, opacity) plus cheap paint states only. */
+
+/* 1. Interactive Hover & Tactile Press (consistent across every clickable surface) */
+:root body :is(
+  .btn, .rs-button, .analysis-tools-button, .market-explorer-refresh,
+  .page-ai-send, .page-ai-stop, .page-ai-trigger, .page-ai-suggestions button,
+  .nav-main, .nav-item, .queue-shortcut, .icon-button, .global-search,
+  .task-top, .workspace-back, .search-result, .chip, .segmented button,
+  .local-tab, .context-nav button, .tabs button, .business-tabs button,
+  .milestone-filters button, .pf-step-nav, .pf-style-preset, .pf-funnel-stage,
+  .pf-pipeline-stage, .market-explorer-chip, .market-watch-button,
+  .market-analysis-toggle, .market-analysis-range, .market-analysis-zoom,
+  .sector-comparison-add, .sector-comparison-chip, .sector-trend-toggle,
+  .fx-preset, .fx-palette, .onboarding-steps li > button, .onboarding-options button,
+  .regulatory-watch-kpi, .regulatory-watch-filter, .leader-research-button,
+  .leader-research-rotation, .funds-activity-button, .funds-activity-chip,
+  .emotion-phase, .emotion-timeline-day, .experimental-strategies button,
+  .exp-strategy-choice, .exp-task, .rd-open, .rd-calendar button,
+  .window-control, .review-sections > button, .review-score-tabs > button,
+  .business-score-choices > label > span, .business-next button, .text-button
+) {
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-micro) var(--ease-standard);
+}
+
+:root body :is(
+  .btn, .rs-button, .analysis-tools-button, .market-explorer-refresh,
+  .page-ai-send, .page-ai-stop, .page-ai-trigger, .page-ai-suggestions button,
+  .icon-button, .workspace-back, .chip, .segmented button, .business-tabs button,
+  .market-explorer-chip, .market-watch-button, .sector-comparison-add,
+  .fx-preset, .fx-palette, .pf-step-nav, .pf-style-preset, .pf-funnel-stage,
+  .regulatory-watch-kpi, .regulatory-watch-filter, .funds-activity-button,
+  .leader-research-button, .experimental-strategies button, .rd-open,
+  .rd-calendar button, .window-control, .business-score-choices > label > span,
+  .business-next button, .queue-shortcut
+):active:not(:disabled):not([aria-disabled="true"]) {
+  transform: scale(var(--motion-press));
+}
+
+/* Tactile card lift & settle (cards, tool entries, sector cards, index cards) */
+:root body :is(.tool-card, .sector-card, .market-index-card, .analysis-tools-metric) {
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-normal) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+:root body :is(.tool-card, .sector-card, .market-index-card):hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+:root body .analysis-tools-metric[data-nav]:hover,
+:root body button.analysis-tools-metric:hover {
+  background: var(--hover);
+  border-color: color-mix(in srgb, var(--primary) 30%, var(--color-border));
+  transform: translateY(-1px);
+}
+:root body :is(.tool-card, .sector-card, .market-index-card):active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
+}
+
+/* Table row hover continuity across all modules */
+.data-table tbody tr,
+.market-explorer-table tbody tr,
+.regulatory-watch-table tbody tr,
+.emotion-table tbody tr,
+.rs-table tbody tr,
+.exp-table tbody tr {
+  transition: background-color var(--motion-micro) var(--ease-standard);
+}
+.regulatory-watch-table tbody tr:hover,
+.emotion-table tbody tr:hover,
+.market-explorer-table tbody tr:hover,
+.rs-table tbody tr:hover,
+.exp-table tbody tr:hover {
+  background: var(--hover);
+}
+
+/* Form controls focus continuity */
+:is(input, select, textarea, .search-field) {
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+/* Heatmap cells hover & active feedback */
+.heat-cell, .rs-cell, .pf-heat-cell {
+  transition:
+    transform var(--motion-micro) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard);
+}
+.rs-cell:hover, .pf-heat-cell:hover {
+  border-color: color-mix(in srgb, var(--primary) 55%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+.heat-cell:active { transform: scale(0.96); }
+
+/* 2. Physical Switches, Sliders & Milestone Badges */
+.switch {
+  transition: background-color var(--motion-normal) var(--ease-standard);
+}
+.switch:after {
+  transition:
+    transform var(--motion-normal) var(--ease-spring),
+    width var(--motion-micro) var(--ease-standard);
+}
+.switch:active:not(:disabled):after {
+  width: 19px;
+}
+.switch:checked:active:not(:disabled):after {
+  transform: translateX(12px);
+}
+
+input[type=range]::-webkit-slider-thumb,
+.fx-range input[type=range]::-webkit-slider-thumb {
+  transition:
+    transform var(--motion-micro) var(--ease-spring),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+input[type=range]:is(:hover,:focus-visible)::-webkit-slider-thumb,
+.fx-range input[type=range]:is(:hover,:focus-visible)::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+input[type=range]:active:not(:disabled)::-webkit-slider-thumb,
+.fx-range input[type=range]:active:not(:disabled)::-webkit-slider-thumb {
+  transform: scale(1.2);
+}
+input[type=range]::-moz-range-thumb,
+.fx-range input[type=range]::-moz-range-thumb {
+  transition:
+    transform var(--motion-micro) var(--ease-spring),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+input[type=range]:is(:hover,:focus-visible)::-moz-range-thumb,
+.fx-range input[type=range]:is(:hover,:focus-visible)::-moz-range-thumb {
+  transform: scale(1.12);
+}
+
+.badge-holder {
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+.milestone:hover .badge-holder {
+  transform: translateY(-3px);
+}
+.milestone:active .badge-holder {
+  transform: translateY(0) scale(0.96);
+}
+.milestone .gem {
+  transition: opacity var(--motion-fast) var(--ease-standard), filter var(--motion-fast) var(--ease-standard);
+}
+.milestone.future:hover .gem {
+  opacity: 0.62;
+  filter: grayscale(0.55) saturate(0.65);
+}
+.milestone .sequence {
+  transition: color var(--motion-fast) var(--ease-standard);
+}
+.milestone:hover .sequence {
+  color: var(--primary);
+}
+.current-arc .arc-value {
+  transition: stroke-dashoffset var(--motion-emphasis) var(--ease-standard), stroke-dasharray var(--motion-emphasis) var(--ease-standard);
+}
+.pass-fill {
+  transition: width var(--motion-emphasis) var(--ease-standard);
+}
+
+/* 3. Navigation Chevron & Collapsible Reveal */
+.nav-main > .icon:last-child {
+  transition: transform var(--motion-normal) var(--ease-standard);
+}
+.nav-children {
+  animation: at-nav-expand var(--motion-normal) var(--ease-standard) both;
+  transform-origin: top center;
+}
+@keyframes at-nav-expand {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Native <details> crisp reveal & rotating cue */
+details[open] > :not(summary) {
+  animation: at-reveal var(--motion-normal) var(--ease-standard) both;
+}
+@keyframes at-reveal {
+  from { opacity: 0; transform: translateY(calc(var(--motion-shift-xs) * -1)); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 4. Modals, Drawers, Popovers, Flyouts, Workspaces & Exit Ghosts */
+.overlay {
+  animation: at-backdrop-in var(--motion-normal) var(--ease-standard) both;
+}
+@keyframes at-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  animation: at-modal-in var(--motion-panel) var(--ease-standard) both;
+  will-change: transform, opacity;
+}
+@keyframes at-modal-in {
+  from { opacity: 0; transform: translate3d(0, var(--motion-shift-sm), 0) scale(0.974); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* Right-edge drawers ALWAYS enter horizontally from the right edge */
+.modal.drawer,
+.modal.milestone-drawer,
+.modal.day-drawer {
+  animation: at-drawer-in var(--motion-panel) var(--ease-standard) both;
+}
+@keyframes at-drawer-in {
+  from { opacity: 0; transform: translate3d(var(--motion-shift-md), 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* Compact navigation flyout enters from left rail */
+.nav-flyout {
+  animation: at-flyout-in var(--motion-fast) var(--ease-standard) both;
+  transform-origin: left center;
+}
+@keyframes at-flyout-in {
+  from { opacity: 0; transform: translate3d(-8px, 0, 0) scale(0.975); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* Page AI panel slide-in & smooth desktop dock shift */
+.page-ai-panel:not([hidden]) {
+  animation: at-drawer-in var(--motion-panel) var(--ease-standard) both;
+}
+@media (min-width: 1400px) {
+  #main, #workspace-root, #onboarding-resume {
+    transition: margin-right var(--motion-panel) var(--ease-standard);
+  }
+  body.page-ai-open #onboarding-resume {
+    margin-right: 452px;
+  }
+}
+.page-ai-evidence:not([hidden]) {
+  animation: at-reveal var(--motion-normal) var(--ease-standard) both;
+}
+.page-ai-trigger.page-ai-working:after {
+  animation: at-pulse-dot 1.4s ease-in-out infinite;
+}
+@keyframes at-pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.75); }
+}
+
+/* Page AI thinking indicator */
+.page-ai-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--subtle);
+  color: var(--secondary);
+  font-size: 12px;
+}
+.page-ai-thinking-dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+.page-ai-thinking-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--primary);
+  opacity: 0.35;
+  animation: at-dot-bounce 1.2s ease-in-out infinite;
+}
+.page-ai-thinking-dots i:nth-child(2) { animation-delay: 0.16s; }
+.page-ai-thinking-dots i:nth-child(3) { animation-delay: 0.32s; }
+@keyframes at-dot-bounce {
+  0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-3px); }
+}
+
+/* Calendar popover directional origin */
+.rd-popover:not([hidden]) {
+  animation: at-popover-in var(--motion-fast) var(--ease-standard) both;
+  transform-origin: top left;
+}
+.rd-popover[data-placement="top"]:not([hidden]) {
+  animation-name: at-popover-in-up;
+  transform-origin: bottom left;
+}
+@keyframes at-popover-in {
+  from { opacity: 0; transform: translate3d(0, -4px, 0) scale(0.975); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+@keyframes at-popover-in-up {
+  from { opacity: 0; transform: translate3d(0, 4px, 0) scale(0.975); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* Non-blocking GPU Exit Ghosts (zero DOM/selector collision with tests) */
+.at-exit-ghost {
+  pointer-events: none !important;
+  user-select: none !important;
+  will-change: transform, opacity;
+}
+.at-exit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 49;
+  background: #1723333d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+  animation: at-backdrop-out var(--motion-exit) var(--ease-exit) forwards;
+}
+.desktop-shell .at-exit-overlay { top: 58px; }
+.at-exit-overlay > * {
+  animation: at-modal-out var(--motion-exit) var(--ease-exit) forwards;
+}
+.at-exit-overlay.at-exit-drawer > * {
+  animation: at-drawer-out var(--motion-exit) var(--ease-exit) forwards;
+}
+.at-exit-panel {
+  animation: at-drawer-out var(--motion-exit) var(--ease-exit) forwards !important;
+}
+.at-exit-flyout {
+  animation: at-flyout-out var(--motion-exit) var(--ease-exit) forwards !important;
+}
+.at-exit-popover {
+  animation: at-popover-out var(--motion-micro) var(--ease-exit) forwards !important;
+}
+@keyframes at-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes at-modal-out {
+  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  to { opacity: 0; transform: translate3d(0, 5px, 0) scale(0.976); }
+}
+@keyframes at-drawer-out {
+  from { opacity: 1; transform: translate3d(0, 0, 0); }
+  to { opacity: 0; transform: translate3d(var(--motion-shift-md), 0, 0); }
+}
+@keyframes at-flyout-out {
+  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  to { opacity: 0; transform: translate3d(-6px, 0, 0) scale(0.975); }
+}
+@keyframes at-popover-out {
+  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  to { opacity: 0; transform: translate3d(0, -3px, 0) scale(0.98); }
+}
+
+/* 5. Page, Workspace & Directional Step Continuity */
+.at-page-enter {
+  animation: at-page-fade var(--motion-fast) var(--ease-standard) both;
+}
+.at-page-enter > .page-heading {
+  animation: at-page-in var(--motion-normal) var(--ease-standard) both;
+}
+@keyframes at-page-fade {
+  from { opacity: 0.01; }
+  to { opacity: 1; }
+}
+@keyframes at-page-in {
+  from { opacity: 0; transform: translate3d(0, 5px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+.at-workspace-enter {
+  animation: at-page-in var(--motion-panel) var(--ease-standard) both;
+}
+.at-step-next {
+  animation: at-step-from-right var(--motion-fast) var(--ease-standard) both;
+}
+.at-step-prev {
+  animation: at-step-from-left var(--motion-fast) var(--ease-standard) both;
+}
+@keyframes at-step-from-right {
+  from { opacity: 0.25; transform: translate3d(10px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes at-step-from-left {
+  from { opacity: 0.25; transform: translate3d(-10px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* 6. Toast (Fixed Exit Transition, Dismissible, Tone-Aware) */
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transform: translate3d(-50%, 10px, 0) scale(0.97);
+  transition:
+    opacity var(--motion-normal) var(--ease-standard),
+    transform var(--motion-normal) var(--ease-standard);
+  will-change: transform, opacity;
+}
+.toast.show {
+  opacity: 1;
+  transform: translate3d(-50%, 0, 0) scale(1);
+  pointer-events: auto;
+}
+.toast[data-tone="error"] {
+  background: #881c22;
+}
+.toast[data-tone="success"] {
+  background: #145333;
+}
+.toast-close {
+  color: rgba(255, 255, 255, 0.72);
+  padding: 2px 4px;
+  margin-left: 2px;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1;
+  text-decoration: none !important;
+  transition: color var(--motion-micro) var(--ease-standard), background-color var(--motion-micro) var(--ease-standard);
+}
+.toast-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* 7. Chart Tooltip (GPU transform + smooth fade, zero layout thrash) */
+.chart-tooltip {
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 220px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  line-height: 1.5;
+  transition: opacity var(--motion-fast) var(--ease-standard);
+  will-change: transform, opacity;
+}
+.chart-tooltip > span:first-child {
+  font-size: 10px;
+  color: var(--secondary);
+}
+.chart-tooltip > span:last-child {
+  font-size: 10px;
+  color: var(--secondary);
+  margin-top: 3px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+.chart-tooltip.hidden {
+  display: flex !important;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+.operation-marker {
+  transition: transform var(--motion-micro) var(--ease-spring), r var(--motion-micro) var(--ease-standard);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.operation-marker.is-active {
+  transform: scale(1.45);
+}
+
+/* 8. GPU Progress Bars, Spinners & Subtle Shimmer Skeletons */
+.progress > i {
+  width: 100%;
+  transform-origin: left center;
+  transition: transform var(--motion-normal) var(--ease-standard);
+  will-change: transform;
+}
+.at-progress-track {
+  position: relative;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--selected);
+  overflow: hidden;
+  min-width: 80px;
+}
+.at-progress-bar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+  transform-origin: left center;
+  transition: transform var(--motion-normal) var(--ease-standard);
+}
+.at-progress-track.is-indeterminate .at-progress-bar {
+  width: 38%;
+  animation: at-indeterminate 1.4s ease-in-out infinite;
+}
+@keyframes at-indeterminate {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(360%); }
+}
+
+.at-spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid color-mix(in srgb, currentColor 24%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.72s linear infinite;
+  flex-shrink: 0;
+  vertical-align: -2px;
+}
+
+.at-skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--subtle) 82%, var(--color-border));
+}
+.at-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.6) 50%, transparent 100%);
+  transform: translateX(-100%);
+  animation: at-shimmer 1.5s ease-in-out infinite;
+}
+@keyframes at-shimmer {
+  to { transform: translateX(100%); }
+}
+
+/* Stale-while-revalidate dimming (never blank screen on refresh!) */
+.at-updating {
+  opacity: 0.62;
+  transition: opacity var(--motion-fast) var(--ease-standard);
+}
+
+/* 9. Numeric Tick, Value Pulse, Success Confirm & Error Shake */
+.at-tick-up {
+  animation: at-flash-up 520ms var(--ease-standard);
+  border-radius: 4px;
+}
+.at-tick-down {
+  animation: at-flash-down 520ms var(--ease-standard);
+  border-radius: 4px;
+}
+.at-value-pulse {
+  animation: at-flash-blue 480ms var(--ease-standard);
+  border-radius: 6px;
+}
+.at-flash-success {
+  animation: at-flash-green 680ms var(--ease-standard);
+}
+.at-shake {
+  animation: at-shake-x 260ms var(--ease-standard);
+}
+@keyframes at-flash-up {
+  0% { background-color: color-mix(in srgb, var(--color-up) 18%, transparent); }
+  100% { background-color: transparent; }
+}
+@keyframes at-flash-down {
+  0% { background-color: color-mix(in srgb, var(--color-down) 18%, transparent); }
+  100% { background-color: transparent; }
+}
+@keyframes at-flash-blue {
+  0% { background-color: color-mix(in srgb, var(--color-primary) 16%, transparent); }
+  100% { background-color: transparent; }
+}
+@keyframes at-flash-green {
+  0% { background-color: color-mix(in srgb, var(--color-down) 14%, transparent); }
+  100% { background-color: transparent; }
+}
+@keyframes at-shake-x {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  25% { transform: translate3d(-4px, 0, 0); }
+  50% { transform: translate3d(4px, 0, 0); }
+  75% { transform: translate3d(-2px, 0, 0); }
+}
+
+/* 10. Statusbar Save-State & Connection-State Clarity */
+#save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: color var(--motion-fast) var(--ease-standard), background-color var(--motion-fast) var(--ease-standard);
+}
+#save-status[data-save-state="saving"] {
+  color: var(--primary);
+}
+#save-status[data-save-state="warning"] {
+  color: var(--color-warning);
+  font-weight: 550;
+}
+#save-status[data-save-state="error"] {
+  color: var(--color-error);
+  background: var(--color-error-bg);
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+@media (max-width: 790px) {
+  .statusbar #save-status[data-save-state="error"],
+  .statusbar #save-status[data-save-state="warning"] {
+    display: inline-flex !important;
+  }
+}
+.statusbar .status-dot[data-connection="offline"] {
+  background: var(--color-disabled);
+}
+.statusbar .status-dot[data-connection="warning"] {
+  background: var(--color-warning);
+}
+
+/* Keep desktop topbar actions non-clickable behind confirmation dialogs while keeping window controls usable */
+.desktop-shell.overlay-open .topbar .breadcrumb,
+.desktop-shell.overlay-open .topbar .top-actions {
+  pointer-events: none;
+  opacity: 0.45;
+  transition: opacity var(--motion-fast) var(--ease-standard);
+}
+
+/* Avoid layout width jitter from font-weight jumps on score/filter pills */
+.review-score-tabs > button,
+.business-score-choices > label > span {
+  font-weight: 500;
+}
+
+/* Enforce tabular-nums on dense numeric readouts */
+.leader-research-height,
+.leader-research-candidate-facts b,
+.leader-research-prior,
+.leader-research-ladder-height strong,
+.leader-research-ladder-items > div,
+.leader-research-cohorts b,
+.analysis-tools-height strong,
+.pf-scan-count strong,
+.pf-funnel-stage strong,
+.pf-position-metric > strong,
+.pf-candidate-metrics strong,
+.exp-scan-coverage dd,
+.exp-environment-metrics dd {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 11. Respect System & In-App Reduced Motion Everywhere */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after,
+  input[type=range]::-webkit-slider-thumb,
+  input[type=range]::-moz-range-thumb {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .at-exit-ghost { display: none !important; }
+  .at-skeleton::after { animation: none !important; display: none; }
+}
+:root.reduce-motion,
+:root.reduce-motion *,
+:root.reduce-motion *::before,
+:root.reduce-motion *::after,
+body.reduce-motion *,
+body.reduce-motion *::before,
+body.reduce-motion *::after,
+:root.reduce-motion input[type=range]::-webkit-slider-thumb,
+:root.reduce-motion input[type=range]::-moz-range-thumb,
+body.reduce-motion input[type=range]::-webkit-slider-thumb,
+body.reduce-motion input[type=range]::-moz-range-thumb {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+:root.reduce-motion .at-exit-ghost,
+body.reduce-motion .at-exit-ghost {
+  display: none !important;
+}
+:root.reduce-motion .at-skeleton::after,
+body.reduce-motion .at-skeleton::after {
+  animation: none !important;
+  display: none;
+}

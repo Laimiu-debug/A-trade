@@ -35,8 +35,8 @@
   const money = value => finite(value) ? `${n(Number(value) / 1e8, 2)} 亿` : '—';
   const tone = value => !finite(value) || !Number(value) ? '' : Number(value) > 0 ? 'leader-research-up' : 'leader-research-down';
   const boards = [['all','全部市场'],['main','主板'],['chinext','创业板'],['star','科创板'],['bse','北交所']];
-  let state = {data:null, busy:false, filters:{}}, rows = [], signature = '', start = 0, count = null, hover = null;
-  let drag = null, deferred = false, suppressClickUntil = 0, suppressContextUntil = 0;
+  let state = {data:null, busy:false, filters:{}}, rows = [], signature = '', lastHistoryDays = '', start = 0, count = null, hover = null;
+  let drag = null, deferred = false, suppressClickUntil = 0, suppressContextUntil = 0, paintFrame = 0;
   const chip = (label, key, value, active) => `<button type="button" class="analysis-tools-chip${active ? ' analysis-tools-selected' : ''}" data-analysis-chip="${key}" data-analysis-value="${E(String(value))}" data-analysis-scope="ladder" aria-pressed="${!!active}">${E(label)}</button>`;
   const stock = (item, day) => `<button type="button" class="analysis-tools-stock" data-stock="${E(item.symbol || '')}"${day ? ` data-analysis-stock-day="${E(day)}"` : ''}><strong>${E(item.name || item.code || item.symbol || '未命名')}</strong><small>${E(item.code || String(item.symbol || '').replace(/^(sh|sz|bj)/, ''))}</small></button>`;
   const watch = item => `<button type="button" class="leader-research-watch" data-analysis-action="watch-add" data-symbol="${E(item.symbol || '')}"${state.busyWrite ? ' disabled' : ''}>跟踪</button>`;
@@ -63,7 +63,7 @@
     const lines = [['promotion',relayY,'#d99850'],['highPromotion',relayY,'#b16cb2'],['trendShare',trendY,'#338fa0'],['trendBreadth',trendY,'#4e7dd6']].map(([field,y,color]) => `<path data-leader-line="${field}" d="${pathFor(visible,field,x,y)}" fill="none" stroke="${color}" stroke-width="1.8"${field==='highPromotion'||field==='trendBreadth'?' stroke-dasharray="4 3"':''} vector-effect="non-scaling-stroke"/>`).join('');
     const targets = visible.map((item,i) => `<rect class="leader-research-day" data-analysis-day="${E(item.date)}" data-leader-day-target x="${(left+i*step).toFixed(2)}" y="20" width="${step.toFixed(2)}" height="320" fill="transparent"><title>${E(item.date)} · 最高 ${n(item.maxHeight)} 板 · 晋级 ${pct(item.promotion,true)} · 点击回看当日候选</title></rect>`).join('');
     const dates = [...new Set([0, Math.floor((view.count - 1) / 2), view.count - 1])].map(i => `<text x="${x(i)}" y="361" text-anchor="${i===0?'start':i===view.count-1?'end':'middle'}">${E(visible[i].date)}</text>`).join('');
-    return `<div class="leader-research-reading" data-leader-reading>${reading(index)}</div><div class="leader-research-chart" data-leader-chart tabindex="0" data-leader-start="${view.start}" data-leader-count="${view.count}" data-leader-total="${view.total}" aria-label="连板与趋势的同日历史对照，滚轮缩放，左右键拖动，方向键查看，回车读取该日候选"><svg viewBox="0 0 ${width} 375" role="img" aria-label="高度、晋级率、趋势成交占比，分栏独立纵轴，共用交易日期"><text x="${left}" y="16">最高连板高度</text><text x="${left}" y="132">昨日连板晋级率（实线） · 昨日 3 板及以上晋级率（虚线）</text><text x="${left}" y="248">趋势候选成交占比（实线） · 连续 60 日样本 MA20 之上占比（虚线）</text>${grids}${bars}${lines}${dates}<line data-leader-crosshair class="leader-research-crosshair" x1="${x(index-view.start)}" x2="${x(index-view.start)}" y1="25" y2="337"/>${targets}</svg></div><div class="leader-research-chart-footer"><span>${E(visible[0].date)} — ${E(visible.at(-1).date)} · ${view.count} / ${view.total} 日 · 滚轮缩放 · 左右键拖动</span><div><button type="button" data-leader-zoom="out" aria-label="缩小连板时间轴" ${view.count===view.total?'disabled':''}>−</button><button type="button" data-leader-zoom="in" aria-label="放大连板时间轴" ${view.count<=Math.min(10,view.total)?'disabled':''}>＋</button><button type="button" data-leader-zoom="reset" ${view.count===view.total?'disabled':''}>显示全部</button></div></div><p class="leader-research-note">历史图覆盖全市场，含当前名称 ST，与下方候选筛选独立。晋级率 = 今日继续涨停数 ÷ 昨日连板且今日可观察数；缺失不算失败，无可观察样本时曲线留空。趋势成交占比的分母为连续 60 日有成交样本的总成交额，不是资金净流入。点击图中日期回看；方向键预览，回车读取。</p>`;
+    return `<div class="leader-research-reading" data-leader-reading>${reading(index)}</div><div class="leader-research-chart" data-leader-chart tabindex="0" data-leader-start="${view.start}" data-leader-count="${view.count}" data-leader-total="${view.total}" aria-label="连板与趋势的同日历史对照，滚轮缩放，左右键拖动，方向键查看，回车读取该日候选"><svg viewBox="0 0 ${width} 375" role="img" aria-label="高度、晋级率、趋势成交占比，分栏独立纵轴，共用交易日期"><text x="${left}" y="16"><tspan fill="#7c9bed">■</tspan> 最高连板高度</text><text x="${left}" y="132"><tspan fill="#d99850">━</tspan> 昨日连板晋级率（实线） · <tspan fill="#b16cb2">┄</tspan> 昨日 3 板及以上晋级率（虚线）</text><text x="${left}" y="248"><tspan fill="#338fa0">━</tspan> 趋势候选成交占比（实线） · <tspan fill="#4e7dd6">┄</tspan> 连续 60 日样本 MA20 之上占比（虚线）</text>${grids}${bars}${lines}${dates}<line data-leader-crosshair class="leader-research-crosshair" x1="${x(index-view.start)}" x2="${x(index-view.start)}" y1="25" y2="337"/>${targets}</svg></div><div class="leader-research-chart-footer"><span>${E(visible[0].date)} — ${E(visible.at(-1).date)} · ${view.count} / ${view.total} 日 · 滚轮缩放 · 左右键拖动</span><div><button type="button" data-leader-zoom="out" aria-label="缩小连板时间轴" ${view.count===view.total?'disabled':''}>−</button><button type="button" data-leader-zoom="in" aria-label="放大连板时间轴" ${view.count<=Math.min(10,view.total)?'disabled':''}>＋</button><button type="button" data-leader-zoom="reset" ${view.count===view.total?'disabled':''}>显示全部</button></div></div><p class="leader-research-note">历史图覆盖全市场，含当前名称 ST，与下方候选筛选独立。晋级率 = 今日继续涨停数 ÷ 昨日连板且今日可观察数；缺失不算失败，无可观察样本时曲线留空。趋势成交占比的分母为连续 60 日有成交样本的总成交额，不是资金净流入。点击图中日期回看；方向键预览，回车读取。</p>`;
   }
   function headline(metrics) {
     const promotion = metrics?.promotion || {}, trend = metrics?.trend || {}, premium = metrics?.premium || {};
@@ -91,8 +91,16 @@
   function panel(options = {}) {
     state = {...state,...options,filters:options.filters||state.filters||{}};
     rows = rowsFor(state.data?.timeline);
-    const next = `${state.filters.historyDays||250}|${rows.length}|${rows[0]?.date||''}|${rows.at(-1)?.date||''}`;
-    if (next !== signature) {endDrag(false);signature=next;start=0;count=null;hover=null;}
+    const daysKey = String(state.filters.historyDays || 250);
+    const next = `${daysKey}|${rows.length}|${rows[0]?.date||''}|${rows.at(-1)?.date||''}`;
+    if (next !== signature) {
+      endDrag(false);
+      signature = next;
+      if (daysKey !== lastHistoryDays || !rows.length) { start = 0; count = null; }
+      else if (count !== null) { count = clamp(count, Math.min(10, rows.length), rows.length); start = clamp(rows.length - count, 0, Math.max(0, rows.length - count)); }
+      lastHistoryDays = daysKey;
+      hover = null;
+    }
     const metrics = state.data?.leadership?.metrics || rows.find(item=>item.date===state.data?.asOf)?.metrics || {};
     return `<div class="leader-research" data-leader-research>${headline(metrics)}<section class="panel leader-research-panel"><header class="leader-research-heading"><div><h2>连板与趋势 · 同日对照</h2><p>高度看空间，晋级看接力，成交占比看趋势活跃度</p></div><div class="leader-research-periods">${[60,120,250,500,1000].map(value=>chip(`${value} 日`,'historyDays',value,Number(state.filters.historyDays||250)===value)).join('')}</div></header><div class="leader-research-cohorts">${[['firstToSecond','首板 → 2 板'],['secondToThird','2 板 → 3 板'],['high','昨日 ≥3 板 → 晋级']].map(([key,label])=>{const group=metrics.promotion?.[key];return `<div><span>${label}</span><b>${pct(promotionRate(group),true)}</b><small>${observed(group)}</small></div>`;}).join('')}</div><div data-leader-history>${historyChart()}</div></section>${ladder(state.data)}${rotations(state.data)}</div>`;
   }
@@ -103,6 +111,10 @@
     element.innerHTML=historyChart();
     if (focused) element.querySelector('[data-leader-chart]')?.focus({preventScroll:true});
   }
+  function schedulePaint() {
+    if (typeof requestAnimationFrame !== 'function') { paint(); return; }
+    if (!paintFrame) paintFrame = requestAnimationFrame(() => { paintFrame = 0; paint(); });
+  }
   function endDrag(renderPending = true) {
     const previous=drag;drag=null;
     document.documentElement?.classList.remove('leader-research-dragging');
@@ -110,11 +122,11 @@
     const pending=deferred;deferred=false;if(pending&&renderPending&&AT.state.page==='T08')setTimeout(()=>AT.render?.(),0);
   }
   function deferRender() {if(!drag||AT.state.page!=='T08')return false;deferred=true;return true;}
-  function invalidate() {endDrag(false);state={data:null,busy:false,filters:{}};rows=[];signature='';start=0;count=null;hover=null;}
+  function invalidate() {endDrag(false);state={data:null,busy:false,filters:{}};rows=[];signature='';lastHistoryDays='';start=0;count=null;hover=null;}
   function zoom(factor,anchor=.5) {
     const view=range();if(!view.total)return;
     const size=clamp(Math.round(view.count*factor),Math.min(10,view.total),view.total);
-    start=clamp(Math.round(view.start+anchor*(view.count-size)),0,view.total-size);count=size;hover=null;paint();
+    start=clamp(Math.round(view.start+anchor*(view.count-size)),0,view.total-size);count=size;hover=null;schedulePaint();
   }
   function readAt(index) {
     const view=range();hover=clamp(index,view.start,view.start+view.count-1);
@@ -129,6 +141,7 @@
   });
   document.addEventListener('wheel',event=>{
     const chart=event.target.closest?.('[data-leader-chart]');if(!chart||AT.state.page!=='T08'||!event.deltaY||event.ctrlKey||event.metaKey)return;
+    const view=range();if(!drag&&event.deltaY>0&&view.count>=view.total)return;
     event.preventDefault();if(!drag)zoom(event.deltaY>0?1.2:.8,chartRatio(event,chart));
   },{passive:false});
   document.addEventListener('pointerdown',event=>{
@@ -142,7 +155,7 @@
       if(AT.state.page!=='T08'||!(event.buttons&(drag.button===0?1:2))){endDrag();return;}
       const distance=event.clientX-drag.x;
       if(!drag.moved){if(Math.hypot(distance,event.clientY-drag.y)<4)return;drag.moved=true;document.documentElement.classList.add('leader-research-dragging');try{document.documentElement.setPointerCapture(event.pointerId);}catch{}}
-      event.preventDefault();event.stopPropagation?.();start=clamp(Math.round(drag.view.start-distance/Math.max(1,drag.width)*drag.view.count),0,drag.view.total-drag.view.count);hover=null;paint();return;
+      event.preventDefault();event.stopPropagation?.();start=clamp(Math.round(drag.view.start-distance/Math.max(1,drag.width)*drag.view.count),0,drag.view.total-drag.view.count);hover=null;schedulePaint();return;
     }
     const chart=event.target.closest?.('[data-leader-chart]');if(!chart||AT.state.page!=='T08')return;
     const view=range();if(view.total)readAt(view.start+Math.min(view.count-1,Math.floor(chartRatio(event,chart)*view.count)));

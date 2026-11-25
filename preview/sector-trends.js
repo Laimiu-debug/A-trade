@@ -18,7 +18,7 @@
   };
   const E = AT.escape, histories = new Map(), names = new Map();
   let visible = [], selected = '', running = false, generation = 0, scheduled = false;
-  let count = 60, start = null, hover = null, drag = null, suppressClick = 0, suppressContext = 0, deferredRender = false;
+  let count = 60, start = null, hover = null, drag = null, suppressClick = 0, suppressContext = 0, deferredRender = false, paintFrame = 0;
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
   const number = n => Number.isFinite(n) ? n.toLocaleString('zh-CN', {maximumFractionDigits: 2, minimumFractionDigits: 2}) : '—';
   const rowsFor = id => histories.get(id)?.data?.rows || [];
@@ -64,8 +64,8 @@
     return {id, title: `${item.name} · ${state}`, body: rows.length > 1 ? `<svg viewBox="0 0 110 32" class="${rows.at(-1).close >= rows[0].close ? 'market-explorer-up' : 'market-explorer-down'}" aria-hidden="true"><path d="${path(rows, 110, 32)}" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><small>${E(rows.at(-1).date.slice(5))}${entry.data.stale ? ' · 旧缓存' : ''}</small>` : `<span>${entry?.busy || !entry ? '读取中…' : '暂无日线'}</span>`};
   }
   function row(item) {
-    const parts = rowParts(item);
-    return `<button type="button" class="sector-trend-row" data-sector-trend="${E(parts.id)}" title="${E(parts.title)}" aria-label="查看${E(item.name)}板块指数走势">${parts.body}</button>`;
+    const parts = rowParts(item), active = selected === parts.id;
+    return `<button type="button" class="sector-trend-row${active ? ' selected' : ''}" data-sector-trend="${E(parts.id)}" aria-pressed="${active}" title="${E(parts.title)}" aria-label="${active ? '收起' : '查看'}${E(item.name)}板块指数走势">${parts.body}</button>`;
   }
   function updateHistory(id) {
     if (AT.state.page !== 'M02') return;
@@ -91,13 +91,18 @@
     const warnings = [...(data?.warnings || []), ...(entry?.error ? [entry.error] : [])];
     const change = rows.length > 1 ? (rows.at(-1).close / rows[0].close - 1) * 100 : null;
     const lo = rows.length ? Math.min(...rows.map(row => row.close)) : null, hi = rows.length ? Math.max(...rows.map(row => row.close)) : null;
-    return `<section class="panel sector-history-panel" data-sector-history-panel aria-label="板块指数走势"><header><div><h2>${E(names.get(selected) || data?.name || selected)} <small>板块指数</small></h2><p>${E(data?.sourceName || '通达信板块指数日线')} · ${E(selected)}${data?.dataAsOf ? ` · 更新至 ${E(data.dataAsOf)}` : ''}${data?.stale ? ' · 旧缓存' : ''}</p></div><div class="sector-history-actions">${[30, 60, 120, 250].map(n => `<button type="button" data-sector-history-count="${n}" aria-pressed="${count === n}" class="${count === n ? 'selected' : ''}">${n} 日</button>`).join('')}<button type="button" data-sector-history-close aria-label="收起板块走势图">收起</button></div></header>${rows.length > 1 ? `<div class="sector-history-stats"><span data-sector-history-reading>${reading(rows[clamp(hover ?? rows.length - 1, 0, rows.length - 1)])}</span><span class="market-explorer-${change >= 0 ? 'up' : 'down'}">区间 ${change >= 0 ? '+' : ''}${number(change)}%</span></div><div class="sector-history-chart" data-sector-history-chart tabindex="0" aria-label="板块指数日线，滚轮缩放，左键或右键拖动，方向键移动窗口"><span class="sector-history-y top">${number(hi)}</span><span class="sector-history-y bottom">${number(lo)}</span><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="${E(rows[0].date)}至${E(rows.at(-1).date)}收盘指数走势"><path d="${path(rows, 1000, 200, 8)}" fill="none" stroke="var(--primary)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><div class="sector-history-crosshair" data-sector-history-crosshair hidden></div></div><div class="sector-history-dates"><span>${E(rows[0].date)}</span><span>${E(rows[Math.floor((rows.length - 1) / 2)].date)}</span><span>${E(rows.at(-1).date)}</span></div><footer><span>滚轮缩放 · 左键 / 右键拖动 · 当前 ${current.size} / ${current.total} 个交易日</span><button type="button" data-sector-history-reset>显示全部</button></footer>` : `<div class="sector-history-empty">${entry?.busy || !entry ? '正在读取真实板块指数日线…' : '此板块暂无可展示的指数日线'}</div>`}${warnings.length ? `<div class="sector-history-warnings" role="status">${warnings.map(w => `<p>${E(w)}</p>`).join('')}</div>` : ''}<p class="sector-history-note">走势图为通达信该板块指数的收盘点位，缺失日期不补造；区间涨跌按首尾收盘计算。</p></section>`;
+    return `<section class="panel sector-history-panel" data-sector-history-panel aria-label="板块指数走势"><header><div><h2>${E(names.get(selected) || data?.name || selected)} <small>板块指数</small></h2><p>${E(data?.sourceName || '通达信板块指数日线')} · ${E(selected)}${data?.dataAsOf ? ` · 更新至 ${E(data.dataAsOf)}` : ''}${data?.stale ? ' · 旧缓存' : ''}</p></div><div class="sector-history-actions">${[30, 60, 120, 250].map(n => `<button type="button" data-sector-history-count="${n}" aria-pressed="${count === n}" class="${count === n ? 'selected' : ''}">${n} 日</button>`).join('')}<button type="button" data-sector-history-close aria-label="收起板块走势图">收起</button></div></header>${rows.length > 1 ? `<div class="sector-history-stats"><span data-sector-history-reading>${reading(rows[clamp(hover ?? rows.length - 1, 0, rows.length - 1)])}</span><span class="market-explorer-${change >= 0 ? 'up' : 'down'}">区间 ${change >= 0 ? '+' : ''}${number(change)}%</span></div><div class="sector-history-chart" data-sector-history-chart tabindex="0" aria-label="板块指数日线，滚轮缩放，左键或右键拖动，方向键移动窗口"><span class="sector-history-y top">${number(hi)}</span><span class="sector-history-y bottom">${number(lo)}</span><svg viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="${E(rows[0].date)}至${E(rows.at(-1).date)}收盘指数走势"><path d="${path(rows, 1000, 200, 8)}" fill="none" stroke="var(--primary)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><div class="sector-history-crosshair" data-sector-history-crosshair hidden></div></div><div class="sector-history-dates"><span>${E(rows[0].date)}</span><span>${E(rows[Math.floor((rows.length - 1) / 2)].date)}</span><span>${E(rows.at(-1).date)}</span></div><footer><span>滚轮缩放 · 左键 / 右键拖动 · 当前 ${current.size} / ${current.total} 个交易日</span><button type="button" data-sector-history-reset ${current.size >= current.total ? 'disabled title="当前已显示全部交易日"' : ''}>显示全部</button></footer>` : `<div class="sector-history-empty">${entry?.busy || !entry ? '正在读取真实板块指数日线…' : '此板块暂无可展示的指数日线'}</div>`}${warnings.length ? `<div class="sector-history-warnings" role="status">${warnings.map(w => `<p>${E(w)}</p>`).join('')}</div>` : ''}<p class="sector-history-note">走势图为通达信该板块指数的收盘点位，缺失日期不补造；区间涨跌按首尾收盘计算。</p></section>`;
   }
   function paint() {
     const element = document.querySelector('[data-sector-history-panel]');
     const focused = document.activeElement?.matches?.('[data-sector-history-chart]');
     if (element) element.outerHTML = panel();
     if (focused) document.querySelector('[data-sector-history-chart]')?.focus({preventScroll: true});
+  }
+  function schedulePaint() {
+    if (typeof requestAnimationFrame !== 'function') { paint(); return; }
+    if (paintFrame) return;
+    paintFrame = requestAnimationFrame(() => { paintFrame = 0; paint(); });
   }
   function endDrag(renderPending = true) {
     const previous = drag; drag = null;
@@ -119,7 +124,11 @@
     const button = event.target.closest('[data-sector-trend],[data-sector-history-count],[data-sector-history-close],[data-sector-history-reset]');
     if (!button || Date.now() < suppressClick) return;
     endDrag(false);
-    if (button.dataset.sectorTrend) {selected = button.dataset.sectorTrend; count = 60; start = null; hover = null; schedule(); rerender(); (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : setTimeout)(() => document.querySelector('[data-sector-history-panel]')?.scrollIntoView({behavior: 'smooth', block: 'start'}));}
+    if (button.dataset.sectorTrend) {
+      if (selected === button.dataset.sectorTrend) { selected = ''; rerender(); return; }
+      selected = button.dataset.sectorTrend; count = 60; start = null; hover = null; schedule(); rerender();
+      (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : setTimeout)(() => document.querySelector('[data-sector-history-panel]')?.scrollIntoView({block: 'nearest', ...(AT.motion?.scrollOptions?.() || {})}));
+    }
     else if (button.hasAttribute('data-sector-history-close')) {selected = ''; rerender();}
     else if (button.dataset.sectorHistoryCount) {count = Number(button.dataset.sectorHistoryCount); start = null; hover = null; paint();}
     else {count = Math.max(2, rowsFor(selected).length); start = 0; hover = null; paint();}
@@ -129,10 +138,12 @@
     if (!chart || AT.state.page !== 'M02' || !event.deltaY || event.ctrlKey || event.metaKey) return;
     if (drag) {event.preventDefault(); return;}
     const current = range(); if (current.total < 2) return;
+    const minSize = Math.min(10, current.total);
+    if ((event.deltaY > 0 && current.size >= current.total) || (event.deltaY < 0 && current.size <= minSize)) return;
     event.preventDefault();
     const rect = chart.getBoundingClientRect(), ratio = clamp((event.clientX - rect.left) / rect.width, 0, 1);
-    const next = clamp(Math.round(current.size * (event.deltaY > 0 ? 1.2 : .8)), Math.min(10, current.total), current.total);
-    start = clamp(Math.round(current.from + ratio * (current.size - next)), 0, current.total - next); count = next; hover = null; paint();
+    const next = clamp(Math.round(current.size * (event.deltaY > 0 ? 1.2 : .8)), minSize, current.total);
+    start = clamp(Math.round(current.from + ratio * (current.size - next)), 0, current.total - next); count = next; hover = null; schedulePaint();
   }, {passive: false});
   document.addEventListener('pointerdown', event => {
     const chart = event.target.closest?.('[data-sector-history-chart]');
@@ -158,10 +169,15 @@
       event.preventDefault(); event.stopPropagation?.();
       suppressClick = Date.now() + 180;
       const next = clamp(Math.round(drag.start - delta / drag.width * drag.size), 0, drag.total - drag.size);
-      if (start !== next) {start = next; hover = null; paint();}
+      if (start !== next) {start = next; hover = null; schedulePaint();}
       return;
     }
-    const chart = event.target.closest?.('[data-sector-history-chart]'); if (!chart || AT.state.page !== 'M02') return;
+    const chart = event.target.closest?.('[data-sector-history-chart]');
+    if (!chart || AT.state.page !== 'M02') {
+      const staleLine = document.querySelector('[data-sector-history-crosshair]:not([hidden])');
+      if (staleLine) staleLine.hidden = true;
+      return;
+    }
     const current = range(), rect = chart.getBoundingClientRect(), ratio = clamp((event.clientX - rect.left) / rect.width, 0, 1);
     hover = Math.round(ratio * (current.size - 1));
     const label = document.querySelector('[data-sector-history-reading]'), line = chart.querySelector('[data-sector-history-crosshair]');

@@ -2,4 +2,7 @@
 
 .emotion-metrics small{font-size:11px;color:var(--color-secondary);font-weight:400;line-height:1.5}
 .emotion-stock-actions{display:flex;align-items:center;gap:7px;white-space:nowrap}
-.emotion-ai-button{color:var(--primary)!important;border-color:#d1defc!important;background:#f5f8ff!important}
+.emotion-body{display:grid;gap:16px}
+.emotion-loading{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.emotion-ai-button{color:var(--primary);border:1px solid #d1defc;background:#f5f8ff}
+.emotion-ai-button:hover{background:#e5eeff;border-color:#adc6fa;color:var(--primary)}

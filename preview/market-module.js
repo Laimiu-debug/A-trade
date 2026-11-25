@@ -14,6 +14,7 @@
   let barsLimit = 240, barsKey = '', barsData = null, barsError = '', barsBusy = false, barsSerial = 0, selectedIndex = -1, lastRenderedPage = '';
   let online = null, onlineDraft = null, onlineBusy = false, onlineFeedback = null;
   let quoteData = null, quoteError = '', quoteBusy = false, quoteKey = '', quoteSerial = 0, quoteUpdated = 0;
+  let prevQuotes = new Map();
   let overviewDaily = null, overviewKey = '', overviewBusy = false, overviewSerial = 0;
   let sectorData = null, sectorDetail = null, sectorId = '', sectorBusy = false, sectorError = '', sectorKey = '', sectorQuery = '', sectorOffset = 0, sectorTimer, sectorSerial = 0;
   let sectorBasis = 'daily', sectorAsOf = '';
@@ -53,8 +54,11 @@
     const range = dailyRange();
     return chartMode === 'daily' ? `${range.count} / ${barsData?.rows?.length || 0} 根日 K` : `${minuteLabel(minuteWindow.start)} — ${minuteLabel(minuteWindow.end)}`;
   }
+  function isZoomed() {
+    return chartMode === 'daily' ? !!dailyWindow : (minuteWindow.start > 0.01 || minuteWindow.end < 239.99);
+  }
   function zoomControls() {
-    return `<div class="market-zoom-tools"><span>滚轮缩放 · 左键 / 右键拖动 · <span data-market-zoom-range>${zoomCaption()}</span></span>${action('重置视图', 'reset-zoom', '', 'small')}</div>`;
+    return `<div class="market-zoom-tools"><span>滚轮缩放 · 左键 / 右键拖动 · <span data-market-zoom-range>${zoomCaption()}</span></span>${action('重置视图', 'reset-zoom', '', 'small', isZoomed() ? '' : 'disabled')}</div>`;
   }
   const overviewSymbols = ['sh000001', 'sz399001', 'sz399006', 'bj899050'];
   const overviewNames = {'sh000001': '上证指数', 'sz399001': '深证成指', 'sz399006': '创业板指', 'bj899050': '北证 50'};
@@ -82,12 +86,15 @@
   };
   const safeError = error => error?.message || '操作未完成，请重试。';
   const warn = warnings => Array.isArray(warnings) && warnings.length ? `<div class="market-warning" role="status">${warnings.map(w => `<p>${E(typeof w === 'string' ? w : w.message || w.code || '数据需要检查')}</p>`).join('')}</div>` : '';
-  function refreshVisible() {
+  function refreshVisible(fromPoll = false) {
     if(AT.onboarding?.handles(AT.state.page)){AT.onboarding.refresh();return;}
     if (!marketPages.has(AT.state.page)) return;
-    if (AT.marketExplorer?.isComposing?.()) {
-      if (!deferredRefreshTimer) deferredRefreshTimer = setTimeout(() => {deferredRefreshTimer = 0; refreshVisible();}, 180);
-      return;
+    const defer = () => { if (!deferredRefreshTimer) deferredRefreshTimer = setTimeout(() => {deferredRefreshTimer = 0; refreshVisible(fromPoll);}, 220); };
+    if (AT.marketExplorer?.isComposing?.() || chartDrag || AT.marketAnalysis?.isDragging?.()) { defer(); return; }
+    if (fromPoll) {
+      const ae = document.activeElement;
+      if (ae && ae.closest?.('#main') && ae.matches?.('input,textarea,select,[contenteditable="true"]') && !ae.matches?.('[data-explorer-query]')) { defer(); return; }
+      if ($('#main details[open]')) { defer(); return; }
     }
     if (AT.state.page === 'M02') {
       const historyDragging = AT.sectorTrends?.deferRender();
@@ -165,7 +172,7 @@
     return `<section class="panel market-source-panel market-online-settings"><header class="market-source-heading"><span class="market-source-icon">${I('pulse')}</span><div><h2>通达信 MCP · 实时行情与分时</h2><p>通过本机只读 MCP 连接，读取最新价格、分钟线与板块</p></div><span class="tag ${saved.connected ? 'blue' : ''}">${saved.connected ? '连接可用' : saved.enabled ? '等待连接' : '未启用'}</span></header>
       <form id="market-online-form" class="market-source-form" aria-busy="${onlineBusy}">
         <label class="market-online-enable"><span><strong>跟随本地日线目录</strong><small>保存后，修改上方目录时 MCP 会自动跟随</small></span><input class="switch" name="followLocal" type="checkbox" data-market-online-field ${followLocal ? 'checked' : ''} ${onlineBusy ? 'disabled' : ''}></label>
-        <div class="market-online-fields"><label class="field"><span>独立通达信目录</span><input name="root" data-market-online-field value="${E(configuredRoot)}" placeholder="填写通达信安装根目录" autocomplete="off" ${onlineBusy || followLocal ? 'disabled' : ''}></label><label class="field"><span>自动刷新间隔（秒）</span><input name="refreshSeconds" type="number" min="10" max="300" step="1" data-market-online-field value="${E(draft.refreshSeconds ?? 30)}" ${onlineBusy ? 'disabled' : ''}></label></div>
+        <div class="market-online-fields"><label class="field"${followLocal ? ' hidden' : ''}><span>独立通达信目录</span><input name="root" data-market-online-field value="${E(configuredRoot)}" placeholder="填写通达信安装根目录" autocomplete="off" ${onlineBusy || followLocal ? 'disabled' : ''}></label><label class="field"><span>自动刷新间隔（秒）</span><input name="refreshSeconds" type="number" min="10" max="300" step="1" data-market-online-field value="${E(draft.refreshSeconds ?? 30)}" ${onlineBusy ? 'disabled' : ''}></label></div>
         <p class="market-field-note">当前生效目录：${E(saved.root || '尚未选择')} · ${saved.followLocal ?? !saved.root ? '跟随本地日线目录' : '使用独立目录'}。启用实时行情需要该目录包含 TQ 组件。</p>
         <label class="market-online-enable"><span><strong>启用实时行情</strong><small>市场页面可见时更新；每条报价显示源时间</small></span><input class="switch" name="enabled" type="checkbox" data-market-online-field ${draft.enabled ? 'checked' : ''} ${onlineBusy ? 'disabled' : ''}></label><div class="market-source-actions">${action(onlineBusy ? '正在处理…' : '保存设置', 'online-save', 'save', 'primary', onlineBusy ? 'disabled' : '')}${action('保存并检测', 'online-test', 'check', '', onlineBusy ? 'disabled' : '')}</div><p class="market-feedback" data-market-online-feedback data-tone="${onlineFeedback?.tone || 'neutral'}" role="${onlineFeedback?.tone === 'error' ? 'alert' : 'status'}">${E(onlineFeedback?.message || saved.message || '先启动通达信并登录行情，再启用连接。历史分时优先读取本机分钟线。')}</p><p class="market-field-note">本地分钟线缺失时，在线补取东方财富提供的近期交易日分时，实际范围以来源返回日期为准。</p></form></section>`;
   }
@@ -190,7 +197,7 @@
   }
   function liveNote() {
     if (!online?.enabled) return `<div class="market-connection-note">${I('pulse')}<span>实时行情未启用。配置连接后可查看报价与分时。</span>${B('配置行情服务', 'settings', 'data-nav="C01"', 'small')}</div>`;
-    return `<div class="market-connection-note">${I('clock')}<span>${quoteBusy ? '正在更新报价…' : quoteError ? E(quoteError) : `自动刷新 ${number(online.refreshSeconds || 30)} 秒 · ${quoteData?.receivedAt ? '读取于 ' + time(quoteData.receivedAt) : '等待来源返回行情'}`}</span>${action('刷新行情', 'refresh-quotes', 'refresh', 'small', quoteBusy ? 'disabled' : '')}</div>`;
+    return `<div class="market-connection-note" data-market-live-note>${I('clock')}<span>${quoteBusy ? '正在更新报价…' : quoteError ? E(quoteError) : `自动刷新 ${number(online.refreshSeconds || 30)} 秒 · ${quoteData?.receivedAt ? '读取于 ' + time(quoteData.receivedAt) : '等待来源返回行情'}`}</span>${action('刷新行情', 'refresh-quotes', 'refresh', `small${quoteBusy ? ' is-loading' : ''}`, quoteBusy ? 'disabled' : '')}</div>`;
   }
   function quoteCard(symbol, title, quote, error = '') {
     return `<button type="button" class="market-index-card" data-stock="${E(symbol)}"><div><strong>${E(quote?.name || title || symbol)}</strong><small>${E(symbol.slice(2))}</small></div><b class="${direction(quote?.changePercent)}">${number(quote?.price, 2)}</b><span class="${direction(quote?.changePercent)}">${percent(quote?.changePercent)}</span><p class="${quote?.cached ? 'market-cache-label' : ''}">${quote ? quoteStamp(quote) : E(error || (online?.enabled ? '等待报价' : '实时行情未启用'))}</p></button>`;
@@ -273,15 +280,67 @@
     if (page === 'G01') return [barsData?.symbol || AT.state.stock].filter(symbol => /^(sh|sz|bj)\d{6}$/.test(symbol));
     return [];
   }
-  async function loadQuotes(force = false) {
+  function patchQuotesInPlace(hadWarnings) {
+    const hasWarnings = Array.isArray(quoteData?.warnings) && quoteData.warnings.length > 0;
+    if (hadWarnings !== hasWarnings) return false;
+    const quotes = new Map((quoteData?.items || []).map(item => [item.symbol, item]));
+    const errors = new Map((quoteData?.errors || []).map(item => [item.symbol, item.message]));
+    if (AT.state.page === 'M01') {
+      const grid = $('.market-index-grid');
+      if (!grid) return false;
+      for (const symbol of overviewSymbols) {
+        const card = grid.querySelector(`.market-index-card[data-stock="${symbol}"]`);
+        if (!card) return false;
+        const quote = quotes.get(symbol), err = errors.get(symbol);
+        const dir = direction(quote?.changePercent);
+        const priceEl = card.querySelector('b'), pctEl = card.querySelector('span'), stampEl = card.querySelector('p');
+        const nextPrice = number(quote?.price, 2), prev = prevQuotes.get(symbol);
+        if (priceEl) { priceEl.className = dir; priceEl.textContent = nextPrice; }
+        if (pctEl) { pctEl.className = dir; pctEl.textContent = percent(quote?.changePercent); }
+        if (stampEl) { stampEl.className = quote?.cached ? 'market-cache-label' : ''; stampEl.textContent = quote ? quoteStamp(quote) : (err || (online?.enabled ? '等待报价' : '实时行情未启用')); }
+        if (priceEl && finite(quote?.price) && finite(prev) && Number(quote.price) !== Number(prev)) {
+          AT.motion?.flashValue(priceEl, Number(quote.price) > Number(prev) ? 'up' : 'down');
+        }
+        if (finite(quote?.price)) prevQuotes.set(symbol, Number(quote.price));
+      }
+      const note = $('[data-market-live-note]');
+      if (note) note.outerHTML = liveNote();
+      return true;
+    }
+    if (AT.state.page === 'G01') {
+      const strip = $('.market-quote-strip');
+      const sym = strip?.dataset.quoteSymbol;
+      if (!strip || !sym) return false;
+      const quote = quotes.get(sym), dir = direction(quote?.changePercent);
+      const priceEl = strip.querySelector('strong'), pctEl = strip.querySelector('b'), stampEl = strip.querySelector('small'), btn = strip.querySelector('[data-market-action="refresh-quotes"]');
+      const prev = prevQuotes.get(sym);
+      if (priceEl) { priceEl.className = dir; priceEl.textContent = number(quote?.price, 2); }
+      if (pctEl) { pctEl.className = dir; pctEl.textContent = percent(quote?.changePercent); }
+      if (stampEl) { stampEl.className = quote?.cached ? 'market-cache-label' : ''; stampEl.textContent = quote ? quoteStamp(quote) : (quoteError || '等待行情服务返回报价'); }
+      if (btn) { btn.disabled = quoteBusy; btn.classList.toggle('is-loading', quoteBusy); }
+      if (priceEl && finite(quote?.price) && finite(prev) && Number(quote.price) !== Number(prev)) {
+        AT.motion?.flashValue(priceEl, Number(quote.price) > Number(prev) ? 'up' : 'down');
+      }
+      if (finite(quote?.price)) prevQuotes.set(sym, Number(quote.price));
+      return true;
+    }
+    return false;
+  }
+  async function loadQuotes(force = false, fromPoll = false) {
     const symbols = activeQuoteSymbols(), key = symbols.join('|');
     if (!online?.enabled || !symbols.length || quoteBusy || (!force && quoteKey === key)) return;
+    const hadWarnings = Array.isArray(quoteData?.warnings) && quoteData.warnings.length > 0;
     quoteKey = key; quoteBusy = true; quoteError = ''; const serial = ++quoteSerial;
     if (quoteData?.items?.some(item => !symbols.includes(item.symbol))) quoteData = null;
-    refreshVisible();
+    if (!patchQuotesInPlace(hadWarnings)) refreshVisible(fromPoll);
     try {const data = await call('market.quotes', {symbols}); if (serial === quoteSerial) quoteData = data;}
     catch (error) {if (serial === quoteSerial) {quoteData = null; quoteError = safeError(error);}}
-    finally {if (serial === quoteSerial) {quoteBusy = false; quoteUpdated = Date.now(); refreshVisible();}}
+    finally {
+      if (serial === quoteSerial) {
+        quoteBusy = false; quoteUpdated = Date.now();
+        if (!patchQuotesInPlace(hadWarnings)) refreshVisible(fromPoll);
+      }
+    }
   }
   function sectorsView(detail = false) {
     const daily = sectorBasis === 'daily', asOf = sectorData?.asOf || '';
@@ -310,6 +369,7 @@
     if (sectorQuoteError || sectorQuoteDone >= items.length) return;
     sectorQuoteBusy = true; sectorQuoteError = ''; const serial = ++sectorQuoteSerial; refreshVisible();
     try {
+      let batches = 0;
       for (let index = sectorQuoteDone; index < items.length; index += 24) {
         if (serial !== sectorQuoteSerial || AT.state.page !== 'M02' || document.hidden) break;
         const symbols = items.slice(index, index + 24).map(item => item.symbol);
@@ -320,10 +380,11 @@
         if (!(data.items || []).some(item => !item.cached && finite(item.price))) {
           sectorQuoteError = '本批报价未更新，已暂停后续读取；当前排序只含已取得的报价，可点击刷新重试。'; break;
         }
-        if (AT.state.page === 'M02') refreshVisible();
+        batches++;
+        if (AT.state.page === 'M02' && (batches === 1 || batches % 3 === 0)) refreshVisible(true);
       }
     } catch (error) {if (serial === sectorQuoteSerial) sectorQuoteError = safeError(error);}
-    finally {if (serial === sectorQuoteSerial) {sectorQuoteBusy = false; sectorQuoteUpdated = Date.now(); refreshVisible();}}
+    finally {if (serial === sectorQuoteSerial) {sectorQuoteBusy = false; sectorQuoteUpdated = Date.now(); refreshVisible(true);}}
   }
   async function loadSectors(force = false) {
     const detail = AT.state.page === 'M03', daily = sectorBasis === 'daily', key = `${version}|${detail ? sectorId : 'all'}|${sectorBasis}|${sectorAsOf}`;
@@ -454,14 +515,14 @@
     const data = intradayData, rows = data?.rows || [], days = data?.availableDates || [];
     const selected = rows[intradayIndex];
     const readout = selected && tradingMinute(selected.time) >= minuteWindow.start && tradingMinute(selected.time) <= minuteWindow.end ? intradayReadout(selected) : '这段时间没有分钟记录';
-    const dateControl = `<div class="market-intraday-controls"><label>交易日期 <input type="date" data-market-intraday-date value="${E(intradayDate)}" aria-label="分时交易日期" ${intradayBusy ? 'disabled' : ''}></label>${action('刷新分时', 'retry-intraday', 'refresh', 'small', intradayBusy ? 'disabled' : '')}${action('查看最近交易日', 'latest-intraday', '', 'small', intradayBusy ? 'disabled' : '')}</div>`;
-    if (intradayBusy) return dateControl + '<div class="market-empty" role="status"><p>正在读取该交易日的分钟记录…</p></div>';
-    if (intradayError) return dateControl + `<div class="market-empty"><h2>该日分时暂不可用</h2><p role="alert">${E(intradayError)}</p><p>可在通达信补齐一分钟数据，或连接行情服务后重试。</p>${B('检查数据源', 'settings', 'data-nav="C01"')}</div>`;
+    const dateControl = `<div class="market-intraday-controls"><label>交易日期 <input type="date" data-market-intraday-date value="${E(intradayDate)}" aria-label="分时交易日期" ${intradayBusy ? 'disabled' : ''}></label>${action('刷新分时', 'retry-intraday', 'refresh', `small${intradayBusy ? ' is-loading' : ''}`, intradayBusy ? 'disabled' : '')}${action('查看最近交易日', 'latest-intraday', '', 'small', intradayBusy ? 'disabled' : '')}</div>`;
+    if (intradayBusy && !rows.length) return dateControl + '<div class="market-empty" role="status"><p>正在读取该交易日的分钟记录…</p></div>';
+    if (intradayError && !rows.length) return dateControl + `<div class="market-empty"><h2>该日分时暂不可用</h2><p role="alert">${E(intradayError)}</p><p>可在通达信补齐一分钟数据，或连接行情服务后重试。</p>${B('检查数据源', 'settings', 'data-nav="C01"')}</div>`;
     if (!rows.length) return dateControl + `<div class="market-empty"><h2>没有 ${date(intradayDate)} 的分钟记录</h2><p>日线收盘记录无法还原分时走势。${days.length ? `目前可读取到 ${date(days.at(-1))} 的分钟记录。` : '请补齐此交易日的一分钟数据。'}</p>${days.length ? action('查看 ' + days.at(-1), 'available-intraday', 'chart', 'primary', `data-date="${E(days.at(-1))}"`) : ''}</div>${warn(data?.warnings)}`;
     if (chartMode === 'minute' && !rows.some(completeOHLC)) return dateControl + `<div class="market-empty"><h2>该来源只提供分时价格</h2><p>缺少分钟开、高、低价，无法绘制可信的分钟 K 线。可查看已有的真实分时走势。</p><button class="btn primary" data-market-mode="intraday">查看分时</button></div>${warn(data?.warnings)}`;
-    return dateControl + zoomControls() + `<div class="market-ohlc" data-market-minute-readout>${readout}</div>${intradayChart(rows)}<p class="market-subtle">${chartMode === 'minute' ? '每根 K 线对应一分钟的开、高、低、收。' : '分时线连接相邻交易分钟的收盘价，缺失分钟保持断线。'} 当前 ${number(rows.length)} 条分钟记录。</p><footer class="market-chart-source"><p>来源：${providerName(data.provider)} · 交易日期 ${date(data.date)}${data.cached ? ' · 本机缓存' : ''}</p><p>${data.asOf ? '数据截至 ' + time(data.asOf) + ' · ' : ''}采集于 ${time(data.receivedAt)} · 成交量（${E(data.volumeUnit || '原始单位')}） / 成交额（${E(data.amountUnit || '元')}）</p></footer>${warn(data.warnings)}`;
+    return dateControl + `<div class="${intradayBusy ? 'at-updating' : ''}">` + zoomControls() + `<div class="market-ohlc" data-market-minute-readout>${readout}</div>${intradayChart(rows)}<p class="market-subtle">${chartMode === 'minute' ? '每根 K 线对应一分钟的开、高、低、收。' : '分时线连接相邻交易分钟的收盘价，缺失分钟保持断线。'} 当前 ${number(rows.length)} 条分钟记录。</p><footer class="market-chart-source"><p>来源：${providerName(data.provider)} · 交易日期 ${date(data.date)}${data.cached ? ' · 本机缓存' : ''}</p><p>${data.asOf ? '数据截至 ' + time(data.asOf) + ' · ' : ''}采集于 ${time(data.receivedAt)} · 成交量（${E(data.volumeUnit || '原始单位')}） / 成交额（${E(data.amountUnit || '元')}）</p></footer>${warn(data?.warnings)}</div>`;
   }
-  async function loadIntraday(force = false, latest = false) {
+  async function loadIntraday(force = false, latest = false, fromPoll = false) {
     const symbol = barsData?.symbol || AT.state.stock;
     if (!/^(sh|sz|bj)\d{6}$/.test(symbol || '')) return;
     if (!intradayDate && !latest) intradayDate = barsData?.rows?.[selectedIndex]?.date || barsData?.dataAsOf || '';
@@ -470,7 +531,8 @@
     // same date still share the current request instead of duplicating work.
     if ((intradayBusy && (!force || intradayKey === key)) || (!force && intradayKey === key)) return;
     const selectedTime = intradayData?.rows?.[intradayIndex]?.time;
-    intradayKey = key; intradayData = null; intradayError = ''; intradayBusy = true; const serial = ++intradaySerial; refreshVisible();
+    const keepStale = !latest && intradayData && intradayData.symbol === symbol && intradayData.date === intradayDate && (intradayData.rows?.length || 0) > 0;
+    intradayKey = key; if (!keepStale) intradayData = null; intradayError = ''; intradayBusy = true; const serial = ++intradaySerial; refreshVisible(fromPoll);
     try {
       const payload = {symbol}; if (!latest && intradayDate) payload.date = intradayDate;
       const data = await call('market.intraday', payload);
@@ -484,7 +546,7 @@
         intradayIndex = (data.rows || []).findLastIndex(row => tradingMinute(row.time) >= minuteWindow.start && tradingMinute(row.time) <= minuteWindow.end);
       }
     } catch (error) {if (serial === intradaySerial) intradayError = safeError(error);}
-    finally {if (serial === intradaySerial) {intradayBusy = false; intradayUpdated = Date.now(); if (AT.state.page === 'G01') AT.render?.();}}
+    finally {if (serial === intradaySerial) {intradayBusy = false; intradayUpdated = Date.now(); if (AT.state.page === 'G01') refreshVisible(fromPoll);}}
   }
   function selectMinute(index) {
     const rows = intradayData?.rows || [], row = rows[index]; if (!row) return;
@@ -505,7 +567,7 @@
     const title = data ? E(data.name || data.code) : E(AT.state.stock || '个股日线');
     const watchButton = data && data.kind !== 'index' ? AT.marketWatch?.button({symbol: data.symbol, name: data.name || data.code, kind: data.kind}) || '' : '';
     const header = AT.head(title, data ? `${E(data.code)} · ${marketName(data.market)} · K 线与分时` : '读取所选证券的本地日线', B('返回', 'back', 'data-action="back"') + watchButton + action('重新读取', 'retry-bars', 'refresh', '', barsBusy ? 'disabled' : '') + B('数据源设置', 'settings', 'data-nav="C01"'));
-    const tabs = `<nav class="market-chart-modes" aria-label="行情图表类型">${[['daily', '日 K'], ['intraday', '分时'], ['minute', '分钟 K']].map(([mode, label]) => `<button type="button" data-market-mode="${mode}" aria-pressed="${chartMode === mode}" class="${chartMode === mode ? 'active' : ''}">${label}</button>`).join('')}</nav>`;
+    const tabs = `<nav class="market-chart-modes" aria-label="行情图表类型">${[['daily', '日 K', '本地未复权日线 K 线与均线指标'], ['intraday', '分时', '单日分时收盘走势'], ['minute', '分钟 K', '单日一分钟开高低收 K 线（需完整分钟 OHLC 数据）']].map(([mode, label, tip]) => `<button type="button" data-market-mode="${mode}" aria-pressed="${chartMode === mode}" class="${chartMode === mode ? 'active' : ''}" title="${E(tip)}">${label}</button>`).join('')}</nav>`;
     if (barsBusy || !data && !error) return header + '<section class="panel market-empty" role="status"><h2>正在读取日线</h2><p>读取原始价格与成交量，首次打开会建立本机缓存。</p></section>';
     if (error) return header + `<section class="panel market-daily-panel">${tabs}${chartMode === 'daily' ? `<div class="market-empty"><h2>暂时无法显示这只证券的日线</h2><p role="alert">${E(error)}</p><div class="market-source-actions">${action('重新读取', 'retry-bars', 'refresh')}${B('搜索本地证券', 'search', 'data-nav="M04"', 'primary')}</div></div>` : intradayView()}</section>`;
     ensureStudies();
@@ -513,7 +575,7 @@
     const strategyPanel = data.kind === 'stock' ? AT.stockResearch?.render({symbol:data.symbol,version:data.dataVersion || version,source:source?.path}) || '' : '';
     const change = latest && previous?.close ? (latest.close / previous.close - 1) * 100 : null;
     const quote = quoteData?.items?.find(item => item.symbol === data.symbol);
-    const quoteStrip = online?.enabled ? `<div class="market-quote-strip"><span>行情报价</span><strong class="${direction(quote?.changePercent)}">${number(quote?.price, 2)}</strong><b class="${direction(quote?.changePercent)}">${percent(quote?.changePercent)}</b><small class="${quote?.cached ? 'market-cache-label' : ''}">${quote ? quoteStamp(quote) : E(quoteError || '等待行情服务返回报价')}</small>${action('刷新', 'refresh-quotes', 'refresh', 'small', quoteBusy ? 'disabled' : '')}</div>` : '';
+    const quoteStrip = online?.enabled ? `<div class="market-quote-strip" data-quote-symbol="${E(data.symbol)}"><span>行情报价</span><strong class="${direction(quote?.changePercent)}">${number(quote?.price, 2)}</strong><b class="${direction(quote?.changePercent)}">${percent(quote?.changePercent)}</b><small class="${quote?.cached ? 'market-cache-label' : ''}">${quote ? quoteStamp(quote) : E(quoteError || '等待行情服务返回报价')}</small>${action('刷新', 'refresh-quotes', 'refresh', `small${quoteBusy ? ' is-loading' : ''}`, quoteBusy ? 'disabled' : '')}</div>` : '';
     return header + `<section class="panel market-daily-panel">${quoteStrip}<header class="market-daily-heading"><div class="market-last-price"><span>日线收盘</span><strong>${latest ? number(latest.close, 2) : '—'} <small>${data.kind === 'index' ? '点' : '元'}</small></strong><p class="${change === null ? '' : change >= 0 ? 'up' : 'down'}">${change === null ? '暂无前一交易日可比较' : `${change > 0 ? '+' : ''}${number(change, 2)}% · 较前一交易日`}</p></div><div class="market-daily-facts"><span class="tag">未复权</span><p>日线截至 ${date(data.dataAsOf)}</p><p>${rows.length} 根日线 · ${data.cached ? '本机缓存' : data.provider === 'tdx_mcp' ? '通达信 MCP' : '本地文件'}</p></div></header>${tabs}${chartMode !== 'daily' ? intradayView() + '</section>' : `
       ${barsFocusNote ? warn([barsFocusNote]) : ''}<div class="market-chart-toolbar"><h2>日线与成交量</h2><div class="segmented" aria-label="显示日线数量">${[60, 120, 240].map(limit => {const active = !dailyWindow && barsLimit === limit; return `<button type="button" data-market-limit="${limit}" aria-pressed="${active}" class="${active ? 'active' : ''}">近 ${limit} 日</button>`;}).join('')}</div></div>${rows.length ? AT.marketAnalysis.controls() + zoomControls() : ''}
       ${rows.length ? `<div class="market-ohlc" data-market-readout aria-live="off">${rowReadout(row)}</div><div data-market-study-readout>${AT.marketAnalysis.selected(studiesByDate.get(row.date))}</div>${AT.stockResearch?.legend({symbol:data.symbol,date:row.date}) || ''}${candleChart(rows)}<div data-market-study-panels>${forceStudyPanel()}</div><div class="market-day-selector"><span>双击日 K 查看当天分时 · 方向键选日，Enter 打开</span><div>${action('前一日', 'previous-day', '', 'small', selectedIndex <= 0 ? 'disabled' : '')}<input type="date" data-market-date aria-label="选择交易日期" min="${E(rows[0].date)}" max="${E(latest.date)}" value="${E(row.date)}">${action('后一日', 'next-day', '', 'small', selectedIndex >= rows.length - 1 ? 'disabled' : '')}${action('查看分时', 'day-intraday', 'chart', 'small')}</div><p data-market-date-error role="status"></p></div>` : '<div class="market-empty"><p>这只证券当前没有可显示的有效日线。</p></div>'}
@@ -640,6 +702,7 @@
     if (focused) $(selector)?.focus({preventScroll: true});
     if (forceFocused) $('[data-market-indicator-chart]')?.focus({preventScroll: true});
     const caption = $('[data-market-zoom-range]'); if (caption) caption.textContent = zoomCaption();
+    const resetBtn = $('[data-market-action="reset-zoom"]'); if (resetBtn) resetBtn.disabled = !isZoomed();
     document.querySelectorAll('[data-market-limit]').forEach(button => {
       const active = !dailyWindow && Number(button.dataset.marketLimit) === barsLimit;
       button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active));
@@ -734,6 +797,14 @@
     // not the element bounds, to keep the candle under the pointer anchored.
     const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
     if (point.x < 24 || point.x > 958 || point.y < 26 || point.y > (chart.hasAttribute('data-market-indicator-chart') ? 150 : 390)) return;
+    if (event.deltaY > 0) {
+      if (chartMode === 'daily') {
+        const rows = barsData?.rows || [], range = dailyRange(rows);
+        if (range.count >= rows.length) { wheelRemainder = 0; return; }
+      } else if (minuteWindow.end - minuteWindow.start >= 239.99) {
+        wheelRemainder = 0; return;
+      }
+    }
     event.preventDefault(); event.stopPropagation();
     const ratio = (point.x - 24) / 934, now = performance.now();
     if (now - lastWheelAt > 180 || lastWheelMode !== chartMode) wheelRemainder = 0;
@@ -786,7 +857,7 @@
     const label = $('.demo-label'), status = $('.statusbar>span:first-child');
     if (label) label.textContent = page === 'C01' ? '桌面设置' : '真实行情 · TDX / MCP';
     const asOf = ['M02', 'M03'].includes(page) && sectorBasis === 'daily' ? sectorData?.asOf : page === 'G01' && barsKey === `${version}|${AT.state.stock}` && barsData ? barsData.dataAsOf : source?.latestDate;
-    if (status) { status.replaceChildren(); const dot = document.createElement('i'); dot.className = 'status-dot'; status.append(dot, document.createTextNode(source?.configured ? ` 本地日线${asOf ? ' · 截至 ' + asOf : ''} · MCP ${online?.enabled ? online.connected ? '已连接' : '已启用' : '未启用'}` : ' 行情来源 · 尚未选择数据目录')); }
+    if (status) { status.replaceChildren(); const dot = document.createElement('i'); dot.className = 'status-dot'; dot.dataset.connection = !source?.configured ? 'offline' : (online?.enabled && !online?.connected ? 'warning' : 'ok'); status.append(dot, document.createTextNode(source?.configured ? ` 本地日线${asOf ? ' · 截至 ' + asOf : ''} · MCP ${online?.enabled ? online.connected ? '已连接' : '已启用' : '未启用'}` : ' 行情来源 · 尚未选择数据目录')); }
   }
   function applyPendingDay() {
     if (!pendingDay || pendingDay.symbol !== barsData?.symbol) return;
@@ -800,6 +871,7 @@
     pendingDay = null;
   }
   AT.marketUI = {get status() {return source ? structuredClone(source) : null;}, updateShell, refreshVisible,
+    redrawStudies() { if (AT.state.page === 'G01' && chartMode === 'daily') { redrawChart(); selectDay(selectedIndex); } },
     connectionForm,get setupBusy(){return sourceBusy||picking||Boolean(sourcePending);},
     getAIContext() {
       if(AT.state.page==='G01'&&barsKey===`${version}|${AT.state.stock}`&&barsData?.symbol===AT.state.stock) {
@@ -862,7 +934,7 @@
   }, true);
   document.addEventListener('input', event => {
     if (event.target.matches('[data-market-sector-query]')) {sectorQuery = event.target.value; sectorOffset = 0; clearTimeout(sectorTimer); sectorTimer = setTimeout(refreshVisible, 220);}
-    if (event.target.matches('[data-market-online-field]')) {const form = event.target.form; onlineDraft = {root: form.elements.root.value, followLocal: form.elements.followLocal.checked, enabled: form.elements.enabled.checked, refreshSeconds: form.elements.refreshSeconds.value}; form.elements.root.disabled = onlineDraft.followLocal; onlineFeedback = {tone: 'neutral', message: '有未保存的更改'}; const note = $('[data-market-online-feedback]'); if (note) {note.textContent = onlineFeedback.message; note.dataset.tone = 'neutral';}}
+    if (event.target.matches('[data-market-online-field]')) {const form = event.target.form; onlineDraft = {root: form.elements.root.value, followLocal: form.elements.followLocal.checked, enabled: form.elements.enabled.checked, refreshSeconds: form.elements.refreshSeconds.value}; form.elements.root.disabled = onlineDraft.followLocal; const rootField = form.elements.root.closest?.('.field'); if (rootField) rootField.hidden = onlineDraft.followLocal; onlineFeedback = {tone: 'neutral', message: '有未保存的更改'}; const note = $('[data-market-online-feedback]'); if (note) {note.textContent = onlineFeedback.message; note.dataset.tone = 'neutral';}}
     if (event.target.matches('[data-market-path]')) {pathDraft = event.target.value; sourceFeedback = {tone: 'neutral', message: '目录有未保存的更改'}; const note = $('.market-source-form .market-feedback'); if (note) {note.textContent = sourceFeedback.message; note.dataset.tone = 'neutral';}}
     if (event.target.matches('[data-market-query]')) {listQuery = event.target.value; listOffset = 0; clearTimeout(searchTimer); searchTimer = setTimeout(() => {if (AT.state.page === 'M04') loadList();}, 280);}
   }, true);
@@ -875,9 +947,20 @@
     if (event.target.matches('[data-market-sector-date]')) {if (event.target.checkValidity()) changeSectorDate('daily', event.target.value); return;}
     if (event.target.matches('[data-market-intraday-date]')) {if (event.target.value) {intradayDate = event.target.value; loadIntraday(true);} return;}
     if (!event.target.matches('[data-market-date]')) return;
-    const index = barsData?.rows.findIndex(row => row.date === event.target.value) ?? -1;
+    const requested = event.target.value, rows = barsData?.rows || [];
+    const index = rows.findIndex(row => row.date === requested);
     if (index >= 0) selectDay(index);
-    else {const note = $('[data-market-date-error]'); if (note) note.textContent = '当前显示范围没有这一天的日线，请选择交易日。';}
+    else {
+      const prior = rows.findLastIndex(row => row.date <= requested);
+      if (prior >= 0) {
+        selectDay(prior);
+        const note = $('[data-market-date-error]');
+        if (note) note.textContent = `${requested} 非交易日，已定位至前一交易日 ${rows[prior].date}。`;
+      } else {
+        const note = $('[data-market-date-error]');
+        if (note) note.textContent = '当前显示范围没有这一天的日线，请选择交易日。';
+      }
+    }
   });
   document.addEventListener('pointermove', event => {const candle = event.target.closest('[data-market-index]'); if (candle) selectDay(Number(candle.dataset.marketIndex)); const minute = event.target.closest('[data-market-minute-index]'); if (minute) selectMinute(Number(minute.dataset.marketMinuteIndex));});
   document.addEventListener('click', event => {const candle = event.target.closest('[data-market-index]'); if (candle) selectDay(Number(candle.dataset.marketIndex)); const minute = event.target.closest('[data-market-minute-index]'); if (minute) selectMinute(Number(minute.dataset.marketMinuteIndex));});
@@ -895,8 +978,8 @@
       if (!sectorBusy && Date.now() - sectorQuoteUpdated >= Math.max(10, Number(online.refreshSeconds || 30)) * 1000) loadSectorQuotes(true);
       return;
     }
-    if (Date.now() - quoteUpdated >= Math.max(10, Number(online.refreshSeconds || 30)) * 1000) loadQuotes(true);
+    if (Date.now() - quoteUpdated >= Math.max(10, Number(online.refreshSeconds || 30)) * 1000) loadQuotes(true, true);
     const today = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    if (AT.state.page === 'G01' && chartMode !== 'daily' && intradayDate === today && Date.now() - intradayUpdated >= Math.max(10, Number(online.refreshSeconds || 30)) * 1000) loadIntraday(true);
+    if (AT.state.page === 'G01' && chartMode !== 'daily' && intradayDate === today && Date.now() - intradayUpdated >= Math.max(10, Number(online.refreshSeconds || 30)) * 1000) loadIntraday(true, false, true);
   }, 1000);
 })();

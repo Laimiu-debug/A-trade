@@ -15,8 +15,8 @@
 .ai-profile-fields .field input[aria-invalid=true]{box-shadow:inset 0 0 0 1px var(--color-error)}
 .ai-profile-fields .field input:disabled{color:var(--secondary);opacity:.65}
 .ai-key-note{color:var(--secondary);font-size:11px;line-height:1.8;margin-top:-9px}
-.ai-key-clear{display:flex;align-items:center;gap:8px;color:var(--secondary);font-size:11px;margin-top:-6px;cursor:pointer}
-.ai-key-clear input{accent-color:var(--primary)}
+.ai-key-clear{display:flex;align-items:center;gap:8px;color:var(--color-error);font-size:12px;margin-top:-4px;cursor:pointer;padding:6px 9px;border-radius:7px;background:var(--color-error-bg);width:fit-content}
+.ai-key-clear input{accent-color:var(--color-error)}
 .ai-profile-enable{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-top:24px;padding:18px 0;cursor:pointer}
 .ai-profile-enable strong{display:block;font-size:13px;font-weight:600;color:var(--text)}
 .ai-profile-enable small{display:block;font-size:11px;color:var(--secondary);margin-top:4px}

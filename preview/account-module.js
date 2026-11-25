@@ -12,7 +12,7 @@
   let workspaceError = '', requestSerial = 0, importState = null, reviewFilter = {kind:'all',date:''};
   let currentReview = null, restoreCandidate = null, draftTimer;
   let activeReviewSection = 'quick', activeScoreDimension = 0;
-  let scoreTimer, scoreSerial=0, factsSerial=0, snapshotSession=null;
+  let scoreTimer, scoreSerial=0, factsSerial=0, snapshotSession=null, historySearchTimer=0;
   const historyFilters={}, tradeSelections={};
   let curveMode='equity';
   const pendingWrites = new Set();
@@ -58,7 +58,7 @@
   }
   function notice(error,form) {
     const text=errorText(error), target=form?.querySelector('[data-business-error]');
-    if(target){target.textContent=text;target.hidden=false;target.scrollIntoView({block:'nearest'});} else AT.toast?.(text);
+    if(target){target.textContent=text;target.hidden=false;target.scrollIntoView({block:'nearest',...(AT.motion?.scrollOptions?.()||{})});AT.motion?.shake?.(target);} else AT.toast?.(text,false,'error');
   }
   function modal(title,body,footer='',wide=true) {
     AT.openBusinessWorkspace(title,body,{wide,className:'business-modal',footer});
@@ -68,8 +68,9 @@
   function currentForm() {return $('#business-form');}
   function formData(form=currentForm()) {return Object.fromEntries(new FormData(form));}
   function context() {
-    const selected=account();
-    return `<div class="account-context business-context"><span class="tag blue">${selected?.kind==='real'?'实盘记账':'模拟账户'}</span><select class="select" data-business-account aria-label="选择账户">${(workspace?.accounts||[]).filter(a=>!a.archived||a.id===workspace.accountId).map(a=>`<option value="${E(a.id)}" ${a.id===workspace.accountId?'selected':''}>${E(a.name)}${a.archived?'（已归档）':''}</option>`).join('')}</select><span>${selected?`${E(selected.startDate)} 起算 · 本机账本`:'选择或创建账户'}</span><div class="business-actions right">${btn('账户管理','accounts','account','small')}</div></div>`;
+    const selected=account(),visible=(workspace?.accounts||[]).filter(a=>!a.archived||a.id===workspace.accountId);
+    const picker=visible.length>1?`<select class="select" data-business-account aria-label="选择账户">${visible.map(a=>`<option value="${E(a.id)}" ${a.id===workspace.accountId?'selected':''}>${E(a.name)}${a.archived?'（已归档）':''}</option>`).join('')}</select>`:`<strong>${E(selected?.name||'未命名账户')}</strong>`;
+    return `<div class="account-context business-context"><span class="tag blue">${selected?.kind==='real'?'实盘记账':'模拟账户'}</span>${picker}<span>${selected?`${E(selected.startDate)} 起算 · 本机账本`:'选择或创建账户'}</span><div class="business-actions right">${btn('账户管理','accounts','account','small')}</div></div>`;
   }
   function noAccount() {
     if(workspaceError)return head('账户与复盘','本机账本')+alert(workspaceError)+btn('重新连接','refresh','refresh');
@@ -82,7 +83,7 @@
     return head('账户总览','资金、持仓和复盘，来自你的本机账本',btn('导入成交','import','import')+btn('记录交易','ledger-new','plus','primary'))+context()
       +`<div class="metrics">${metric('账户资产',amount(s.equity),s.equity==null?'填写持仓价格后生成资产快照':positions.length?E('现金 + 估值截至 '+s.valuationDate+' 的持仓'):'当前无持仓，资产来自现金')}${metric('可用现金',amount(s.cash),'根据有效流水逐笔核算')}${metric('已实现盈亏',amount(s.realizedPnl),'含成交费用 · 移动平均成本',Number(s.realizedPnl)>=0?'up':'down')}${metric('累计费用',amount(s.totalFees),'佣金、印花税、过户费及其他')}</div>`
       +accountProgress(a,s)
-      +panel('当前持仓',valuation,table(['证券','数量','平均成本','持仓成本','估值价格','浮动盈亏'],positions.map(p=>`<tr><td${stockChartAttrs(p,p.priceDetails?.priceDate||s.valuationDate)}><strong>${E(p.name||p.code)}</strong><small class="business-subtext">${E(p.code)}</small></td><td>${E(p.quantity)}</td><td>${amount(p.averageCost)}</td><td>${amount(p.cost)}</td><td>${p.marketPrice==null?'未估值':amount(p.marketPrice)}${p.priceDetails?`<small class="business-subtext">${E(priceSource(p.priceDetails))}</small>`:''}</td><td>${amount(p.unrealizedPnl)}</td></tr>`),'尚无持仓'),btn('期初持仓','opening-position','plus','small')+btn('资产快照','snapshots','snapshot','small'))
+      +panel('当前持仓',valuation,table(['证券','数量','平均成本','持仓成本','估值价格','浮动盈亏','快捷操作'],positions.map(p=>`<tr><td${stockChartAttrs(p,p.priceDetails?.priceDate||s.valuationDate)}><strong>${E(p.name||p.code)}</strong><small class="business-subtext">${E(p.code)}</small></td><td class="num">${E(p.quantity)}</td><td class="num">${amount(p.averageCost)}</td><td class="num">${amount(p.cost)}</td><td class="num">${p.marketPrice==null?'未估值':amount(p.marketPrice)}${p.priceDetails?`<small class="business-subtext">${E(priceSource(p.priceDetails))}</small>`:''}</td><td class="num ${p.unrealizedPnl==null?'':Number(p.unrealizedPnl)>=0?'up':'down'}">${amount(p.unrealizedPnl)}</td><td><div class="business-actions">${btn('加仓','holding-buy','','small',`data-code="${E(p.code)}" data-name="${E(p.name||'')}"`)}${btn('卖出','holding-sell','','small',`data-code="${E(p.code)}" data-name="${E(p.name||'')}"`)}</div></td></tr>`),'尚无持仓，记录首笔买入或期初持仓后将自动核算成本与盈亏'),btn('期初持仓','opening-position','plus','small')+btn('更新估值','snapshot-new','refresh','small')+btn('资产快照','snapshots','snapshot','small'))
       +`<div class="business-columns">${panel('账户进度',`${a.startDate} 起算`, `<div class="panel-body business-summary"><div><span>期初现金</span><strong>${amount(a.openingCash)}</strong></div><div><span>净投入</span><strong>${amount(s.netContributions)}</strong></div><div><span>账本记录</span><strong>${(workspace.ledger||[]).filter(x=>!x.voided).length} 笔</strong></div><div><span>累计复盘</span><strong>${(workspace.reviews||[]).length} 篇</strong></div></div>`,btn('编辑账户','account-edit','settings','small',`data-id="${E(a.id)}"`))}${panel('接下来', '从事实到判断，再到下一步行动',`<div class="business-next"><button data-nav="A04">${I('ledger')}核对交易与资金${I('chevronRight')}</button><button data-business="review-new">${I('calendar')}写一份每日复盘${I('chevronRight')}</button><button data-business="plan-new">${I('route')}记录下一次操作计划${I('chevronRight')}</button></div>`)}</div>`;
   }
   function accountProgress(a,s) {
@@ -107,17 +108,18 @@
     return {rows:all.slice(state.page*state.size,(state.page+1)*state.size),total:all.length,pages,state};
   }
   function historyControls(key) {
-    const f=historyState(key);
-    return `<div class="business-filter history-filter"><label>搜索<input type="search" data-history-filter="query" data-history-key="${E(key)}" value="${E(f.query)}" placeholder="证券代码、名称、理由"></label><label>开始<input type="date" data-history-filter="from" data-history-key="${E(key)}" value="${E(f.from)}"></label><label>结束<input type="date" data-history-filter="to" data-history-key="${E(key)}" value="${E(f.to)}"></label>${btn('清除筛选','history-clear','','small',`data-history-key="${E(key)}"`)}</div>`;
+    const f=historyState(key),active=Boolean(f.query||f.from||f.to);
+    return `<div class="business-filter history-filter"><label>搜索<input type="search" data-history-filter="query" data-history-key="${E(key)}" value="${E(f.query)}" placeholder="证券代码、名称、理由"></label><label>开始<input type="date" data-history-filter="from" data-history-key="${E(key)}" value="${E(f.from)}"></label><label>结束<input type="date" data-history-filter="to" data-history-key="${E(key)}" value="${E(f.to)}"></label>${active?btn('清除筛选','history-clear','','small',`data-history-key="${E(key)}"`):''}</div>`;
   }
-  function historyPager(key,page) {return `<div class="business-pagination">${btn('上一页','history-page','','small',`data-history-key="${E(key)}" data-page="${page.state.page-1}" ${page.state.page===0?'disabled':''}`)}<span>第 ${page.state.page+1} / ${page.pages} 页 · 共 ${page.total} 笔</span>${btn('下一页','history-page','','small',`data-history-key="${E(key)}" data-page="${page.state.page+1}" ${page.state.page+1>=page.pages?'disabled':''}`)}</div>`;}
+  function historyPager(key,page) {if(page.pages<=1)return '';return `<div class="business-pagination">${btn('上一页','history-page','','small',`data-history-key="${E(key)}" data-page="${page.state.page-1}" ${page.state.page===0?'disabled':''}`)}<span>第 ${page.state.page+1} / ${page.pages} 页 · 共 ${page.total} 笔</span>${btn('下一页','history-page','','small',`data-history-key="${E(key)}" data-page="${page.state.page+1}" ${page.state.page+1>=page.pages?'disabled':''}`)}</div>`;}
   function ledgerTable(cash=false) {
     const key=cash?'cash':'ledger';
     return `<div data-history-view="${key}">${historyControls(key)}<div data-history-results="${key}">${ledgerResults(cash)}</div></div>`;
   }
   function ledgerResults(cash=false) {
-    const key=cash?'cash':'ledger',page=historyPage(key,(workspace.ledger||[]).filter(t=>cash?['deposit','withdrawal','dividend','fee'].includes(t.type):!['deposit','withdrawal','dividend','fee'].includes(t.type)));
-    return table(['日期 / 时间','类型','证券 / 说明','数量','价格 / 金额','费用','操作'],page.rows.map(t=>`<tr class="${t.voided?'business-voided':''}"><td>${E(t.date)}<small class="business-subtext">${E(t.time||'')}</small></td><td><span class="tag ${t.type==='buy'?'blue':''}">${E(types[t.type]||t.type)}</span>${t.voided?'<small class="business-subtext">已作废</small>':''}</td><td${stockChartAttrs(t,t.date)}><strong>${E(recordName(t)||t.reason||'账户资金')}</strong><small class="business-subtext">${E(t.reason||'')}</small></td><td>${t.quantity?E(t.quantity):'—'}</td><td>${amount(cash?t.amount:t.price)}</td><td>${amount(t.fees??((t.commission||0)+(t.stampTax||0)+(t.transferFee||0)+(t.otherFees||0)))}</td><td><div class="business-actions">${!t.voided?btn('编辑','ledger-edit','','small',`data-id="${E(t.id)}"`)+btn('作废','ledger-void','','small',`data-id="${E(t.id)}"`):'—'}</div></td></tr>`))+historyPager(key,page);
+    const key=cash?'cash':'ledger',f=historyState(key),filtered=Boolean(f.query||f.from||f.to);
+    const page=historyPage(key,(workspace.ledger||[]).filter(t=>cash?['deposit','withdrawal','dividend','fee'].includes(t.type):!['deposit','withdrawal','dividend','fee'].includes(t.type)));
+    return table(['日期 / 时间','类型','证券 / 说明','数量','价格 / 金额','费用','操作'],page.rows.map(t=>`<tr class="${t.voided?'business-voided':''}"><td>${E(t.date)}<small class="business-subtext">${E(t.time||'')}</small></td><td><span class="tag ${t.type==='buy'?'blue':t.type==='sell'?'orange':''}">${E(types[t.type]||t.type)}</span>${t.voided?'<small class="business-subtext">已作废</small>':''}</td><td${stockChartAttrs(t,t.date)}><strong>${E(recordName(t)||t.reason||'账户资金')}</strong><small class="business-subtext">${E(t.reason||'')}</small></td><td class="num">${t.quantity?E(t.quantity):'—'}</td><td class="num">${amount(cash?t.amount:t.price)}</td><td class="num">${amount(t.fees??((t.commission||0)+(t.stampTax||0)+(t.transferFee||0)+(t.otherFees||0)))}</td><td><div class="business-actions">${!t.voided?btn('编辑','ledger-edit','','small',`data-id="${E(t.id)}"`)+btn('作废','ledger-void','','small danger',`data-id="${E(t.id)}"`):'—'}</div></td></tr>`),filtered?'没有符合当前筛选条件的记录':'暂无记录')+historyPager(key,page);
   }
   function executionSummary(p) {
     const x=p.execution;if(!x)return '';
@@ -125,7 +127,7 @@
   }
   function plans() {
     const status={draft:'草稿',watching:'观察中',ready:'已准备',triggered:'已触发',executed:'已执行',cancelled:'已取消',expired:'已失效'};
-    return panel('交易计划与执行对照','记录触发条件、退出边界，以及实际执行中的偏差',(workspace.plans||[]).length?`<div class="business-plan-list">${workspace.plans.map(p=>`<article><div><span class="tag blue">${E(status[p.status]||p.status||'待执行')}</span><small>${E(p.date)}</small></div><h3>${E(recordName(p))} · ${E(types[p.action]||p.action||'观察')}</h3><p>${E(p.reason||'尚未填写操作依据')}</p><dl><dt>触发条件</dt><dd>${E(p.trigger||'未填写')}</dd><dt>止损 / 止盈</dt><dd>${E(p.stopLoss||'未填写')} / ${E(p.takeProfit||'未填写')}</dd><dt>执行反馈</dt><dd>${E(p.executionNotes||'尚未记录')}${p.linkedTradeIds?.length?` · 已关联 ${p.linkedTradeIds.length} 笔流水`:''}</dd></dl>${executionSummary(p)}<div class="business-actions">${btn('编辑与复核','plan-edit','compare','small',`data-id="${E(p.id)}"`)}${btn('删除','plan-delete','','small',`data-id="${E(p.id)}"`)}</div></article>`).join('')}</div>`:empty('暂时没有交易计划','明确触发条件后再记录，盘后补上执行反馈'),btn('新增计划','plan-new','plus','small'),'trade-plan');
+    return panel('交易计划与执行对照','记录触发条件、退出边界，以及实际执行中的偏差',(workspace.plans||[]).length?`<div class="business-plan-list">${workspace.plans.map(p=>`<article><div><span class="tag blue">${E(status[p.status]||p.status||'待执行')}</span><small>${E(p.date)}</small></div><h3>${E(recordName(p))} · ${E(types[p.action]||p.action||'观察')}</h3><p>${E(p.reason||'尚未填写操作依据')}</p><dl><dt>触发条件</dt><dd>${E(p.trigger||'未填写')}</dd><dt>止损 / 止盈</dt><dd>${E(p.stopLoss||'未填写')} / ${E(p.takeProfit||'未填写')}</dd><dt>执行反馈</dt><dd>${E(p.executionNotes||'尚未记录')}${p.linkedTradeIds?.length?` · 已关联 ${p.linkedTradeIds.length} 笔流水`:''}</dd></dl>${executionSummary(p)}<div class="business-actions">${['buy','sell','add','reduce'].includes(p.action)?btn('按计划记成交','plan-trade','plus','small',`data-id="${E(p.id)}"`):''}${btn('编辑与复核','plan-edit','compare','small',`data-id="${E(p.id)}"`)}${btn('删除','plan-delete','','small danger',`data-id="${E(p.id)}"`)}</div></article>`).join('')}</div>`:empty('暂时没有交易计划','明确触发条件后再记录，盘后补上执行反馈'),btn('新增计划','plan-new','plus','small'),'trade-plan');
   }
   function trades() {
     const cash=AT.ui.ledgerMode==='cash';
@@ -134,7 +136,8 @@
   }
   function reviewList() {
     const rows=(workspace.reviews||[]).filter(r=>(reviewFilter.kind==='all'||r.kind===reviewFilter.kind)&&(!reviewFilter.date||(r.date<=reviewFilter.date&&(r.endDate||r.date)>=reviewFilter.date)));
-    return `<div class="business-filter"><label><span>类型</span><select class="select" data-review-kind-filter><option value="all">全部复盘</option>${Object.entries(kinds).map(([id,title])=>`<option value="${id}" ${reviewFilter.kind===id?'selected':''}>${title}</option>`).join('')}</select></label><label><span>日期</span><input type="date" data-review-date-filter value="${E(reviewFilter.date)}"></label>${reviewFilter.date?btn('清除日期','review-filter-clear','','small'):''}</div>`+(rows.length?`<div class="business-review-list">${rows.map(r=>`<article><div class="business-review-meta"><span class="tag">${E(kinds[r.kind]||r.kind)}</span><span>${E(r.date)}${r.endDate?' — '+E(r.endDate):''}</span><span class="business-score">${r.score?.score==null?'未评分':E(r.score.score)+' 分 · '+E(r.score.coverage)+'% 完成'}</span></div><h3>${E(r.title||kinds[r.kind])}</h3><p>${E(Object.values(r.fields||{}).find(v=>typeof v==='string'&&v.trim())||'暂无文字内容')}</p><div class="business-actions">${btn('打开复盘','review-edit','note','small',`data-id="${E(r.id)}"`)}${btn('删除','review-delete','','small',`data-id="${E(r.id)}"`)}</div></article>`).join('')}</div>`:empty('还没有这类复盘','写下市场环境、决策依据与执行偏差，让下一次判断有迹可循'));
+    const filtered=reviewFilter.kind!=='all'||Boolean(reviewFilter.date);
+    return `<div class="business-filter"><label><span>类型</span><select class="select" data-review-kind-filter><option value="all">全部复盘</option>${Object.entries(kinds).map(([id,title])=>`<option value="${id}" ${reviewFilter.kind===id?'selected':''}>${title}</option>`).join('')}</select></label><label><span>日期</span><input type="date" data-review-date-filter value="${E(reviewFilter.date)}"></label>${filtered?btn('重置筛选','review-filter-clear','','small'):''}</div>`+(rows.length?`<div class="business-review-list">${rows.map(r=>`<article><div class="business-review-meta"><span class="tag">${E(kinds[r.kind]||r.kind)}</span><span>${E(r.date)}${r.endDate?' — '+E(r.endDate):''}</span><span class="business-score">${r.score?.score==null?'未评分':E(r.score.score)+' 分 · '+E(r.score.coverage)+'% 完成'}</span></div><h3>${E(r.title||kinds[r.kind])}</h3><p>${E(Object.values(r.fields||{}).find(v=>typeof v==='string'&&v.trim())||'暂无文字内容')}</p><div class="business-actions">${btn('打开复盘','review-edit','note','small',`data-id="${E(r.id)}"`)}${btn('删除','review-delete','','small danger',`data-id="${E(r.id)}"`)}</div></article>`).join('')}</div>`:empty(filtered?'当前筛选下没有复盘':'还没有这类复盘','写下市场环境、决策依据与执行偏差，让下一次判断有迹可循',filtered?btn('显示全部复盘','review-filter-clear','','small'):btn('写一份复盘','review-new','plus','small primary')));
   }
   function performance() {
     const s=workspace.summary||{}, snapshots=workspace.snapshots||[];
@@ -159,11 +162,12 @@
     const segments=[];let current=[];
     for(const r of rows){if(!Number.isFinite(r.value)||current.length&&current.at(-1).segment!==r.segment){if(current.length)segments.push(current);current=[];}if(Number.isFinite(r.value))current.push(r);}if(current.length)segments.push(current);
     const format=v=>curveMode==='equity'?amount(v):percent(v);
-    return `<div class="business-curve"><svg viewBox="0 0 900 208" role="img" aria-label="${curveMode==='equity'?'资产':curveMode==='return'?'净投入收益率':'可比区间回撤'}快照曲线"><line x1="32" y1="168" x2="868" y2="168" stroke="var(--border)"/>${segments.map(group=>`<polyline points="${group.map(point).join(' ')}" fill="none" stroke="var(--primary)" stroke-width="3"/>`).join('')}${valid.map(r=>{const [x,y]=point(r).split(',');return `<circle cx="${x}" cy="${y}" r="5" fill="var(--primary)"><title>${E(r.date)} · ${E(format(r.value))}</title></circle>`;}).join('')}<text x="32" y="198">${E(rows[0].date)}</text><text x="868" y="198" text-anchor="end">${E(rows.at(-1).date)}</text><text x="32" y="20">${E(format(max))}</text></svg>${msg(curveMode==='drawdown'?'回撤以同一可比区间资产峰值计算；入出金、缺价处断开，不跨资金流推算。':curveMode==='return'?'净投入收益率受入出金影响，不代表时间加权收益率。':'点选下方日期，查看该日成交、资金、复盘与计划。')}<div class="curve-dates">${valid.map(r=>btn(`${r.date} · ${format(r.value)}`,'performance-date','','small',`data-date="${E(r.date)}"`)).join('')}</div></div>`;
+    const zeroY=curveMode!=='equity'&&min<=0&&max>=0?166-(0-min)/span*126:null;
+    return `<div class="business-curve"><svg viewBox="0 0 900 208" role="img" aria-label="${curveMode==='equity'?'资产':curveMode==='return'?'净投入收益率':'可比区间回撤'}快照曲线"><line x1="32" y1="168" x2="868" y2="168" stroke="var(--border)"/>${zeroY!=null?`<line x1="32" y1="${zeroY.toFixed(1)}" x2="868" y2="${zeroY.toFixed(1)}" stroke="var(--color-zero)" stroke-dasharray="4 4"/>`:''}${segments.map(group=>`<polyline points="${group.map(point).join(' ')}" fill="none" stroke="var(--primary)" stroke-width="3" stroke-linejoin="round"/>`).join('')}${valid.map(r=>{const [x,y]=point(r).split(',');return `<circle cx="${x}" cy="${y}" r="5.5" fill="var(--primary)" style="cursor:pointer" data-business="performance-date" data-date="${E(r.date)}"><title>${E(r.date)} · ${E(format(r.value))}（点击查看当日记录）</title></circle>`;}).join('')}<text x="32" y="198">${E(rows[0].date)}</text><text x="868" y="198" text-anchor="end">${E(rows.at(-1).date)}</text><text x="32" y="20">${E(format(max))}</text><text x="32" y="162">${E(format(min))}</text></svg>${msg(curveMode==='drawdown'?'回撤以同一可比区间资产峰值计算；入出金、缺价处断开，不跨资金流推算。':curveMode==='return'?'净投入收益率受入出金影响，不代表时间加权收益率。':'点击曲线圆点或下方日期，查看该日成交、资金、复盘与计划。')}<div class="curve-dates">${valid.map(r=>btn(`${r.date} · ${format(r.value)}`,'performance-date','','small',`data-date="${E(r.date)}"`)).join('')}</div></div>`;
   }
   function roundsPanel() {
     const s=workspace.roundsSummary||{},rounds=(workspace.rounds||[]).slice().reverse();
-    return panel('交易回合与归因','已结束回合统计；开放回合单独标记，证券分红及独立费用按账本关联',`<div class="metrics business-inline-metrics">${metric('胜率',s.winRate==null?'暂无样本':percent(s.winRate),`${s.winCount||0} 胜 / ${s.lossCount||0} 负 / ${s.breakevenCount||0} 平`)}${metric('盈亏比',s.profitLossRatio==null?'暂无可比样本':Number(s.profitLossRatio).toFixed(2),'平均盈利 ÷ 平均亏损绝对值')}${metric('平均持有',s.averageHoldingDays==null?'暂无样本':Number(s.averageHoldingDays).toFixed(1)+' 天','仅已完成回合')}${metric('回合净损益',amount(s.totalPnl),'价差 + 归属分红 − 独立费用')}</div>${table(['证券','起止日期','状态','持有天数','价差损益','分红','独立费用','净损益'],rounds.map(r=>`<tr><td${stockChartAttrs(r,r.endDate)}>${E(recordName(r))}</td><td>${E(r.startDate)}<br>${E(r.endDate||'尚未清仓')}</td><td>${r.status==='closed'?'已完成':'持仓中'}</td><td>${E(r.holdingDays??'—')}</td><td>${amount(r.pricePnl??r.realizedPnl)}</td><td>${amount(r.dividendIncome??0)}</td><td>${amount(r.standaloneFees??0)}</td><td>${amount(r.totalPnl??r.realizedPnl)}</td></tr>`),'完成建仓与清仓后可查看完整回合')}<div class="panel-body">${(workspace.attributionWarnings||[]).map(alert).join('')}${(s.bySecurity||[]).length?table(['证券归因','完成回合','价差','分红','独立费用','净损益'],s.bySecurity.map(r=>`<tr><td${stockChartAttrs(r)}>${E(recordName(r))}</td><td>${E(r.completedCount)}</td><td>${amount(r.pricePnl)}</td><td>${amount(r.dividendIncome)}</td><td>${amount(r.standaloneFees)}</td><td>${amount(r.totalPnl)}</td></tr>`)):''}</div>`,'','review-rounds');
+    return panel('交易回合与归因','已结束回合统计；开放回合单独标记，证券分红及独立费用按账本关联',`<div class="metrics business-inline-metrics">${metric('胜率',s.winRate==null?'暂无样本':percent(s.winRate),`${s.winCount||0} 胜 / ${s.lossCount||0} 负 / ${s.breakevenCount||0} 平`)}${metric('盈亏比',s.profitLossRatio==null?'暂无可比样本':Number(s.profitLossRatio).toFixed(2),'平均盈利 ÷ 平均亏损绝对值')}${metric('平均持有',s.averageHoldingDays==null?'暂无样本':Number(s.averageHoldingDays).toFixed(1)+' 天','仅已完成回合')}${metric('回合净损益',amount(s.totalPnl),'价差 + 归属分红 − 独立费用',s.totalPnl==null?'':Number(s.totalPnl)>=0?'up':'down')}</div>${table(['证券','起止日期','状态','持有天数','价差损益','分红','独立费用','净损益'],rounds.map(r=>{const pnl=r.totalPnl??r.realizedPnl;return `<tr><td${stockChartAttrs(r,r.endDate)}>${E(recordName(r))}</td><td>${E(r.startDate)}<br>${E(r.endDate||'尚未清仓')}</td><td>${r.status==='closed'?'已完成':'持仓中'}</td><td class="num">${E(r.holdingDays??'—')}</td><td class="num">${amount(r.pricePnl??r.realizedPnl)}</td><td class="num">${amount(r.dividendIncome??0)}</td><td class="num">${amount(r.standaloneFees??0)}</td><td class="num ${pnl==null?'':Number(pnl)>=0?'up':'down'}">${amount(pnl)}</td></tr>`;}),'完成建仓与清仓后可查看完整回合')}<div class="panel-body">${(workspace.attributionWarnings||[]).map(alert).join('')}${(s.bySecurity||[]).length?table(['证券归因','完成回合','价差','分红','独立费用','净损益'],s.bySecurity.map(r=>`<tr><td${stockChartAttrs(r)}>${E(recordName(r))}</td><td class="num">${E(r.completedCount)}</td><td class="num">${amount(r.pricePnl)}</td><td class="num">${amount(r.dividendIncome)}</td><td class="num">${amount(r.standaloneFees)}</td><td class="num ${r.totalPnl==null?'':Number(r.totalPnl)>=0?'up':'down'}">${amount(r.totalPnl)}</td></tr>`)):''}</div>`,'','review-rounds');
   }
   function reviewTradesResults() {
     const page=historyPage('review-trades',(workspace.ledger||[]).filter(t=>!t.voided&&['buy','sell'].includes(t.type)));
@@ -182,7 +186,7 @@
     const rows=(workspace.reviews||[]).filter(r=>r.kind!=='idea').slice(0,6);
     return `A-trade · 复盘摘要\n生成日期：${today()}\n已省略账户名称、资产金额、持仓数量和交易明细。请检查正文内的个人信息。\n\n${rows.map(r=>`${r.date} · ${kinds[r.kind]||r.kind} · ${r.score?.score==null?'未评分':r.score.score+' 分（完成度 '+r.score.coverage+'%）'}\n${r.title||''}\n${Object.entries(r.fields||{}).filter(([key,v])=>key!=='accountFacts'&&typeof v==='string'&&v.trim()).map(([,v])=>v).join('\n')}`).join('\n\n')||'暂无复盘内容'}`;
   }
-  function share() {return head('复盘分享','分享前检查复盘文字中的个人信息',btn('导出文字','export-share','export','primary'))+context()+`<div class="share-layout"><section class="panel business-share"><div class="share-brand"><span class="app-logo"></span><strong>A-trade · 投资回顾</strong></div><pre>${E(shareText())}</pre></section><aside class="share-explanation"><h2>分享范围</h2><p>最近六份复盘的文字与自评分。</p><div class="divider"></div><h3>自动省略</h3><p>账户名称、资产金额、持仓数量、原始成交。</p><p class="field-hint section-space">你写在复盘正文里的姓名、金额等内容仍会保留，请导出前自行检查。</p></aside></div>`;}
+  function share() {return head('复盘分享','分享前检查复盘文字中的个人信息',btn('复制文字','copy-share','copy')+btn('导出文字','export-share','export','primary'))+context()+`<div class="share-layout"><section class="panel business-share"><div class="share-brand"><span class="app-logo"></span><strong>A-trade · 投资回顾</strong></div><pre>${E(shareText())}</pre></section><aside class="share-explanation"><h2>分享范围</h2><p>最近六份复盘的文字与自评分。</p><div class="divider"></div><h3>自动省略</h3><p>账户名称、资产金额、持仓数量、原始成交。</p><p class="field-hint section-space">你写在复盘正文里的姓名、金额等内容仍会保留，请导出前自行检查。</p></aside></div>`;}
   AT.accountView=page=>{let html=!workspace?.accountId||!account()?noAccount():page==='A04'?trades():page==='A08'?reviews():page==='A11'?share():overview();if(workspace?.warning)html=html.replace('</section>','</section>'+alert(workspace.warning));return html;};
   const oldView=AT.view;
   AT.view=page=>{
@@ -193,27 +197,46 @@
   const desktopView=AT.view;
   AT.view=page=>{
     let html=desktopView(page);
-    if(['C04','C06'].includes(page))html=html.replace('</section>','</section>'+`<nav class="context-nav" aria-label="相关功能">${AT.groups.find(g=>g.id==='C').pages.map(p=>`<button type="button" data-nav="${p.id}" ${page===p.id?'aria-current="page"':''}>${I(p.icon)}${E(p.title)}</button>`).join('')}</nav>`);
+    if(['C04','C06'].includes(page)&&!html.includes('class="context-nav"'))html=html.replace('</section>','</section>'+`<nav class="context-nav" aria-label="相关设置">${AT.groups.find(g=>g.id==='C').pages.map(p=>`<button type="button" data-nav="${p.id}" ${page===p.id?'aria-current="page"':''}>${I(p.icon)}${E(p.title)}</button>`).join('')}</nav>`);
     return html;
   };
   function accountsModal() {
-    modal('账户管理',`<div class="business-account-list">${(workspace?.accounts||[]).map(a=>`<article><div><span class="tag ${a.archived?'':'blue'}">${a.archived?'已归档':a.kind==='real'?'实盘记账':'模拟账户'}</span><h3>${E(a.name)}</h3><p>${E(a.startDate)} 起算 · 期初现金 ${amount(a.openingCash)}</p></div><div class="business-actions">${!a.archived?btn(a.id===workspace.accountId?'当前账户':'切换','account-switch','','small',`data-id="${E(a.id)}" ${a.id===workspace.accountId?'disabled':''}`):''}${btn('编辑','account-edit','','small',`data-id="${E(a.id)}"`)}${btn(a.archived?'恢复':'归档','account-archive','','small',`data-id="${E(a.id)}" data-archived="${!a.archived}"`)}</div></article>`).join('')||empty('还没有账户')}</div>`,btn('关闭','close')+btn('创建账户','account-new','plus','primary'));
+    modal('账户管理',`<div class="business-account-list">${(workspace?.accounts||[]).map(a=>`<article><div><span class="tag ${a.archived?'':'blue'}">${a.archived?'已归档':a.kind==='real'?'实盘记账':'模拟账户'}</span><h3>${E(a.name)}</h3><p>${E(a.startDate)} 起算 · 期初现金 ${amount(a.openingCash)}</p></div><div class="business-actions">${!a.archived?(a.id===workspace.accountId?'<span class="tag blue">当前账户</span>':btn('切换','account-switch','','small',`data-id="${E(a.id)}"`)):''}${btn('编辑','account-edit','','small',`data-id="${E(a.id)}"`)}${btn(a.archived?'恢复':'归档','account-archive','',a.archived?'small':'small danger',`data-id="${E(a.id)}" data-archived="${!a.archived}" data-name="${E(a.name)}"`)}</div></article>`).join('')||empty('还没有账户')}</div>`,btn('关闭','close')+btn('创建账户','account-new','plus','primary'));
   }
   function accountForm(id) {
     const a=workspace?.accounts?.find(x=>x.id===id)||{kind:'real',startDate:today(),openingCash:0,goalPercent:10,stages:[]};
-    modal(id?'编辑账户':'创建账户',`<form id="business-form" data-method="account.save"><input type="hidden" name="id" value="${E(a.id||'')}"><div class="business-form-grid">${field('账户名称','name',a.name,'text','required maxlength="80"')}${select('账户类型','kind',a.kind,[['real','实盘记账'],['paper','模拟账户']])}${field('起算日期','startDate',a.startDate,'date','required')}${field('期初现金（元）','openingCash',a.openingCash,'number','required min="0" step="0.01"')}${field('每阶段目标收益率（%）','goalPercent',a.goalPercent??10,'number','required min="0.1" max="500" step="0.1"')}${field('阶段总数','stageCount',a.stages?.length||20,'number','required min="1" max="100" step="1"')}</div>${msg('期初现金不包含持仓价值。若从持仓中的账户开始，请随后添加“期初持仓”；历史修改会重新核算全部流水。')}${formError}</form>`,footer());
+    modal(id?'编辑账户':'创建账户',`<form id="business-form" data-method="account.save"><input type="hidden" name="id" value="${E(a.id||'')}"><div class="business-form-grid">${field('账户名称','name',a.name,'text','required maxlength="80"')}${select('账户类型','kind',a.kind,[['real','实盘记账'],['paper','模拟账户']])}${field('起算日期','startDate',a.startDate,'date','required')}${field('期初现金（元）','openingCash',a.openingCash,'number','required min="0" step="0.01"')}${field('每阶段目标收益率（%）','goalPercent',a.goalPercent??10,'number','required min="0.1" max="500" step="0.1"')}${field('阶段总数','stageCount',a.stages?.length||20,'number','required min="1" max="100" step="1"')}</div>${msg('期初现金不包含持仓价值。若从持仓中的账户开始，请随后添加“期初持仓”；历史修改会重新核算全部流水。')}${formError}<button type="submit" hidden tabindex="-1"></button></form>`,footer());
   }
-  function ledgerForm(id,type='buy') {
-    const t=(workspace?.ledger||[]).find(x=>x.id===id)||{type,date:today(),time:'09:30:00',quantity:'',price:'',amount:'',commission:0,stampTax:0,transferFee:0,otherFees:0};
-    modal(id?'编辑流水':'记录交易与资金',`<form id="business-form" data-method="ledger.save"><input type="hidden" name="id" value="${E(t.id||'')}"><div class="business-form-grid">${select('记录类型','type',t.type,Object.entries(types))}${field('日期','date',t.date,'date','required')}${field('成交时间（同日按时间排序）','time',t.time,'time','step="1"')}<div></div><div data-ledger-security>${field('证券代码','code',t.code,'text','inputmode="numeric" maxlength="12"')}${field('证券名称','name',t.name)}</div><div data-ledger-stock>${field('数量（股；股份调整填正负变动）','quantity',t.quantity,'number','min="0" step="0.0001"')}${field('成交价格 / 期初每股成本（元）','price',t.price,'number','min="0" step="0.0001"')}</div><div data-ledger-cash>${field('资金金额（元）','amount',t.amount,'number','min="0.01" step="0.01"')}</div></div><section class="business-details"><header class="business-section-heading">费用明细 · 请按交割单填写</header><div class="business-form-grid">${field('佣金','commission',t.commission??0,'number','min="0" step="0.01"')}${field('印花税','stampTax',t.stampTax??0,'number','min="0" step="0.01"')}${field('过户费','transferFee',t.transferFee??0,'number','min="0" step="0.01"')}${field('其他费用','otherFees',t.otherFees??t.fees??0,'number','min="0" step="0.01"')}</div></section>${textfield('操作理由 / 备注','reason',t.reason)}${field('成交编号（用于去重，可留空）','externalId',t.externalId)}${msg('分红或独立费用可填写证券代码用于回合归因；留空记为账户级资金。没有接入券商，不会发出订单。保存后重新核算账户，现金或持仓不足时不会写入。')}${formError}</form>`,footer());updateLedgerFields();
+  function ledgerForm(id,type='buy',prefill={}) {
+    const t=(workspace?.ledger||[]).find(x=>x.id===id)||{type,date:today(),time:'09:30:00',code:prefill.code||'',name:prefill.name||'',quantity:prefill.quantity??'',price:prefill.price??'',amount:'',commission:0,stampTax:0,transferFee:0,otherFees:0,reason:prefill.reason||''};
+    modal(id?'编辑流水':'记录交易与资金',`<form id="business-form" data-method="ledger.save"><input type="hidden" name="id" value="${E(t.id||'')}"><div class="business-form-grid">${select('记录类型','type',t.type,Object.entries(types))}${field('日期','date',t.date,'date','required')}<div data-ledger-time>${field('成交时间（同日按时间排序）','time',t.time,'time','step="1"')}</div><div data-ledger-security>${field('证券代码','code',t.code,'text','inputmode="numeric" maxlength="12" placeholder="输入 6 位代码可自动补全名称"')}${field('证券名称','name',t.name)}</div><div data-ledger-stock>${field('数量（股；股份调整填正负变动）','quantity',t.quantity,'number','min="0" step="0.0001"')}${field('成交价格 / 期初每股成本（元）','price',t.price,'number','min="0" step="0.0001"')}</div><div data-ledger-cash>${field('资金金额（元）','amount',t.amount,'number','min="0.01" step="0.01"')}</div></div><section class="business-details" data-ledger-fees><header class="business-section-heading">费用明细 · 输入成交后按默认费率试算，请以交割单为准</header><div class="business-form-grid">${field('佣金','commission',t.commission??0,'number','min="0" step="0.01"')}${field('印花税','stampTax',t.stampTax??0,'number','min="0" step="0.01"')}${field('过户费','transferFee',t.transferFee??0,'number','min="0" step="0.01"')}${field('其他费用','otherFees',t.otherFees??t.fees??0,'number','min="0" step="0.01"')}</div></section>${textfield('操作理由 / 备注','reason',t.reason)}<div data-ledger-external>${field('成交编号（用于去重，可留空）','externalId',t.externalId)}</div>${msg('分红或独立费用可填写证券代码用于回合归因；留空记为账户级资金。没有接入券商，不会发出订单。保存后重新核算账户，现金或持仓不足时不会写入。')}${formError}<button type="submit" hidden tabindex="-1"></button></form>`,footer());updateLedgerFields();
   }
   function updateLedgerFields() {
     const f=currentForm();if(f?.dataset.method!=='ledger.save')return;
-    const type=f.elements.type.value,stock=['buy','sell','opening_position','split'].includes(type);
+    const type=f.elements.type.value,stock=['buy','sell','opening_position','split'].includes(type),trade=['buy','sell'].includes(type);
     $$('[data-ledger-security]',f).forEach(el=>{el.hidden=!stock&&!['dividend','fee'].includes(type);$$('input',el).forEach(i=>{i.disabled=el.hidden;i.required=stock&&i.name==='code';});});
     $$('[data-ledger-stock]',f).forEach(el=>{el.hidden=!stock;$$('input',el).forEach(i=>{i.disabled=!stock;i.required=stock&&['code','quantity','price'].includes(i.name)&&!(type==='split'&&i.name==='price');});});
+    $$('[data-ledger-fees],[data-ledger-time],[data-ledger-external]',f).forEach(el=>{el.hidden=!trade&&!(type==='fee'&&el.hasAttribute('data-ledger-fees'));});
     const quantity=f.elements.quantity;if(type==='split')quantity.removeAttribute('min');else quantity.min='0.000001';quantity.step='0.000001';
     $$('[data-ledger-cash]',f).forEach(el=>{el.hidden=stock;$$('input',el).forEach(i=>{i.disabled=stock;i.required=!stock;});});
+  }
+  function inferSecurityName(code) {
+    const clean=String(code||'').trim().replace(/^(sh|sz|bj)/i,'');if(!/^\d{6}$/.test(clean))return '';
+    const hit=(workspace?.positions||[]).find(p=>p.code===clean)||(workspace?.ledger||[]).find(t=>t.code===clean&&t.name);
+    return hit?.name||'';
+  }
+  function estimateLedgerFees(f) {
+    if(!f||f.dataset.method!=='ledger.save'||f.elements.id?.value||f.dataset.feesManual==='true')return;
+    const type=f.elements.type?.value;if(!['buy','sell'].includes(type))return;
+    const qty=Number(f.elements.quantity?.value),price=Number(f.elements.price?.value);
+    if(!Number.isFinite(qty)||qty<=0||!Number.isFinite(price)||price<=0)return;
+    const turnover=qty*price,rate=Number(AT.state.fees?.commissionRate??2.5)/10000,minFee=Number(AT.state.fees?.minCommission??5);
+    const commission=rate>0?Math.max(minFee,Number((turnover*rate).toFixed(2))):0;
+    const stampTax=type==='sell'?Number((turnover*0.0005).toFixed(2)):0;
+    const transferFee=Number((turnover*0.00001).toFixed(2));
+    if(f.elements.commission)f.elements.commission.value=String(commission);
+    if(f.elements.stampTax)f.elements.stampTax.value=String(stampTax);
+    if(f.elements.transferFee)f.elements.transferFee.value=String(transferFee);
   }
   function reviewSchema() {return workspace?.reviewSchema||{templates:[],dimensions:[],scoreScale:[]};}
   const fallbackFields=[['market','市场环境'],['decision','决策依据'],['execution','执行与偏差'],['risk','仓位与风险'],['emotion','情绪与纪律'],['learning','经验与改进'],['next','下一步行动']];
@@ -260,7 +283,7 @@
       const plans=(data.plans||[]).filter(p=>(p.date>=start&&p.date<=end)||(p.linkedTradeIds||[]).some(id=>ids.has(id)));
       const short=value=>String(value||'').slice(0,160),limited=(items,render)=>[...items.slice(0,40).map(render),...(items.length>40?[`另有 ${items.length-40} 条未展开，请在账本中核对。`]:[])];
       const facts=[`账本事实 · ${start}${end!==start?' 至 '+end:''}（持仓截至 '+end+'）`,`现金：${amount(data.summary?.cash)}；资产：${amount(data.summary?.equity)}。`, '持仓：',...limited(data.positions||[],p=>`${short(recordName(p))}：${p.quantity} 股，成本 ${amount(p.cost)}，估值 ${p.marketPrice==null?'缺价':amount(p.marketPrice)}。`),'本期流水：',...limited(ledger,t=>`${t.date} ${types[t.type]} ${short(recordName(t))} ${t.quantity||''} ${['buy','sell','opening_position'].includes(t.type)?'@ '+amount(t.price):t.type==='split'?'股数变动':amount(t.amount)}；理由：${short(t.reason)||'未记录'}。`),'计划与执行：',...limited(plans,p=>`${p.date} ${short(recordName(p))} ${types[p.action]||p.action}；触发：${short(p.trigger)||'未填写'}；实际 ${p.execution?.quantity??0} 股；${short(p.executionNotes)||'未填写偏差'}。`)];
-      const factsText=facts.join('\n');target.value=factsText.length>17000?factsText.slice(0,17000)+'\n内容较多，后续事实省略；请在账本中核对。':factsText;currentReview.factsAutoText=target.value;if(status)status.textContent='已带入账本事实；未编辑的自动事实会随复盘日期刷新，手工补充始终保留。';stashReviewDraft();updateReviewProgress();
+      const factsText=facts.join('\n');target.value=factsText.length>17000?factsText.slice(0,17000)+'\n内容较多，后续事实省略；请在账本中核对。':factsText;currentReview.factsAutoText=target.value;if(status)status.textContent='已带入账本事实；未编辑的自动事实会随复盘日期刷新，手工补充始终保留。';updateReviewProgress();
     }catch(error){if(serial===factsSerial&&status?.isConnected)status.textContent='事实读取失败：'+errorText(error);}
   }
   function updateLiveScore() {
@@ -281,9 +304,9 @@
     pages.unshift({key:'quick',label:'快速复盘',hint:'三件事与账本事实',body:quickFields.map(([id,label])=>textfield(label,'field:'+id,r.fields?.[id])).join('')+textfield('当日账本事实','field:accountFacts',r.fields?.accountFacts,'自动带入持仓、成交和计划，保留你的补充')+'<p class="field-hint" data-review-facts-status>仅使用本机账本，行情判断请补充来源。</p>'+btn('补充账本事实','review-facts','','small')});
     if(r.kind!=='idea')pages.push({key:'scores',label:'纪律与决策评分',hint:'逐项自评 · 附上依据',body:msg('盈利不等于好的决策。未评价与不适用不会当作满分；为评分写下可核对的事实。')+`<div class="review-score-tabs" aria-label="评分维度">${dims.map((d,index)=>`<button type="button" data-business="score-dimension" data-score-dimension="${index}" aria-pressed="${index===activeScoreDimension}">${E(d.label)}</button>`).join('')}</div>`+dims.map((d,index)=>`<section class="business-rubric" data-score-panel="${index}" ${index!==activeScoreDimension?'hidden':''}><h3>${E(d.label)}</h3><p>${E(d.description||'')}</p>${msg(scale.map(s=>s.value+' · '+s.label).join('　'))}${(d.items||[]).map(item=>{const raw=r.scores?.[item.id],score=typeof raw==='number'?{score:raw}:raw||{},value=score.notApplicable?'na':score.score==null?'':String(score.score);return `<div class="business-score-item"><header><strong>${E(item.label)}</strong><p>${E(item.prompt||'')}</p></header><div class="business-score-choices" role="group" aria-label="${E(item.label)}评分">${[{value:'',label:'未评',title:'未评价'},...scale.map(s=>({value:String(s.value),label:String(s.value),title:s.label})),{value:'na',label:'不适用',title:'不适用，请填写原因'}].map(s=>`<label title="${E(s.title)}"><input type="radio" name="score:${E(item.id)}" value="${E(s.value)}" aria-label="${E(s.title)}" ${value===s.value?'checked':''}><span>${E(s.label)}</span></label>`).join('')}</div><input name="evidence:${E(item.id)}" value="${E(score.evidence||r.scoreNotes?.[item.id]||'')}" placeholder="评分依据 / 不适用原因" aria-label="${E(item.label)}评分依据"></div>`;}).join('')}</section>`).join('')+`<div data-live-score>${scoreSummary(r.score)}</div>`});
     pages.push({key:'trades',label:'关联成交',hint:(r.relatedTradeIds||[]).length+' 笔已关联',body:tradeCheckboxes('relatedTradeIds',r.relatedTradeIds||[])});
-    pages.push({key:'ai',label:'AI 辅助草稿',hint:'检查后采纳为附注',body:msg('将发送当前复盘文字、评分、关联成交，以及所选日期范围内此账户的流水、计划和快照给全局设置中的文本 AI。AI 结论仅作草稿；策略提示词将在后续完善。')+aiRoute('text')+btn('发送当前材料，生成草稿','ai-review','note','small',AT.aiSettings?.ready('text')?'':'disabled')+textfield('已采纳的 AI 草稿','field:aiDraft',r.fields?.aiDraft,'可编辑，不会自动改变评分')});
+    pages.push({key:'ai',label:'AI 辅助草稿',hint:'检查后采纳为附注',body:msg('将发送当前复盘文字、评分、关联成交，以及所选日期范围内此账户的流水、计划和快照给全局设置中的文本 AI。AI 结论仅作草稿；策略提示词将在后续完善。')+aiRoute('text')+btn('发送当前材料，生成草稿','ai-review','note','small',AT.aiSettings?.ready('text')?'':'disabled title="请先在「设置 → AI 模型」配置并启用文本 AI"')+textfield('已采纳的 AI 草稿','field:aiDraft',r.fields?.aiDraft,'可编辑，不会自动改变评分')});
     if(!pages.some(p=>p.key===activeReviewSection))activeReviewSection=pages[0].key;
-    modal(r.id?'编辑复盘':'写一份复盘',`<form id="business-form" class="review-editor" data-method="review.save"><div class="review-basics"><p class="field-hint">输入自动保存为本机草稿，点击“保存复盘”后加入正式档案。</p><input type="hidden" name="id" value="${E(r.id||'')}"><div class="business-form-grid">${select('复盘类型','kind',r.kind,Object.entries(kinds))}${field('日期','date',r.date,'date','required')}${r.kind==='weekly'||r.kind==='monthly'?field('周期结束日期','endDate',r.endDate||r.date,'date','required'):''}</div>${field('标题','title',r.title,'text','required maxlength="200"')}</div><div class="business-tabs review-mode-tabs"><button type="button" data-business="review-mode" data-mode="quick" aria-pressed="true">快速复盘</button><button type="button" data-business="review-mode" data-mode="full" aria-pressed="false">完整复盘</button><span class="field-hint">完整内容、评分与关联成交始终保留</span></div><div class="review-layout"><nav class="review-sections" aria-label="复盘分区">${pages.map((p,index)=>`<button type="button" data-business="review-section" ${p.key.startsWith('section-')?'data-review-complete':''} data-review-section="${p.key}" aria-controls="review-panel-${p.key}" aria-pressed="${p.key===activeReviewSection}"><span class="review-section-number">${String(index+1).padStart(2,'0')}</span><span><strong>${E(p.label)}</strong><small data-review-progress>${E(p.hint)}</small></span></button>`).join('')}</nav><div class="review-content">${pages.map((p,index)=>`<section class="review-section" id="review-panel-${p.key}" data-review-panel="${p.key}" aria-labelledby="review-heading-${p.key}" ${p.key!==activeReviewSection?'hidden':''}><header class="review-section-heading"><span class="eyebrow">${String(index+1).padStart(2,'0')} / ${String(pages.length).padStart(2,'0')}</span><h2 id="review-heading-${p.key}">${E(p.label)}</h2><p>${E(p.hint)}</p></header>${p.body}</section>`).join('')}</div></div>${formError}</form>`,btn('丢弃草稿','review-discard','','small')+btn('返回','close','back')+btn('保存复盘','save-form','save','primary'));
+    modal(r.id?'编辑复盘':'写一份复盘',`<form id="business-form" class="review-editor" data-method="review.save"><div class="review-basics"><p class="field-hint">输入自动保存为本机草稿，点击“保存复盘”后加入正式档案。</p><input type="hidden" name="id" value="${E(r.id||'')}"><div class="business-form-grid">${select('复盘类型','kind',r.kind,Object.entries(kinds))}${field('日期','date',r.date,'date','required')}${r.kind==='weekly'||r.kind==='monthly'?field('周期结束日期','endDate',r.endDate||r.date,'date','required'):''}</div>${field('标题','title',r.title,'text','required maxlength="200"')}</div><div class="business-tabs review-mode-tabs"><button type="button" data-business="review-mode" data-mode="quick" aria-pressed="true">快速复盘</button><button type="button" data-business="review-mode" data-mode="full" aria-pressed="false">完整复盘</button><span class="field-hint">完整内容、评分与关联成交始终保留</span></div><div class="review-layout"><nav class="review-sections" aria-label="复盘分区">${pages.map((p,index)=>`<button type="button" data-business="review-section" ${p.key.startsWith('section-')?'data-review-complete':''} data-review-section="${p.key}" aria-controls="review-panel-${p.key}" aria-pressed="${p.key===activeReviewSection}"><span class="review-section-number">${String(index+1).padStart(2,'0')}</span><span><strong>${E(p.label)}</strong><small data-review-progress>${E(p.hint)}</small></span></button>`).join('')}</nav><div class="review-content">${pages.map((p,index)=>`<section class="review-section" id="review-panel-${p.key}" data-review-panel="${p.key}" aria-labelledby="review-heading-${p.key}" ${p.key!==activeReviewSection?'hidden':''}><header class="review-section-heading"><span class="eyebrow">${String(index+1).padStart(2,'0')} / ${String(pages.length).padStart(2,'0')}</span><h2 id="review-heading-${p.key}">${E(p.label)}</h2><p>${E(p.hint)}</p></header>${p.body}</section>`).join('')}</div></div>${formError}</form>`,btn('丢弃草稿','review-discard','','small danger')+btn('返回','close','back')+btn('保存复盘','save-form','save','primary'));
     reviewMode(AT.ui.reviewMode||'quick');updateReviewProgress();updateLiveScore();
   }
   function showReviewSection(key) {
@@ -350,27 +373,33 @@
     if(!detail)return '尚未填写价格';
     return `${detail.source==='manual'?'手工填写':detail.source||'未知来源'} · ${detail.priceDate||'日期未知'}${detail.stale?' · 非目标日价格，请核对':''}${detail.adjustment==='none'?' · 不复权':''}`;
   }
+  function setSnapshotBusy(f,loading){
+    if(!f)return;
+    if(loading)f.dataset.loading='true';else delete f.dataset.loading;
+    const save=$('[data-business="save-form"]');if(save)save.disabled=Boolean(loading||f.dataset.saving);
+    const box=f.querySelector('[data-snapshot-positions]');if(box){box.inert=loading;box.classList.toggle('at-updating',loading);}
+  }
   async function loadSnapshotDate(date) {
     const s=snapshotSession,f=currentForm();if(!s||f?.dataset.method!=='snapshot.save'||!date)return;
-    const token=++s.token;s.date=date;s.error='';s.loading=true;f.dataset.loading='true';f.querySelector('[data-snapshot-positions]').inert=true;const status=f.querySelector('[data-snapshot-status]');status.textContent='正在读取 '+date+' 的持仓…';
+    const token=++s.token;s.date=date;s.error='';s.loading=true;setSnapshotBusy(f,true);const status=f.querySelector('[data-snapshot-status]');status.textContent='正在读取 '+date+' 的持仓…';
     try{
       const data=await call('account.asof',{accountId:s.accountId,date});if(s!==snapshotSession||s.token!==token||!f.isConnected)return;
       s.positions=data.positions||[];const existing=(workspace.snapshots||[]).find(x=>x.date===date);s.priceDetails=structuredClone(existing?.priceDetails||{});
       f.querySelector('[data-snapshot-positions]').innerHTML=s.positions.length?`<div class="business-form-grid">${s.positions.map(p=>`<div>${field(`${p.name||p.code} (${p.code}) · ${p.quantity} 股`,'price:'+p.code,existing?.prices?.[p.code]??'','number','min="0.0001" step="0.0001" data-snapshot-price="'+E(p.code)+'"')}<p class="field-hint" data-price-source="${E(p.code)}">${E(priceSource(s.priceDetails[p.code]||(existing?.prices?.[p.code]?{source:'manual',priceDate:date}:null)))}</p></div>`).join('')}</div>`:msg('截至该日没有持仓，快照资产来自现金。');
       status.textContent=`${date} · ${s.positions.length} 只持仓 · 现金 ${amount(data.summary?.cash)}。空白价格会保留为缺价。`;
     }catch(error){if(s===snapshotSession&&s.token===token&&f.isConnected){f.querySelector('[data-snapshot-positions]').innerHTML='';status.textContent=errorText(error);s.error=errorText(error);}}
-    finally{if(s===snapshotSession&&s.token===token){s.loading=false;delete f.dataset.loading;f.querySelector('[data-snapshot-positions]').inert=false;}}
+    finally{if(s===snapshotSession&&s.token===token){s.loading=false;setSnapshotBusy(f,false);}}
   }
   async function fillSnapshotMarket() {
     const s=snapshotSession,f=currentForm();if(!s||s.loading||f?.dataset.method!=='snapshot.save')return;
-    const token=++s.token,date=s.date,button=f.querySelector('[data-business="snapshot-market"]'),status=f.querySelector('[data-snapshot-status]');button.disabled=true;s.loading=true;f.dataset.loading='true';status.textContent='正在读取 '+date+' 的不复权价格…';
+    const token=++s.token,date=s.date,button=f.querySelector('[data-business="snapshot-market"]'),status=f.querySelector('[data-snapshot-status]');button.disabled=true;s.loading=true;setSnapshotBusy(f,true);status.textContent='正在读取 '+date+' 的不复权价格…';
     const previous=Object.fromEntries($$('[data-snapshot-price]',f).map(el=>[el.dataset.snapshotPrice,el.value]));
     try{const data=await call('account.valuation',{accountId:s.accountId,date});if(s!==snapshotSession||s.token!==token||!f.isConnected||f.elements.date.value!==date)return;
       let filled=0;
-      for(const el of $$('[data-snapshot-price]',f)){const code=el.dataset.snapshotPrice,value=data.prices?.[code];if(el.value!==previous[code]||el.value.trim()||!Number.isFinite(value)||value<=0)continue;el.value=String(value);s.priceDetails[code]=data.priceDetails?.[code]||{source:'market',priceDate:date,requestedDate:date,adjustment:'none',stale:false};f.querySelector(`[data-price-source="${CSS.escape(code)}"]`).textContent=priceSource(s.priceDetails[code]);filled++;}
+      for(const el of $$('[data-snapshot-price]',f)){const code=el.dataset.snapshotPrice,value=data.prices?.[code];if(el.value!==previous[code]||el.value.trim()||!Number.isFinite(value)||value<=0)continue;el.value=String(value);s.priceDetails[code]=data.priceDetails?.[code]||{source:'market',priceDate:date,requestedDate:date,adjustment:'none',stale:false};f.querySelector(`[data-price-source="${CSS.escape(code)}"]`).textContent=priceSource(s.priceDetails[code]);AT.motion?.flashSuccess?.(el);filled++;}
       const missing=(data.missingPrices||[]).join('、');status.textContent=`已填充 ${filled} 只证券，已有手工价格保持原值。${missing?'缺价：'+missing+'。':''}${(data.warnings||[]).join('；')}`;
     }catch(error){if(s===snapshotSession&&s.token===token&&status.isConnected)status.textContent=errorText(error);}
-    finally{if(button.isConnected)button.disabled=false;if(s===snapshotSession&&s.token===token){s.loading=false;delete f.dataset.loading;}}
+    finally{if(button.isConnected)button.disabled=false;if(s===snapshotSession&&s.token===token){s.loading=false;setSnapshotBusy(f,false);}}
   }
   async function saveForm() {
     const f=currentForm();if(!f||!f.reportValidity()||f.dataset.saving||f.dataset.loading)return;
@@ -389,10 +418,11 @@
     try{const result=await call(method,{...data,accountId:originAccountId});if(method==='plan.save'&&f.dataset.researchDraftId)window.StrategyWorkspace?.planSaved(f.dataset.researchDraftId);if(method==='review.save'){f.dataset.saved='true';delete AT.state.businessReviewDrafts?.[savedDraftKey];await AT.persist();}if(originAccountId!==workspace?.accountId){await refresh(workspace?.accountId);AT.toast('已保存到原账户的本机账本');return;}applyWorkspace(result);if(!result?.accounts&&!result?.workspace)await refresh();if(f.isConnected)AT.closeBusinessModal();AT.render();AT.toast('已保存到本机账本');}
     catch(error){notice(error,f);}finally{delete f.dataset.saving;f.inert=false;if(save?.isConnected)save.disabled=false;}
   }
-  function confirmAction(title,description,action,attrs='') {AT.openBusinessModal(title,`<p class="business-confirm">${E(description)}</p>`,{className:'business-modal',footer:btn('取消','close')+btn('确认',action,'check','primary',attrs)});}
+  function confirmAction(title,description,action,attrs='',confirmLabel='确认',danger=true) {AT.openBusinessModal(title,`<p class="business-confirm">${E(description)}</p>`,{className:'business-modal',footer:btn('取消','close')+btn(confirmLabel,action,'check',danger?'danger':'primary',attrs)});}
   function download(name,data,mime='application/json') {
     const url=URL.createObjectURL(new Blob([typeof data==='string'?data:JSON.stringify(data,null,2)],{type:mime}));
     const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    AT.toast?.('已开始导出文件：'+name);
   }
   function exportLedger() {
     const headers=['id','date','time','type','code','name','quantity','price','amount','commission','stampTax','transferFee','otherFees','reason','externalId','voided'];
@@ -450,7 +480,7 @@
   async function recognizeImages() {
     collectImportRows();if(!importState.images.length)return;const s=importState,token=s.readToken=(s.readToken||0)+1;s.busy=true;importModal();
     try {const result=await callAI('recognize',{images:s.images,accountId:s.accountId,defaultDate:s.defaultDate||undefined});if(importState!==s||workspace.accountId!==s.accountId||s.readToken!==token)return;s.rows=[];s.preview=null;s.reviewed=false;s.warnings=result.warnings||[];if(s.defaultDate)s.warnings.push(`缺失日期由你补充为 ${s.defaultDate}，请逐行确认。`);const rows=(result.rows||[]).map(r=>({...r,source:'ocr',feeMissing:r.feesConfirmed!==true,feesConfirmed:false}));if(!rows.length)throw new Error('未识别到成交记录。请使用更清晰的截图，或改为手工录入。');const preview=await previewRows(rows,s);if(s.readToken!==token)return;applyImportPreview(preview,s);}
-    catch(error){if(s.readToken===token)s.error=errorText(error);}finally{if(s.readToken===token){s.busy=false;if(importState===s&&$('[data-business-images]')){importModal();if(s.error){$('[data-import-error]').textContent=s.error;$('[data-import-error]').hidden=false;s.error='';}}}}
+    catch(error){if(s.readToken===token)s.error=errorText(error);}finally{if(s.readToken===token){s.busy=false;if(importState===s&&$('[data-business-images]')){importModal();if(s.error){const errEl=$('[data-import-error]');if(errEl){errEl.textContent=s.error;errEl.hidden=false;errEl.scrollIntoView({block:'nearest',...(AT.motion?.scrollOptions?.()||{})});AT.motion?.shake?.(errEl);}s.error='';}}}}
   }
   async function validateImport(commit=false) {
     collectImportRows();const s=importState;if(!s||s.busy)return;s.error='';s.busy=true;
@@ -465,8 +495,8 @@
       if(!valid.length)throw new Error('没有可导入的新记录，可能与已有流水重复。');
       const result=await call('import.commit',{accountId:s.accountId,kind:s.kind,rows:valid.map(r=>({...importRecord(r),reviewed:s.reviewed})),previewId:preview.previewId,source:s.tab==='images'?'ocr':'file'});
       if(importState!==s||workspace.accountId!==s.accountId){AT.toast('导入已保存到原账户');return;}
-      applyWorkspace(result);if(!result?.accounts&&!result?.workspace)await refresh();if(importVisible(s))AT.closeBusinessModal();AT.render();importState=null;AT.toast(`已导入 ${valid.length} 条记录`);
-    }catch(error){s.error=errorText(error);s.busy=false;if(importVisible(s)){importModal();$('[data-import-error]').textContent=s.error;$('[data-import-error]').hidden=false;}}finally{s.busy=false;}
+      applyWorkspace(result);if(!result?.accounts&&!result?.workspace)await refresh();if(importVisible(s))AT.closeBusinessModal();AT.render();importState=null;AT.toast(`已导入 ${valid.length} 条记录`,false,'success');
+    }catch(error){s.error=errorText(error);s.busy=false;if(importVisible(s)){importModal();const errEl=$('[data-import-error]');if(errEl){errEl.textContent=s.error;errEl.hidden=false;errEl.scrollIntoView({block:'nearest',...(AT.motion?.scrollOptions?.()||{})});AT.motion?.shake?.(errEl);}}}finally{s.busy=false;}
   }
   function fileBase64(file) {return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(new Error('文件读取失败'));reader.readAsDataURL(file);});}
   async function readImages(files) {
@@ -480,21 +510,21 @@
   }
   async function readImportFile(file) {
     if(file.size>10*1024*1024)throw new Error('导入文件不能超过 10 MiB。');
-    const s=importState,token=s.readToken=(s.readToken||0)+1;s.file={name:file.name};s.error='';s.rows=[];s.warnings=[];s.preview=null;s.busy=false;s.reviewed=false;importModal();
+    const s=importState,token=s.readToken=(s.readToken||0)+1;s.file={name:file.name};s.error='';s.rows=[];s.warnings=['正在解析文件，请稍候…'];s.preview=null;s.busy=true;s.reviewed=false;importModal();
     try{const contentBase64=await fileBase64(file);if(importState!==s||s.readToken!==token)return;
-      const result=await call('import.preview',{accountId:s.accountId,kind:s.kind,filename:file.name,contentBase64});if(importState!==s||workspace.accountId!==s.accountId||s.readToken!==token)return;applyImportPreview(result,s);if(importVisible(s))importModal();
-    }catch(error){if(importState===s&&s.readToken===token)throw error;}
+      const result=await call('import.preview',{accountId:s.accountId,kind:s.kind,filename:file.name,contentBase64});if(importState!==s||workspace.accountId!==s.accountId||s.readToken!==token)return;s.warnings=[];s.busy=false;applyImportPreview(result,s);if(importVisible(s))importModal();
+    }catch(error){if(importState===s&&s.readToken===token){s.busy=false;s.warnings=[];throw error;}}
   }
   async function aiReview() {
     const f=currentForm();if(!f||f.dataset.aiBusy)return;currentReview=collectReview();f.dataset.aiBusy='true';
-    const trigger=$('[data-business="ai-review"]');trigger.disabled=true;trigger.textContent='正在生成草稿…';
-    try{const review=structuredClone(currentReview);const labels=Object.fromEntries([...reviewSchema().templates.flatMap(t=>t.sections.flatMap(s=>s.fields)).map(f=>[f.id,f.label]),...reviewSchema().dimensions.flatMap(d=>d.items).map(i=>[i.id,i.label])]);const result=await callAI('review',{review,accountId:workspace.accountId});if(!f.isConnected)return;const draft=result.draft;const text=typeof draft==='object'?[draft.summary,...Object.entries(draft.fields||{}).map(([id,value])=>`${labels[id]||id}\n${value}`),...(draft.missingData||[]).map(item=>'待补充：'+item),...Object.entries(draft.suggestedScores||{}).map(([id,value])=>`评分建议 ${labels[id]||id}：${value.score==null?'未建议':value.score} · ${value.comment||''}`)].filter(Boolean).join('\n\n'):result.text||result.content||draft||'';if(!text)throw new Error('AI 未返回复盘文字。');const wrap=document.createElement('div');wrap.className='business-ai-result';wrap.innerHTML=`<h3>AI 建议草稿</h3>${textfield('检查草稿后再采纳','aiGenerated',text)}${msg('采纳后作为独立附注保存，不覆盖你的复盘文字或自评分。')}${btn('采纳为附注','ai-adopt','check','small')}`;trigger.closest('[data-review-panel]').querySelector('.business-ai-result')?.remove();trigger.closest('[data-review-panel]').append(wrap);AT.toast('草稿已生成，检查后可采纳');}
-    catch(error){notice(error,f);}finally{delete f.dataset.aiBusy;if(trigger.isConnected){trigger.disabled=false;trigger.textContent='发送当前材料，生成草稿';}}
+    const trigger=$('[data-business="ai-review"]');trigger.disabled=true;trigger.innerHTML='<span class="at-spinner" aria-hidden="true"></span>正在生成草稿…';
+    try{const review=structuredClone(currentReview);const labels=Object.fromEntries([...reviewSchema().templates.flatMap(t=>t.sections.flatMap(s=>s.fields)).map(f=>[f.id,f.label]),...reviewSchema().dimensions.flatMap(d=>d.items).map(i=>[i.id,i.label])]);const result=await callAI('review',{review,accountId:workspace.accountId});if(!f.isConnected)return;const draft=result.draft;const text=typeof draft==='object'?[draft.summary,...Object.entries(draft.fields||{}).map(([id,value])=>`${labels[id]||id}\n${value}`),...(draft.missingData||[]).map(item=>'待补充：'+item),...Object.entries(draft.suggestedScores||{}).map(([id,value])=>`评分建议 ${labels[id]||id}：${value.score==null?'未建议':value.score} · ${value.comment||''}`)].filter(Boolean).join('\n\n'):result.text||result.content||draft||'';if(!text)throw new Error('AI 未返回复盘文字。');const wrap=document.createElement('div');wrap.className='business-ai-result';wrap.innerHTML=`<h3>AI 建议草稿</h3>${textfield('检查草稿后再采纳','aiGenerated',text)}${msg('采纳后作为独立附注保存，不覆盖你的复盘文字或自评分。')}${btn('采纳为附注','ai-adopt','check','small')}`;trigger.closest('[data-review-panel]').querySelector('.business-ai-result')?.remove();trigger.closest('[data-review-panel]').append(wrap);wrap.scrollIntoView({block:'nearest',...(AT.motion?.scrollOptions?.()||{})});AT.motion?.flashSuccess?.(wrap);AT.toast('草稿已生成，检查后可采纳');}
+    catch(error){notice(error,f);}finally{delete f.dataset.aiBusy;if(trigger.isConnected){trigger.disabled=false;trigger.innerHTML=I('note')+'发送当前材料，生成草稿';}}
   }
   async function restoreFile(file) {
     if(file.size>20*1024*1024)throw new Error('备份文件过大，请使用不超过 20 MiB 的 JSON 文件。');
     let data;try{data=JSON.parse(await file.text());}catch{throw new Error('无法读取 JSON 备份。');}restoreCandidate=data;
-    confirmAction('恢复账本备份',`文件：${file.name}。恢复将替换所有账户、交易、复盘、计划与快照。建议先导出当前账本；确认后系统校验整份备份，通过后才写入。`,'backup-restore-confirm');
+    confirmAction('恢复账本备份',`文件：${file.name}。恢复将替换所有账户、交易、复盘、计划与快照。建议先导出当前账本；确认后系统校验整份备份，通过后才写入。`,'backup-restore-confirm','','确认覆盖恢复',true);
   }
   function historicalNotes() {
     const labels={A08:'原每日笔记',A09:'原周期笔记',A12:'原灵感闪记'},notes=Object.entries(AT.state.notes||{}).filter(([,value])=>typeof value==='string'&&value.trim());
@@ -510,7 +540,16 @@
     if(action==='close'){stashReviewDraft();return AT.closeBusinessModal();}
     if(action==='history-page'){historyState(el.dataset.historyKey).page=Number(el.dataset.page);return refreshHistory(el.dataset.historyKey);}
     if(action==='history-clear'){const key=el.dataset.historyKey;historyFilters[key]={query:'',from:'',to:'',page:0,size:25};$$(`[data-history-key="${CSS.escape(key)}"][data-history-filter]`).forEach(input=>input.value='');return refreshHistory(key);}
-    if(action==='curve-mode'){curveMode=el.dataset.mode;return AT.render();}
+    if(action==='curve-mode'){
+      curveMode=el.dataset.mode;
+      const host=$('[data-performance-curve]');
+      if(host){
+        $$('[data-business="curve-mode"]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===curveMode)));
+        host.innerHTML=curve(workspace.snapshots||[]);AT.hydrateIcons?.();AT.motion?.enter?.(host,'at-page-enter');
+        return;
+      }
+      return AT.render();
+    }
     if(action==='performance-date')return performanceDate(el.dataset.date);
     if(action==='refresh')return refresh();
     if(action==='legacy-notes')return historicalNotes();
@@ -519,14 +558,22 @@
     if(action==='accounts')return accountsModal();
     if(action==='account-new')return accountForm();
     if(action==='account-edit')return accountForm(id||workspace.accountId);
-    if(action==='account-switch'){await refresh(id);AT.closeBusinessModal();return;}
-    if(action==='account-archive'){const active=workspace.accountId,result=await call('account.archive',{accountId:id,id,archived:el.dataset.archived==='true'});if(id!==active)await refresh(active);else applyWorkspace(result);AT.render();return accountsModal();}
+    if(action==='account-switch'){await refresh(id);AT.closeBusinessModal();AT.toast('已切换账户');return;}
+    if(action==='account-archive'){
+      const archiving=el.dataset.archived==='true';
+      if(archiving)return confirmAction('归档账户',`归档“${el.dataset.name||'该账户'}”后将从常用列表隐藏，历史流水与复盘完整保留，可随时恢复。`,'account-archive-confirm',`data-id="${E(id)}" data-archived="true"`,'确认归档',true);
+      const active=workspace.accountId,result=await call('account.archive',{accountId:id,id,archived:false});if(id!==active)await refresh(active);else applyWorkspace(result);AT.render();AT.toast('账户已恢复');return accountsModal();
+    }
+    if(action==='account-archive-confirm'){const active=workspace.accountId,result=await call('account.archive',{accountId:id,id,archived:true});AT.closeBusinessModal();if(id!==active)await refresh(active);else applyWorkspace(result);AT.render();AT.toast('账户已归档');return accountsModal();}
+    if(action==='holding-buy')return ledgerForm(null,'buy',{code:el.dataset.code,name:el.dataset.name});
+    if(action==='holding-sell')return ledgerForm(null,'sell',{code:el.dataset.code,name:el.dataset.name});
+    if(action==='plan-trade'){const p=(workspace.plans||[]).find(x=>x.id===id);return ledgerForm(null,p?.action==='sell'||p?.action==='reduce'?'sell':'buy',{code:p?.code||'',name:p?.name||'',quantity:p?.quantity??'',reason:p?.reason||''});}
     if(action==='ledger-new')return ledgerForm();
     if(action==='cash-new')return ledgerForm(null,'deposit');
     if(action==='opening-position')return ledgerForm(null,'opening_position');
     if(action==='ledger-edit')return ledgerForm(id);
     if(action==='ledger-tab'){AT.ui.ledgerMode=el.dataset.mode;return AT.render();}
-    if(action==='ledger-void')return confirmAction('作废流水','作废后保留原记录，并重新核算账户。后续交易如出现资金或持仓不足，操作会被拒绝。','ledger-void-confirm',`data-id="${E(id)}"`);
+    if(action==='ledger-void')return confirmAction('作废流水','作废后保留原记录，并重新核算账户。后续交易如出现资金或持仓不足，操作会被拒绝。','ledger-void-confirm',`data-id="${E(id)}"`,'确认作废',true);
     if(action==='ledger-void-confirm'){applyWorkspace(await call('ledger.void',{id}));AT.closeBusinessModal();AT.render();return AT.toast('记录已作废');}
     if(action==='save-form')return saveForm();
     if(action==='review-new')return reviewForm(null,AT.ui.reviewNote==='A12'?'idea':AT.ui.reviewNote==='A09'?'weekly':'daily');
@@ -536,22 +583,23 @@
     if(action==='score-dimension')return showScoreDimension(el.dataset.scoreDimension);
     if(action==='idea')return reviewForm(null,'idea');
     if(action==='review-edit')return reviewForm(id);
-    if(action==='review-discard'){stashReviewDraft();const key=draftKey(collectReview());return confirmAction('丢弃未提交草稿','将移除这份未提交草稿；已经保存的正式复盘不受影响。','review-discard-confirm',`data-key="${E(key)}"`);}
-    if(action==='review-discard-confirm'){const f=currentForm();if(f)f.dataset.saved='true';delete AT.state.businessReviewDrafts?.[el.dataset.key];await AT.persist();AT.closeBusinessModal();AT.closeBusinessWorkspace();return AT.toast('已丢弃草稿');}
+    if(action==='review-discard'){stashReviewDraft();const key=draftKey(collectReview());return confirmAction('丢弃未提交草稿','将移除这份未提交草稿；已经保存的正式复盘不受影响。','review-discard-confirm',`data-key="${E(key)}"`,'确认丢弃',true);}
+    if(action==='review-discard-confirm'){const f=currentForm();if(f)f.dataset.saved='true';delete AT.state.businessReviewDrafts?.[el.dataset.key];await AT.persist();AT.closeBusinessModal();AT.closeBusinessWorkspace(true);return AT.toast('已丢弃草稿');}
     if(action==='review-trade')return reviewForm(null,'trade',id);
-    if(action==='review-filter-clear'){reviewFilter.date='';return AT.render();}
-    if(action==='review-delete')return confirmAction('删除复盘','确认删除这份复盘？交易流水不受影响。','review-delete-confirm',`data-id="${E(id)}"`);
-    if(action==='review-delete-confirm'){const key=`${workspace.accountId}|${id}`;applyWorkspace(await call('review.delete',{id}));delete AT.state.businessReviewDrafts?.[key];await AT.persist();AT.closeBusinessModal();return AT.render();}
+    if(action==='review-filter-clear'){reviewFilter={kind:'all',date:''};return AT.render();}
+    if(action==='review-delete')return confirmAction('删除复盘','确认删除这份复盘？交易流水不受影响。','review-delete-confirm',`data-id="${E(id)}"`,'确认删除',true);
+    if(action==='review-delete-confirm'){const key=`${workspace.accountId}|${id}`;applyWorkspace(await call('review.delete',{id}));delete AT.state.businessReviewDrafts?.[key];await AT.persist();AT.closeBusinessModal();AT.render();return AT.toast('已删除复盘');}
     if(action==='plan-new')return planForm();
     if(action==='plan-edit')return planForm(id);
-    if(action==='plan-delete')return confirmAction('删除交易计划','确认删除这份计划与执行备注？关联的交易流水不受影响。','plan-delete-confirm',`data-id="${E(id)}"`);
-    if(action==='plan-delete-confirm'){applyWorkspace(await call('plan.delete',{id}));AT.closeBusinessModal();return AT.render();}
+    if(action==='plan-delete')return confirmAction('删除交易计划','确认删除这份计划与执行备注？关联的交易流水不受影响。','plan-delete-confirm',`data-id="${E(id)}"`,'确认删除',true);
+    if(action==='plan-delete-confirm'){applyWorkspace(await call('plan.delete',{id}));AT.closeBusinessModal();AT.render();return AT.toast('已删除交易计划');}
     if(action==='snapshots')return snapshotsModal();
     if(action==='stage-detail')return stageDetail(Number(el.dataset.stage));
     if(action==='snapshot-new')return snapshotForm();
     if(action==='snapshot-edit')return snapshotForm(el.dataset.date);
     if(action==='snapshot-market')return fillSnapshotMarket();
     if(action==='share')return AT.navigate('A11');
+    if(action==='copy-share'){try{await navigator.clipboard.writeText(shareText());AT.toast('已复制复盘摘要');}catch{AT.toast('复制失败，请手动选中复制',false,'error');}return;}
     if(action==='export-share')return download(`A-trade-复盘分享-${today()}.txt`,shareText(),'text/plain;charset=utf-8');
     if(action==='export-ledger')return exportLedger();
     if(action==='export-reviews')return download(`A-trade-复盘-${today()}.json`,{accountName:account()?.name,reviews:workspace.reviews,reviewSchema:workspace.reviewSchema});
@@ -575,22 +623,44 @@
   AT.accountModule={async openPlanDraft(draft){await refresh(AT.state.businessAccountId);if(!workspace?.accountId)throw Error('请先建立或选择一个账户，再保存交易计划。');AT.ui.ledgerMode='plan';AT.navigate('A04');planForm('',draft);const form=$('#business-form');if(form&&draft.researchDraftId)form.dataset.researchDraftId=draft.researchDraftId;},async flush(){stashReviewDraft();clearTimeout(draftTimer);const results=await Promise.allSettled([...pendingWrites]);if(results.some(r=>r.status==='rejected'))return false;return await AT.persist();}};
   document.addEventListener('click',event=>{const el=event.target.closest('[data-business]');if(!el||el.disabled)return;event.preventDefault();event.stopPropagation();launch(el.dataset.business,el);},true);
   document.addEventListener('submit',event=>{if(event.target.id!=='business-form')return;event.preventDefault();event.stopPropagation();saveForm();},true);
+  document.addEventListener('keydown',event=>{
+    if((event.ctrlKey||event.metaKey)&&event.key==='Enter'&&event.target?.closest?.('#business-form')){event.preventDefault();event.stopPropagation();saveForm();}
+  },true);
   document.addEventListener('input',event=>{
     const el=event.target;
-    if(el.matches('[data-history-filter]')){const key=el.dataset.historyKey;historyState(key)[el.dataset.historyFilter]=el.value;historyState(key).page=0;refreshHistory(key);}
+    if(el.matches('[data-history-filter]')){
+      const key=el.dataset.historyKey;historyState(key)[el.dataset.historyFilter]=el.value;historyState(key).page=0;
+      clearTimeout(historySearchTimer);
+      if(el.type==='search')historySearchTimer=setTimeout(()=>refreshHistory(key),150);
+      else refreshHistory(key);
+    }
     if(el.matches('[data-snapshot-price]')&&snapshotSession){const code=el.dataset.snapshotPrice;snapshotSession.priceDetails[code]={source:'manual',priceDate:snapshotSession.date,requestedDate:snapshotSession.date,adjustment:'none',stale:false};const label=$(`[data-price-source="${CSS.escape(code)}"]`);if(label)label.textContent=el.value?priceSource(snapshotSession.priceDetails[code]):'尚未填写价格';}
-    if(el.closest('#business-form')){stashReviewDraft();updateReviewProgress();if(!el.matches('[data-history-filter]'))updateLiveScore();}
+    const form=el.closest('#business-form');
+    if(form){
+      if(form.dataset.method==='ledger.save'){
+        if(['commission','stampTax','transferFee','otherFees'].includes(el.name))form.dataset.feesManual='true';
+        if(el.name==='code'&&form.elements.name&&!form.elements.name.value.trim()){const guessed=inferSecurityName(el.value);if(guessed)form.elements.name.value=guessed;}
+        if(['quantity','price'].includes(el.name))estimateLedgerFees(form);
+      }
+      if(form.dataset.method==='plan.save'&&el.name==='code'&&form.elements.name&&!form.elements.name.value.trim()){const guessed=inferSecurityName(el.value);if(guessed)form.elements.name.value=guessed;}
+      stashReviewDraft();updateReviewProgress();if(!el.matches('[data-history-filter]'))updateLiveScore();
+    }
   },true);
   document.addEventListener('paste',event=>{if(!$('.business-modal [data-business-images]')||!importState)return;const files=[...(event.clipboardData?.items||[])].filter(item=>item.kind==='file'&&item.type.startsWith('image/')).map(item=>item.getAsFile()).filter(Boolean);if(!files.length)return;event.preventDefault();collectImportRows();readImages(files).catch(error=>{const target=$('[data-import-error]');if(target){target.textContent=errorText(error);target.hidden=false;}else notice(error);});});
   document.addEventListener('change',event=>{
     const el=event.target;
-    if(el.matches('[data-business-account]')){event.stopPropagation();refresh(el.value).catch(error=>notice(error));}
+    if(el.matches('[data-business-account]')){event.stopPropagation();refresh(el.value).then(()=>AT.toast('已切换账户')).catch(error=>notice(error));}
     if(el.matches('[data-review-kind-filter]')){reviewFilter.kind=el.value;AT.render();}
     if(el.matches('[data-review-date-filter]')){reviewFilter.date=el.value;AT.render();}
     if(el.matches('[data-snapshot-date]'))loadSnapshotDate(el.value).catch(error=>notice(error,currentForm()));
     if(el.matches('[data-trade-selection]')){const ids=tradeSelections[el.dataset.tradeSelection];if(ids){if(el.checked)ids.add(el.value);else ids.delete(el.value);}}
-    if(el.matches('#business-form [name="type"]'))updateLedgerFields();
-    if(el.matches('#business-form [name="kind"]')&&currentForm().dataset.method==='review.save'){updateReviewTitle();currentReview=collectReview();drawReviewForm();}
+    if(el.matches('#business-form [name="type"]')){updateLedgerFields();estimateLedgerFees(currentForm());}
+    if(el.matches('#business-form [name="kind"]')&&currentForm().dataset.method==='review.save'){
+      const period=reviewPeriod(el.value);currentReview=collectReview();
+      currentReview.date=period.date;currentReview.endDate=period.endDate;
+      if(currentReview.autoTitle&&currentReview.title===currentReview.autoTitle){currentReview.autoTitle=`${kinds[el.value]} · ${period.date}`;currentReview.title=currentReview.autoTitle;}
+      drawReviewForm();
+    }
     if(el.closest('#business-form')){stashReviewDraft();updateReviewProgress();updateLiveScore();}
     if(el.matches('#business-form [name="date"],#business-form [name="endDate"]')&&currentForm()?.dataset.method==='review.save'){updateReviewTitle();stashReviewDraft();loadReviewFacts();}
     const run=promise=>Promise.resolve(promise).catch(error=>{const target=$('[data-import-error]');if(target){target.textContent=errorText(error);target.hidden=false;}else notice(error);});

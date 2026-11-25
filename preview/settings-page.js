@@ -60,7 +60,7 @@
     for(const [key,label,max] of ruleFields[section]){
       const input=form.elements[key];
       if(input.value.trim()===''||input.validity.badInput)invalid[key]=`请填写${label}。`;
-      else if(!Number.isFinite(Number(input.value))||Number(input.value)<0||Number(input.value)>max)invalid[key]=`${label}须在 0—${max} 之间。`;
+      else if(!Number.isFinite(Number(input.value))||Number(input.value)<0||Number(input.value)>max)invalid[key]=`${label}须在 0—${max>=1e12?'1 万亿':max} 之间。`;
     }
     const values=Object.fromEntries([...form.querySelectorAll('input[name]')].map(input=>[input.name,Number(input.value)]));
     if(section==='positionRules'&&!Object.keys(invalid).length&&values.singleStockMax>values.totalMax)invalid.singleStockMax='单股仓位上限不能高于总仓位上限。';
@@ -100,13 +100,13 @@
   const item=(label,value,detail='')=>`<div class="settings-status-item"><span>${E(label)}</span><strong>${E(value)}</strong>${detail?`<small>${E(detail)}</small>`:''}</div>`;
   function diagnosticsView() {
     const d=diagnostic;
-    return AT.head('应用与诊断','查看本机服务、保存状态与最近检测结果',B('刷新状态','refresh',`data-diagnostics="refresh" ${diagnosticBusy?'disabled':''}`)+B('复制脱敏诊断','copy',`data-diagnostics="copy" ${diagnosticBusy||!AT.isDesktop?'disabled':''}`))+nav('C06')+
+    return AT.head('应用与诊断','查看本机服务、保存状态与最近检测结果',B('刷新状态','refresh',`data-diagnostics="refresh" ${diagnosticBusy||!AT.isDesktop?'disabled':''} title="${!AT.isDesktop?'仅桌面应用支持读取本机服务状态':''}"`)+B('复制脱敏诊断','copy',`data-diagnostics="copy" ${diagnosticBusy||!AT.isDesktop?'disabled':''} title="${!AT.isDesktop?'仅桌面应用支持复制诊断信息':''}"`))+nav('C06')+
       `<section class="panel settings-diagnostics"><div class="panel-head"><h2>A-trade</h2><span class="tag">${E(d?'版本 '+d.app.version:AT.isDesktop?'桌面应用':'浏览器预览')}</span></div><div class="panel-body"><p class="field-hint">${AT.isDesktop?'账户与复盘保存在本机账本，行情按已配置的数据源读取。刷新状态不会主动测试外部连接。':'浏览器预览使用独立的浏览器存储；连接与服务诊断需在桌面应用中查看。'}</p>${diagnosticError?`<p class="settings-feedback" role="alert">${E(diagnosticError)}</p>`:''}<div class="settings-status-grid">${d?[
       item('账户服务',d.services.account?'进程运行':'不可用'),item('行情服务',d.services.market?'本机接口可用':'读取失败'),item('研究服务',d.services.research?'进程运行':'不可用'),
       item('界面保存',d.storage.state==='saved'?'已保存':d.storage.state==='error'?'保存失败':'本次尚未保存',date(d.storage.savedAt)),
       item('本地日线',d.local.configured?(d.local.available?'目录可用':'目录不可用'):'未配置','最近扫描：'+date(d.local.lastScanAt)),
       item('通达信 MCP',d.online.enabled?(d.online.connected?'连接可用':'尚未连接'):'未启用','最近检测：'+date(d.online.lastCheckedAt)),
-      ...['text','vision'].map(target=>item(target==='text'?'文字 AI':'图片 AI',d.ai[target].enabled?(d.ai[target].configured?'已启用':'配置不完整'):'未启用','连接结果见 AI 模型设置')),
+      ...['text','vision'].map(target=>item(target==='text'?'文本 AI':'图片 AI',d.ai[target].enabled?(d.ai[target].configured?'已启用':'配置不完整'):'未启用','连接结果见 AI 模型设置')),
       item('运行环境',`${d.app.platform} / ${d.app.arch}`,`Electron ${d.app.electron} · Node ${d.app.node}`)
       ].join(''):item('运行状态',diagnosticBusy?'正在读取…':AT.isDesktop?'等待检查':'独立预览')}</div>${d?.storage.recoveryWarning?'<div class="notice">启动时检测到工作区恢复提示，请检查本地文件与备份。</div>':''}<p class="field-hint">状态采集：${E(date(d?.checkedAt))}</p><p class="field-hint section-space">复制内容仅包含版本、服务状态与时间，不包含账户、持仓、目录、接口地址、模型名称或密钥。</p><div class="settings-form-actions">${B('数据源','database','data-nav="C01"')}${B('AI 模型','tools','data-nav="C07"')}${B('备份与恢复','backup','data-nav="C04"')}</div></div></section>${AT.isDesktop?`<section class="panel settings-diagnostics"><div class="panel-body"><h2>本机数据位置</h2><p class="settings-local-path">${E(AT.storageInfo?.directory||'暂不可用')}</p>${B('打开数据文件夹','folder','data-action="open-data-folder"')}</div></section>`:''}`;
   }
@@ -127,7 +127,12 @@
     const section=form.dataset.ruleSection;if(pending.has(section))return;
     AT.state.settingsRuleDrafts={...AT.state.settingsRuleDrafts,[section]:Object.fromEntries([...form.querySelectorAll('input[name]')].map(input=>[input.name,input.value]))};
     rememberRuleSource(section);
-    restored.delete(section);displayErrors(form,{});
+    restored.delete(section);
+    const nextErrors={...(errors[section]||{})};delete nextErrors[event.target.name];
+    if(section==='positionRules'&&['singleStockMax','totalMax'].includes(event.target.name))delete nextErrors.singleStockMax;
+    errors[section]=nextErrors;
+    event.target.removeAttribute('aria-invalid');
+    const fieldHint=form.querySelector(`[data-rule-error="${event.target.name}"]`);if(fieldHint){fieldHint.textContent='';fieldHint.hidden=true;}
     updateFeedback(section,'正在保留草稿，尚未应用…');
     const badge=form.querySelector('[data-rule-state]');badge.dataset.state='draft';badge.textContent='草稿 · 尚未应用';
     form.querySelector('[data-rule-discard]').disabled=false;scheduleDraft(section);
