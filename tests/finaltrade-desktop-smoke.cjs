@@ -22,7 +22,7 @@ app.whenReady().then(async()=>{
   assert.equal(await frame.executeJavaScript('document.querySelector("h1").innerText'),'选股漏斗');
   assert.equal(await frame.executeJavaScript('document.body.innerText.includes("原版")||document.body.innerText.includes("Finaltrade")'),false);
   const catalogue=await frame.executeJavaScript('fetch("/api/strategies").then(response=>response.json())');
-  assert.equal(catalogue.items.length,16);assert.ok(catalogue.items.some(item=>item.strategy_id==='ths_force_rhythm_v1'));
+  assert.equal(catalogue.items.length,9);assert.ok(catalogue.items.some(item=>item.strategy_id==='wujiang_mainline_v1'));
   await evaluate('window.__originalReferenceFrame=document.querySelector("[data-strategy-frame]");AT.render();true');
   assert.equal(await evaluate('__originalReferenceFrame.isConnected'),true,'parent refresh retains the real editor');
   const sameOrigin=await frame.executeJavaScript('location.origin');assert.equal(sameOrigin,'atrade://reference');
@@ -75,7 +75,9 @@ app.whenReady().then(async()=>{
   assert.equal(defaults.date_from,fixture.start);assert.equal(defaults.date_to,fixture.end);assert.equal(defaults.fee_bps,0);
   console.log('PASS real screener → account plan, persisted without ledger mutation; shared dates and zero fee defaults');
   await evaluate('AT.navigate("R12");true');await wait('document.querySelector("h1")?.innerText==="策略运行"','preserve source editor during account navigation');
-  const draft={mode:'full_market',strategy_id:'score_only_rank_v1',date_from:fixture.start,date_to:fixture.end,window_days:60,min_score:0,min_event_count:0,max_symbols:20,enable_advanced_analysis:false,execution_path_preference:'legacy'};
+  const hwParams={min_day_gain_pct:0.5,max_day_gain_pct:12.0,min_vol_ratio_20:0.8,min_up_down_vol_ratio:0.9,max_dist_ma20_pct:20.0,min_ret20_pct:0.0,min_score:0};
+  const draft={mode:'full_market',strategy_id:'mainline_halfway_v1',strategy_params:hwParams,date_from:fixture.start,date_to:fixture.end,window_days:60,min_score:0,min_event_count:0,max_symbols:20,enable_advanced_analysis:false,execution_path_preference:'legacy'};
+  await frame.executeJavaScript(`localStorage.setItem('tdx-strategy-shared-v1',${JSON.stringify(JSON.stringify({last_strategy_id:'mainline_halfway_v1',params_by_strategy:{mainline_halfway_v1:hwParams},presets_by_strategy:{}}))});true`);
   await frame.executeJavaScript(`localStorage.setItem('tdx-trend-backtest-form-v2',${JSON.stringify(JSON.stringify(draft))});true`);
   await frame.executeJavaScript(`localStorage.setItem('tdx-trend-backtest-plateau-form-v2',${JSON.stringify(JSON.stringify({sampling_mode:'grid',stop_loss_pct_list_raw:'4,6',take_profit_pct_list_raw:'12,18',heatmap_x_axis:'stop_loss',heatmap_y_axis:'take_profit'}))});true`);
   await evaluate('AT.navigate("R03");true');
@@ -85,7 +87,7 @@ app.whenReady().then(async()=>{
   await wait(`fetch('/api/backtest/tasks').then(response=>response.json()).then(data=>{const task=data.items[0];if(task?.status==='failed')throw Error(task.error);return task?.status==='succeeded';})`,'original UI backtest finished',120000);
   const tasks=await frame.executeJavaScript(`fetch('/api/backtest/tasks').then(response=>response.json())`);
   task=await frame.executeJavaScript(`fetch('/api/backtest/tasks/'+${JSON.stringify(tasks.items[0].task_id)}).then(response=>response.json())`);
-  assert.equal(task.result.strategy_id,'score_only_rank_v1');assert.ok(task.result.trades.length>0);
+  assert.equal(task.result.strategy_id,'mainline_halfway_v1');assert.ok(task.result.trades.length>0);
   assert.equal(task.result.range.date_from,fixture.start);assert.equal(task.result.range.date_to,fixture.end);
   console.log('PASS actual UI backtest, trades='+task.result.trades.length);
   await require('./trade-detail-table-check.cjs')({frame,wait,clickText});
@@ -114,6 +116,7 @@ app.whenReady().then(async()=>{
   await frame.executeJavaScript(`(()=>{const el=document.querySelector('input[aria-label="任务名称"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'整合流程验证');el.dispatchEvent(new Event('input',{bubbles:true}));return true})()`);
   await new Promise(resolve=>setTimeout(resolve,100));await clickText('保存');
   await wait(`fetch('/api/atrade/tasks').then(response=>response.json()).then(data=>data.items.some(row=>row.name==='整合流程验证'))`,'task rename persists through real API');
+  await wait(`document.body.innerText.includes('整合流程验证')`,'renamed row rendered');
   await clickText('查看结果');
   await wait('document.querySelector("h1")?.innerText==="收益平原"','open completed plateau from report library');
   await clickText('询问 AI');
@@ -158,7 +161,7 @@ app.whenReady().then(async()=>{
   await clickText('加载输入池');await wait('!!document.querySelector(".ant-table-row")','chart link from actual screener rows');
   await require('./unified-stock-check.cjs')({evaluate,frame,wait,clickText,task,fixture});
   assert.deepEqual(errors.filter(message=>!/^Failed to load resource:.*409/.test(message)),[],'native pages load without runtime errors (the intentional source rejection returns 409)');
-  console.log('PASS native original screener: 40 real-file symbols, four steps, 16 strategies, saved strategy preset, UI backtest with actual trades, actual four-point plateau, stable origin and preserved editor.');
+  console.log('PASS native screener, 40 fixture symbols, four steps, 9 strategies, saved preset, completed backtest and four-point plateau, stable origin and preserved editor.');
  }finally{if(win)win.destroy();}
  app.exit(0);
 }).catch(error=>{console.error(error);if(win)win.destroy();app.exit(1);});

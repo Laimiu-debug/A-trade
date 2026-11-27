@@ -63,6 +63,17 @@ DELAY_SKIP_REASON_SELL_SIGNAL = "delay_invalidated_by_sell_signal"
 EVENT_GRADE_RANK: dict[str, int] = {"C": 1, "B": 2, "A": 3}
 MATRIX_SEMANTIC_ALIGNED = "aligned_wyckoff_v2"
 SCORE_ONLY_STRATEGY_ID = "score_only_rank_v1"
+from .master_alpha_strategies import (
+    MASTER_ALPHA_STRATEGY_IDS,
+    MASTER_STYLE_EXECUTION_DEFAULTS,
+    MASTER_TRADER_STYLE_MAP,
+    _safe_bool as _master_safe_bool,
+    build_index_regime_map,
+    calc_ashare_lot_shares,
+    evaluate_master_alpha_exit,
+    resolve_master_regime_slot_and_scale,
+)
+
 WULONG_STRATEGY_IDS: frozenset[str] = frozenset({"wulong_cluster_v1"})
 TREND_KING_STRATEGY_IDS: frozenset[str] = frozenset({
     "trend_king_v1",
@@ -70,15 +81,16 @@ TREND_KING_STRATEGY_IDS: frozenset[str] = frozenset({
     "trend_king_rally_v1",
     "trend_king_pullback_v1",
 })
-# 不依赖 Wyckoff 入场事件的策略 — 当天无事件时用伪事件 "SCORE" 兜底
+# 不依赖 Wyckoff 入场事件的策略 — 当天无事件时用策略信号名兜底
 EVENT_INDEPENDENT_STRATEGY_IDS: frozenset[str] = frozenset({
+    *MASTER_ALPHA_STRATEGY_IDS,
+    *WULONG_STRATEGY_IDS,
     "score_only_rank_v1",
     "matrix_signal_v1",
     "ths_main_force_flip_v1",
     "ths_main_force_golden_cross_v1",
     "ths_force_rhythm_v1",
     "relative_strength_breakout_v1",
-    *WULONG_STRATEGY_IDS,
     "b1_mtf_v1",
     *TREND_KING_STRATEGY_IDS,
     "emotion_limit_up_v1",
@@ -2392,19 +2404,28 @@ class BacktestEngine:
             if control_callback is not None:
                 control_callback()
             as_of_date = candles[idx].time
-            rhythm_strategy = str(payload.strategy_id).strip() == "ths_force_rhythm_v1"
+            sid_text = str(payload.strategy_id).strip()
+            rhythm_strategy = sid_text == "ths_force_rhythm_v1"
+            master_alpha_strategy = sid_text in MASTER_ALPHA_STRATEGY_IDS
             entry_allowed = True
             if allowed_symbols_by_date is not None:
                 allowed_today = allowed_symbols_by_date.get(as_of_date, set())
                 if symbol not in allowed_today:
                     entry_allowed = False
-                    if not rhythm_strategy:
+                    if not rhythm_strategy and not master_alpha_strategy:
                         continue
             row = self._build_row(symbol, as_of_date)
             if row is None:
                 continue
             snapshot = self._calc_snapshot(row, payload.window_days, as_of_date)
             # Existing positions can reach a sell point after leaving the buy pool.
+            if master_alpha_strategy:
+                alpha_ind = snapshot.get("master_alpha_signal")
+                if isinstance(alpha_ind, dict):
+                    alpha_exit = evaluate_master_alpha_exit(sid_text, alpha_ind, payload.strategy_params)
+                    if alpha_exit.get("exit_signal"):
+                        label = str(alpha_exit.get("exit_reason") or "结构破位退出").strip()
+                        exit_signal_events_by_index[idx] = [label]
             if rhythm_strategy:
                 from .force_rhythm_strategy import evaluate_force_rhythm_exit
 
@@ -3085,8 +3106,24 @@ class BacktestEngine:
             "invalid_price": 0,
             "duplicate_symbol": 0,
             "intraday_reduce_block": 0,
+            "regime_shutoff": 0,
+            "total_exposure_cap": 0,
         }
         active_symbols: set[str] = set()
+        sid_clean = str(payload.strategy_id or "").strip()
+        master_style_key = MASTER_TRADER_STYLE_MAP.get(sid_clean)
+        s_params = payload.strategy_params if isinstance(payload.strategy_params, dict) else {}
+        use_add_on_win = bool(
+            master_style_key
+            and _master_safe_bool(
+                s_params.get("use_add_on_win"),
+                bool(MASTER_STYLE_EXECUTION_DEFAULTS[master_style_key]["use_add_on_win"]),
+            )
+        )
+        regime_map: dict[str, str] = {}
+        if master_style_key and _master_safe_bool(s_params.get("use_regime_switch"), True):
+            regime_map = build_index_regime_map(self._get_candles, payload.date_from, payload.date_to)
+        pyramid_adds_count = 0
 
         def release_until(current_entry_date: str) -> None:
             nonlocal cash, equity, active_positions, active_symbols
@@ -3135,11 +3172,37 @@ class BacktestEngine:
                 continue
             release_until(row.entry_date)
 
-            if symbol_key in active_symbols:
-                skip_reasons["duplicate_symbol"] += 1
+            day_stage = regime_map.get(row.signal_date) or regime_map.get(row.entry_date)
+            eff_max_slots, eff_pos_pct, eff_total_cap = resolve_master_regime_slot_and_scale(
+                sid_clean,
+                day_stage,
+                payload.max_positions,
+                payload.position_pct,
+                s_params,
+            )
+            if eff_max_slots <= 0:
+                skip_reasons["regime_shutoff"] += 1
                 continue
-            if self._count_active_position_slots(active_positions) >= payload.max_positions:
-                skip_reasons["max_positions"] += 1
+
+            is_pyramid_add = False
+            if symbol_key in active_symbols:
+                existing_item = next(
+                    (it for it in active_positions if str(it.get("symbol", "")).strip().lower() == symbol_key and not it.get("pyramided")),
+                    None,
+                )
+                prev_entry_px = float(existing_item.get("entry_price", 0.0)) if existing_item else 0.0
+                gain_since_entry = ((float(row.entry_price) / prev_entry_px - 1.0) * 100.0) if prev_entry_px > 0 else 0.0
+                if use_add_on_win and existing_item is not None and gain_since_entry >= 4.5 and float(row.entry_quality_score) >= 68.0:
+                    is_pyramid_add = True
+                    existing_item["pyramided"] = True
+                else:
+                    skip_reasons["duplicate_symbol"] += 1
+                    continue
+            elif self._count_active_position_slots(active_positions) >= eff_max_slots:
+                if day_stage == "decline" and eff_max_slots < payload.max_positions:
+                    skip_reasons["regime_shutoff"] += 1
+                else:
+                    skip_reasons["max_positions"] += 1
                 continue
 
             entry_exec = float(row.entry_price) * (1 + fee_rate)
@@ -3147,8 +3210,15 @@ class BacktestEngine:
                 skip_reasons["invalid_price"] += 1
                 continue
 
-            allocation = min(cash, max(0.0, equity * payload.position_pct))
-            shares = int(math.floor(allocation / entry_exec / 100.0)) * 100
+            deployed_ratio = max(0.0, (equity - cash) / equity) if equity > 0 else 0.0
+            remaining_cap_ratio = max(0.0, eff_total_cap - deployed_ratio)
+            if master_style_key and remaining_cap_ratio < 0.03:
+                skip_reasons["total_exposure_cap"] += 1
+                continue
+
+            target_pct = min(eff_pos_pct * (0.75 if is_pyramid_add else 1.0), remaining_cap_ratio if master_style_key else 1.0)
+            allocation = min(cash, max(0.0, equity * target_pct))
+            shares = calc_ashare_lot_shares(allocation, entry_exec, symbol_key) if master_style_key else (int(math.floor(allocation / entry_exec / 100.0)) * 100)
             if shares <= 0:
                 skip_reasons["insufficient_cash"] += 1
                 continue
@@ -3159,9 +3229,12 @@ class BacktestEngine:
                 continue
 
             cash -= invested
+            if is_pyramid_add:
+                pyramid_adds_count += 1
+            eff_entry_signal = f"浮盈加仓·{row.entry_signal}" if is_pyramid_add else row.entry_signal
             trade_meta = {
                 "total_shares": shares,
-                "entry_signal": row.entry_signal,
+                "entry_signal": eff_entry_signal,
                 "entry_phase": row.entry_phase,
                 "entry_quality_score": row.entry_quality_score,
                 "candle_quality_score": row.candle_quality_score,
@@ -3200,6 +3273,8 @@ class BacktestEngine:
                 active_positions.append(
                     {
                         "symbol": row.symbol,
+                        "entry_price": float(row.entry_price),
+                        "pyramided": bool(is_pyramid_add),
                         "exit_date": final_exit_date,
                         "exit_amount": 0.0,
                         "pnl_amount": 0.0,
@@ -3221,6 +3296,8 @@ class BacktestEngine:
                 active_positions.append(
                     {
                         "symbol": row.symbol,
+                        "entry_price": float(row.entry_price),
+                        "pyramided": bool(is_pyramid_add),
                         "exit_date": row.exit_date,
                         "exit_amount": float(exit_amount),
                         "pnl_amount": float(pnl_amount),
@@ -3235,7 +3312,7 @@ class BacktestEngine:
                         signal_date=row.signal_date,
                         entry_date=row.entry_date,
                         exit_date=row.exit_date,
-                        entry_signal=row.entry_signal,
+                        entry_signal=eff_entry_signal,
                         entry_phase=row.entry_phase,
                         entry_quality_score=round(row.entry_quality_score, 2),
                         candle_quality_score=round(row.candle_quality_score, 2),

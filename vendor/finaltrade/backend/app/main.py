@@ -306,7 +306,7 @@ def get_signals(
     mode: SignalScanMode = Query(default="trend_pool"),
     run_id: str = Query(default="", min_length=0, max_length=64),
     trend_step: TrendPoolStep = Query(default="auto"),
-    strategy_id: str = Query(default="wyckoff_trend_v1", min_length=1, max_length=64),
+    strategy_id: str = Query(default="wujiang_mainline_v1", min_length=1, max_length=64),
     strategy_params_json: str = Query(default="", alias="strategy_params"),
     market_filters: list[Market] | None = Query(default=None),
     board_filters: list[BoardFilter] | None = Query(default=None),

@@ -77,6 +77,7 @@ import {
   getSharedLastStrategyId,
   getSharedStrategyParams,
   isEventIndependentBacktestStrategy,
+  MASTER_TRADER_STRATEGY_META,
   normalizeStrategyParams,
   parseStrategyParamSchema,
   resolveDefaultStrategyId,
@@ -1993,7 +1994,7 @@ function buildDefaultDraft(): BacktestFormDraft {
     pool_roll_mode: TRADE_BACKTEST_DEFAULTS.poolRollMode,
     run_id: '',
     board_filters: BACKTEST_DEFAULT_BOARD_FILTERS,
-    strategy_id: 'wyckoff_trend_v1',
+    strategy_id: 'wujiang_mainline_v1',
     strategy_params: {},
     date_from: dateFrom,
     date_to: dateTo,
@@ -2044,7 +2045,7 @@ function loadBacktestDraft(): BacktestFormDraft {
     // Older drafts saved the former automatic 120-stock default. Preserve all
     // other settings, while only restoring an explicitly enabled new limit.
     merged.max_symbols = restoreBacktestSymbolLimit(parsed)
-    const mergedStrategyId = String(merged.strategy_id || '').trim() || 'wyckoff_trend_v1'
+    const mergedStrategyId = String(merged.strategy_id || '').trim() || 'wujiang_mainline_v1'
     if (!dayjs(merged.date_from).isValid()) merged.date_from = defaults.date_from
     if (!dayjs(merged.date_to).isValid()) merged.date_to = defaults.date_to
     if (!Array.isArray(merged.entry_events)) {
@@ -2061,7 +2062,7 @@ function loadBacktestDraft(): BacktestFormDraft {
     }
     const boardFilters = sanitizeBoardFilters(merged.board_filters)
     merged.board_filters = boardFilters.length > 0 ? boardFilters : defaults.board_filters
-    merged.strategy_id = mergedStrategyId || 'wyckoff_trend_v1'
+    merged.strategy_id = mergedStrategyId || 'wujiang_mainline_v1'
     merged.strategy_params = normalizeStrategyParams(merged.strategy_params)
     if (!['auto', 'matrix', 'legacy'].includes(String(merged.execution_path_preference || ''))) {
       merged.execution_path_preference = undefined
@@ -3154,18 +3155,27 @@ const plateauColumns: ColumnsType<BacktestPlateauTableRow> = [
 ]
 
 export function BacktestPage() {
-  const plateauView = new URLSearchParams(useLocation().search).get('section') === 'plateau'
+  const { search: locationSearch, state: navigationState } = useLocation()
+  const searchQuery = useMemo(() => new URLSearchParams(locationSearch), [locationSearch])
+  const plateauView = searchQuery.get('section') === 'plateau'
+  const requestedStrategyId = (searchQuery.get('strategy_id') ?? '').trim()
   const [showSharedConfig, setShowSharedConfig] = useState(false)
   const { message } = AntdApp.useApp()
-  const initialDraft = useMemo(() => loadBacktestDraft(), [])
+  const masterPlan: Partial<BacktestFormDraft> | undefined = navigationState?.masterPlan
+  const handoff = masterPlan && masterPlan.strategy_id === requestedStrategyId ? masterPlan : undefined
+  const initialDraft = useMemo(() => ({ ...loadBacktestDraft(), ...handoff }), [handoff])
   const initialPlateauDraft = useMemo(() => loadBacktestPlateauDraft(), [])
 
-  const [mode, setMode] = useState<SignalScanMode>(initialDraft.mode)
+  const [mode, setMode] = useState<SignalScanMode>(() => (
+    handoff?.mode ?? (requestedStrategyId && !initialDraft.run_id ? 'full_market' : initialDraft.mode)
+  ))
   const [trendStep, setTrendStep] = useState<TrendPoolStep>(initialDraft.trend_step)
   const [poolRollMode, setPoolRollMode] = useState<BacktestPoolRollMode>(initialDraft.pool_roll_mode)
   const [runId, setRunId] = useState(initialDraft.run_id)
   const [boardFilters, setBoardFilters] = useState<BoardFilter[]>(initialDraft.board_filters)
-  const [strategyId, setStrategyId] = useState<StrategyId>(() => resolveInitialStrategyId(initialDraft.strategy_id))
+  const [strategyId, setStrategyId] = useState<StrategyId>(() => (
+    requestedStrategyId ? (requestedStrategyId as StrategyId) : resolveInitialStrategyId(initialDraft.strategy_id)
+  ))
   const [strategyParams, setStrategyParams] = useState<Record<string, unknown>>(() => {
     const seedStrategyId = resolveInitialStrategyId(initialDraft.strategy_id)
     const draftParams = normalizeStrategyParams(initialDraft.strategy_params)
@@ -3437,10 +3447,17 @@ export function BacktestPage() {
   }, [defaultExecutionPathPreference])
 
   useEffect(() => {
+    if (!requestedStrategyId) return
+    setStrategyId((prev) => (prev === requestedStrategyId ? prev : (requestedStrategyId as StrategyId)))
+    setStrategyParams(handoff?.strategy_params ?? getSharedStrategyParams(requestedStrategyId as StrategyId))
+    if (!runId && !handoff) setMode('full_market')
+  }, [requestedStrategyId, runId, handoff])
+
+  useEffect(() => {
     if (strategyItems.length <= 0) return
     const allIds = new Set(strategyItems.map((item) => item.strategy_id))
     if (allIds.has(strategyId)) return
-    const defaultId = resolveDefaultStrategyId(strategyItems, 'wyckoff_trend_v1')
+    const defaultId = resolveDefaultStrategyId(strategyItems, 'wujiang_mainline_v1')
     setStrategyId(defaultId)
     setStrategyParams(getSharedStrategyParams(defaultId))
   }, [strategyId, strategyItems])
@@ -6642,7 +6659,7 @@ export function BacktestPage() {
                 }}
                 options={(strategyItems.length > 0
                   ? strategyItems
-                  : [{ strategy_id: 'wyckoff_trend_v1', name: '维科夫趋势V1', version: '1.0.0', enabled: true }])
+                  : [{ strategy_id: 'wujiang_mainline_v1', name: '乌江望月 · 双轨主线核心', version: '2.1.0', enabled: true }])
                   .map((item) => ({
                     value: item.strategy_id,
                     label: `${item.name} (${item.version})${item.enabled === false ? ' - 已禁用' : ''}`,
@@ -6651,6 +6668,40 @@ export function BacktestPage() {
               />
             </Space>
           </Col>
+          {MASTER_TRADER_STRATEGY_META[String(strategyId || '').trim()] ? (() => {
+            const mMeta = MASTER_TRADER_STRATEGY_META[String(strategyId || '').trim()]
+            return (
+              <Col xs={24}>
+                <Alert
+                  type="info"
+                  showIcon
+                  style={{ marginBottom: 8 }}
+                  title={`大佬模式同源回测：${mMeta.masterName}（${mMeta.tagline}）`}
+                  description={
+                    <Space wrap size={10}>
+                      <span>与「策略运行」共用同一套本地通达信日线、买点评分、情绪四阶段仓位开关、浮盈加仓与减半止盈规则。</span>
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          setMaxPositions(mMeta.maxPositions)
+                          setPositionPctPercent(mMeta.positionPctPercent)
+                          setStopLossPercent(mMeta.stopLossPercent)
+                          setTakeProfitPercent(mMeta.takeProfitPercent)
+                          setMaxHoldDays(mMeta.maxHoldDays)
+                          message.success(`已套用「${mMeta.masterName}」原版仓位与风控默认值（最多${mMeta.maxPositions}只 / 首仓${mMeta.positionPctPercent}% / 止损${mMeta.stopLossPercent}%）`)
+                        }}
+                      >
+                        {`套用原版仓位默认值 (${mMeta.maxPositions}只/${mMeta.positionPctPercent}%/止损${mMeta.stopLossPercent}%)`}
+                      </Button>
+                      <Link to={`/signals?strategy_id=${encodeURIComponent(strategyId)}&mode=full_market`}>
+                        去策略运行查看今日信号与明日预测 →
+                      </Link>
+                    </Space>
+                  }
+                />
+              </Col>
+            )
+          })() : null}
           <Col xs={24} md={12}>
             <Space orientation="vertical" style={{ width: '100%' }}>
               <span>回测区间</span>

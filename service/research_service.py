@@ -30,6 +30,7 @@ MAX_WORKERS = 2
 ACTIVE = {"queued", "running", "pausing", "stopping"}
 PORTFOLIO_KINDS = {"portfolio", "comparison", "walkForward", "systemPlateau", "poolPreview",
                    "singleBacktest", "singlePlateau", "frozenValidation"}
+MASTER_BACKTEST_KIND = "masterBacktest"
 
 
 def _now():
@@ -64,6 +65,7 @@ def _unpack(value):
 def _version():
     digest = hashlib.sha256()
     for name in ("backtest_engine.py", "strategies.py", "plateau.py", "research_service.py",
+                 "master_backtest.py", "master_rules.py",
                  "portfolio_config.py", "portfolio_universe.py", "portfolio_signals.py",
                  "portfolio_engine.py", "portfolio_study.py", "portfolio_rotation.py",
                  "portfolio_experiment.py", "portfolio_history.py", "portfolio_actions.py", "portfolio_regions.py", "portfolio_continuous.py", "portfolio_prepared.py", "portfolio_screen.py", "research_names.py", "research_pipeline.py", "portfolio_pool_styles.py", "plateau_validation.py", "execution_evidence.py"):
@@ -295,14 +297,18 @@ class ResearchService:
 
     def create(self, payload):
         kind = payload.get("kind", "backtest")
-        if kind not in {"backtest", "plateau"} | PORTFOLIO_KINDS:
+        if kind not in {"backtest", "plateau", MASTER_BACKTEST_KIND} | PORTFOLIO_KINDS:
             raise ValueError("不支持的研究类型")
-        name = payload.get("name") or {"plateau": "收益平原研究", "backtest": "日线组合回测",
-                                      "portfolio": "股票池组合回测", "comparison": "多策略比较与持续性检验",
-                                      "walkForward": "滚动样本外验证", "systemPlateau": "全系统收益平原", "poolPreview": "股票池筛选预览",
-                                      "singleBacktest": "单策略固定参数回测", "singlePlateau": "关键参数平原", "frozenValidation": "冻结方案新时段验证"}[kind]
-        if not isinstance(name, str) or len(name.strip()) > 100:
+        raw_name = payload.get("name")
+        if raw_name is not None and (not isinstance(raw_name, str) or len(raw_name.strip()) > 100):
             raise ValueError("研究名称最多 100 字")
+        name = (raw_name.strip() if isinstance(raw_name, str) and raw_name.strip() else "") or {
+            "plateau": "收益平原研究", "backtest": "日线组合回测",
+            "portfolio": "股票池组合回测", "comparison": "多策略比较与持续性检验",
+            "walkForward": "滚动样本外验证", "systemPlateau": "全系统收益平原", "poolPreview": "股票池筛选预览",
+            "singleBacktest": "单策略固定参数回测", "singlePlateau": "关键参数平原",
+            "frozenValidation": "冻结方案新时段验证", MASTER_BACKTEST_KIND: "高手思路历史回测",
+        }[kind]
         request_id = payload.get("requestId")
         if request_id is not None and (not isinstance(request_id, str) or not 1 <= len(request_id) <= 100):
             raise ValueError("提交标识无效")
@@ -311,6 +317,8 @@ class ResearchService:
                 old = db.execute("SELECT meta FROM jobs WHERE request_id=?", (request_id,)).fetchone()
                 if old:
                     return json.loads(old[0])
+        if kind == MASTER_BACKTEST_KIND:
+            return self._create_master_backtest(payload, raw_name.strip() if isinstance(raw_name, str) else "", request_id)
         if kind == "frozenValidation":
             return self._create_validation(payload, name.strip(), request_id)
         if kind in PORTFOLIO_KINDS:
@@ -332,6 +340,66 @@ class ResearchService:
             db.execute("INSERT OR IGNORE INTO datasets VALUES (?,?)", (dataset["fingerprint"], _pack(dataset)))
             db.execute("INSERT INTO jobs VALUES (?,?,?,?,?,?,?)", (meta["id"], request_id, _dump(meta),
                        dataset["fingerprint"], self.version, _pack(state), None))
+        self.wake.set()
+        return meta
+
+    def _lookup_master_record(self, master_id):
+        if not master_id or not isinstance(master_id, str):
+            return None
+        db_path = self.directory / "masters.sqlite3"
+        if not db_path.exists():
+            return None
+        try:
+            db = sqlite3.connect(db_path.resolve().as_uri() + "?mode=ro", uri=True, timeout=10)
+            db.row_factory = sqlite3.Row
+            try:
+                row = db.execute("SELECT id, name, style_tag FROM masters WHERE id=?", (master_id,)).fetchone()
+                if row:
+                    return {"id": row["id"], "name": row["name"], "styleTag": row["style_tag"] or ""}
+            finally:
+                db.close()
+        except sqlite3.Error:
+            return None
+        return None
+
+    def _create_master_backtest(self, payload, custom_name, request_id):
+        from service.master_backtest import normalize_master_backtest_config
+
+        raw_cfg = payload.get("config") if isinstance(payload.get("config"), dict) else {}
+        merged = {**{k: v for k, v in payload.items() if k not in ("kind", "name", "requestId", "config")}, **raw_cfg}
+        master = self._lookup_master_record(merged.get("masterId"))
+        cfg = normalize_master_backtest_config(merged, master)
+        style_short = cfg["styleName"].split("·")[0].strip()
+        slot_suffix = f"({cfg['maxPositions']}仓)" if cfg.get("customMaxPositions") else ""
+        default_name = f"高手思路回测 · {style_short}{slot_suffix} · {cfg['startDate']}~{cfg['endDate']}"
+        final_name = (custom_name or default_name)[:100]
+        dataset = {"masterBacktest": True, "config": cfg, "master": master}
+        dataset_id = "master-" + hashlib.sha256(_dump(cfg).encode()).hexdigest()
+        meta = {
+            "id": str(uuid.uuid4()),
+            "name": final_name,
+            "kind": MASTER_BACKTEST_KIND,
+            "status": "queued",
+            "phase": "等待计算资源",
+            "progress": 0,
+            "createdAt": _now(),
+            "updatedAt": _now(),
+            "config": cfg,
+            "symbols": [],
+            "symbolCount": None,
+            "fingerprint": dataset_id,
+            "error": None,
+        }
+        with self.lock, self._db() as db:
+            if request_id:
+                old = db.execute("SELECT meta FROM jobs WHERE request_id=?", (request_id,)).fetchone()
+                if old:
+                    return json.loads(old[0])
+            db.execute("INSERT OR IGNORE INTO datasets VALUES (?,?)", (dataset_id, _pack(dataset)))
+            db.execute(
+                "INSERT INTO jobs VALUES (?,?,?,?,?,?,?)",
+                (meta["id"], request_id, _dump(meta), dataset_id, self.version, _pack({"stage": "queued"}), None),
+            )
         self.wake.set()
         return meta
 
@@ -1100,6 +1168,9 @@ class ResearchService:
                                    phase="计算开始前已保存暂停状态", updatedAt=_now())
                     db.execute("UPDATE jobs SET meta=? WHERE id=?", (_dump(current), task_id))
                     return
+            if meta["kind"] == MASTER_BACKTEST_KIND:
+                self._execute_master_backtest(task_id, meta, dataset)
+                return
             if dataset.get("pendingUniverse"):
                 prepared = self._prepare_portfolio(meta, dataset)
                 if prepared is None:
@@ -1148,6 +1219,100 @@ class ResearchService:
         finally:
             with self.lock:
                 self.inflight.discard(task_id)
+
+    def _execute_master_backtest(self, task_id, meta, dataset):
+        from service.master_backtest import BacktestCancelled, run_master_backtest
+
+        def cancelled():
+            if self.closing.is_set():
+                return True
+            with self.lock, self._db() as db:
+                row = db.execute("SELECT meta FROM jobs WHERE id=?", (task_id,)).fetchone()
+                if not row:
+                    return True
+                return json.loads(row["meta"]).get("status") in ("pausing", "stopping")
+
+        last_progress_value = -1.0
+
+        def on_progress(stage, completed, total):
+            nonlocal last_progress_value
+            ratio = (float(completed) / float(total)) if total else 0.0
+            ratio = max(0.0, min(1.0, ratio))
+            if "加载本地通达信" in stage or "准备高手策略" in stage:
+                frac = 0.05 + 0.35 * ratio
+            elif "完整模式" in stage:
+                frac = 0.40 + 0.22 * ratio
+            elif "无纪律对照" in stage:
+                frac = 0.62 + 0.20 * ratio
+            elif "对比不同持仓" in stage:
+                frac = 0.82 + 0.17 * ratio
+            else:
+                frac = 0.10 + 0.85 * ratio
+            if frac - last_progress_value < 0.02 and completed < total:
+                return
+            last_progress_value = frac
+            phase_text = f"{stage}（{completed}/{total}）" if total else stage
+            with self.lock, self._db() as db:
+                row = db.execute("SELECT meta FROM jobs WHERE id=?", (task_id,)).fetchone()
+                if not row:
+                    return
+                current = json.loads(row["meta"])
+                if current.get("status") != "running":
+                    return
+                current.update(phase=phase_text, progress=round(min(0.99, frac), 4), updatedAt=_now())
+                db.execute("UPDATE jobs SET meta=? WHERE id=?", (_dump(current), task_id))
+
+        try:
+            result = run_master_backtest(
+                None,
+                dataset.get("master"),
+                dataset.get("config") or meta.get("config"),
+                progress=on_progress,
+                cancelled=cancelled,
+                directory=self.directory,
+            )
+            result["kind"] = MASTER_BACKTEST_KIND
+            result_blob = _pack(result)
+            summary = result.get("summary") or {}
+            stats = {
+                "total_return": round(float(summary.get("totalReturnPct") or 0.0) / 100.0, 6),
+                "trade_count": int(summary.get("tradeCount") or 0),
+            }
+            with self.lock, self._db() as db:
+                row = db.execute("SELECT meta FROM jobs WHERE id=?", (task_id,)).fetchone()
+                if not row:
+                    return
+                latest = json.loads(row["meta"])
+                status = latest.get("status")
+                if status == "stopping":
+                    latest.update(status="stopped", phase="已停止（结果未完成）", updatedAt=_now())
+                    db.execute("UPDATE jobs SET meta=? WHERE id=?", (_dump(latest), task_id))
+                elif status == "pausing" or self.closing.is_set():
+                    latest.update(status="paused", phase="已保存暂停状态", updatedAt=_now())
+                    db.execute("UPDATE jobs SET meta=? WHERE id=?", (_dump(latest), task_id))
+                else:
+                    latest.update(
+                        status="completed",
+                        phase="研究完成",
+                        progress=1,
+                        symbolCount=result.get("universeCount"),
+                        stats=stats,
+                        updatedAt=_now(),
+                    )
+                    db.execute(
+                        "UPDATE jobs SET meta=?,checkpoint=?,result=? WHERE id=?",
+                        (_dump(latest), _pack({"stage": "completed"}), result_blob, task_id),
+                    )
+        except BacktestCancelled:
+            with self.lock, self._db() as db:
+                row = db.execute("SELECT meta FROM jobs WHERE id=?", (task_id,)).fetchone()
+                if not row:
+                    return
+                latest = json.loads(row["meta"])
+                status = "stopped" if latest.get("status") == "stopping" else "paused"
+                phase = "已停止（结果未完成）" if status == "stopped" else "已暂停，可点击继续重新运行"
+                latest.update(status=status, phase=phase, updatedAt=_now())
+                db.execute("UPDATE jobs SET meta=? WHERE id=?", (_dump(latest), task_id))
 
     def _worker(self):
         while not self.closing.is_set():

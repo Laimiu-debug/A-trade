@@ -24,7 +24,10 @@ async function fixture(directory) {
     const bytes = Buffer.alloc(dates.length * 32);
     let previous = 1000;
     for (let i = 0; i < dates.length; i++) {
-      const close = Math.round(1000 + stock + i * (.5 + stock * .002)), at = i * 32, volume = 2000000;
+      const baseClose = Math.round(1000 + stock + i * (.5 + stock * .002));
+      const isPulse = stock >= 1 && stock <= 10;
+      const close = isPulse && i === 305 ? Math.round(baseClose * 1.05) : (isPulse && i >= 306 ? Math.round(baseClose * 1.26) : baseClose);
+      const at = i * 32, volume = isPulse ? (i === 305 ? 45000000 : 25000000) : 2000000;
       bytes.writeUInt32LE(Number(dates[i].replaceAll('-', '')), at);
       bytes.writeUInt32LE(previous, at + 4);
       bytes.writeUInt32LE(Math.max(previous, close) + 2, at + 8);
@@ -234,17 +237,20 @@ async function main() {
     await wait('!!document.querySelector("[data-strategy-frame]")','packaged strategy workspace');
     await waitStrategy('document.querySelector("h1")?.textContent==="选股漏斗"','packaged screener');
     assert.equal(await strategy('document.body.innerText.includes("原版")||document.body.innerText.includes("Finaltrade")'),false);
-    const strategies=await strategy('fetch("/api/strategies").then(r=>r.json())');assert.equal(strategies.items.length,16);
+    const strategies=await strategy('fetch("/api/strategies").then(r=>r.json())');assert.equal(strategies.items.length,9);
+    const masterPlanResp=await strategy('fetch("/api/atrade/master-plan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({strategy_id:"wujiang_mainline_v1",mode:"full_market"})}).then(r=>r.json())');
+    assert.equal(masterPlanResp.styleKey,'wujiang_dynamic');
     await clickStrategy('加载输入池');await waitStrategy('document.body.innerText.includes("全量 136")','full packaged screener input pool');
-    const strategyDraft={mode:'full_market',strategy_id:'score_only_rank_v1',date_from:sample.dates[300],date_to:sample.dates[319],window_days:60,min_score:0,min_event_count:0,max_symbols:20,enable_advanced_analysis:false,execution_path_preference:'legacy'};
-    await strategy(`localStorage.setItem('tdx-trend-backtest-form-v2',${JSON.stringify(JSON.stringify(strategyDraft))});localStorage.setItem('tdx-trend-backtest-plateau-form-v2',${JSON.stringify(JSON.stringify({sampling_mode:'grid',stop_loss_pct_list_raw:'4,6',take_profit_pct_list_raw:'12,18',heatmap_x_axis:'stop_loss',heatmap_y_axis:'take_profit'}))});true`);
+    const hwParams={min_day_gain_pct:0.1,max_day_gain_pct:12.0,min_vol_ratio_20:0.5,min_up_down_vol_ratio:0.5,max_dist_ma20_pct:25.0,min_ret20_pct:-5.0,min_score:0};
+    const strategyDraft={mode:'full_market',strategy_id:'mainline_halfway_v1',strategy_params:hwParams,date_from:sample.dates[300],date_to:sample.dates[319],window_days:60,min_score:0,min_event_count:0,max_symbols:20,enable_advanced_analysis:false,execution_path_preference:'legacy'};
+    await strategy(`localStorage.setItem('tdx-strategy-shared-v1',${JSON.stringify(JSON.stringify({last_strategy_id:'mainline_halfway_v1',params_by_strategy:{mainline_halfway_v1:hwParams},presets_by_strategy:{}}))});localStorage.setItem('tdx-trend-backtest-form-v2',${JSON.stringify(JSON.stringify(strategyDraft))});localStorage.setItem('tdx-trend-backtest-plateau-form-v2',${JSON.stringify(JSON.stringify({sampling_mode:'grid',stop_loss_pct_list_raw:'4,6',take_profit_pct_list_raw:'12,18',heatmap_x_axis:'stop_loss',heatmap_y_axis:'take_profit'}))});true`);
     await evaluate('AT.navigate("R03");true');await waitStrategy('document.querySelector("h1")?.textContent==="策略回测"','packaged strategy backtest');
     await clickStrategy('开始回测');
     await waitStrategy(`fetch('/api/backtest/tasks').then(r=>r.json()).then(data=>{const task=data.items[0];if(task?.status==='failed')throw Error(task.error);return task?.status==='succeeded'})`,'packaged strategy result',180000);
     const strategyTasks=await strategy(`fetch('/api/backtest/tasks').then(r=>r.json())`);
     const strategyId=strategyTasks.items[0].task_id;
     const strategyReport=await strategy(`fetch('/api/backtest/tasks/'+${JSON.stringify(strategyId)}).then(r=>r.json())`);
-    assert.equal(strategyReport.result.strategy_id,'score_only_rank_v1');assert.ok(strategyReport.result.trades.length>0,'packaged strategy produces real sample trades');
+    assert.equal(strategyReport.result.strategy_id,'mainline_halfway_v1');assert.ok(strategyReport.result.trades.length>0,'packaged strategy produces real sample trades');
     await evaluate('AT.navigate("R05");true');await waitStrategy(`!![...document.querySelectorAll('button')].find(el=>el.textContent.trim()==='开始平原扫描'&&!el.disabled)`,'expanded packaged plateau');
     await clickStrategy('开始平原扫描');
     await waitStrategy(`fetch('/api/backtest/plateau/tasks').then(r=>r.json()).then(data=>{const task=data.items[0];if(task?.status==='failed')throw Error(task.error);return task?.status==='succeeded'})`,'packaged four-point plateau',240000);
@@ -255,7 +261,7 @@ async function main() {
     await evaluate('AT.navigate("R08");true');await waitStrategy('document.querySelector("h1")?.textContent==="报告库"&&document.querySelectorAll(".ant-table-row").length>=2','unified report library');
     await clickStrategy('查看结果');await waitStrategy('document.querySelector("h1")?.textContent==="收益平原"','reopened plateau result');
     assert.equal(await evaluate('localStorage.getItem("atrade.portfolio-editor.v1")'),portfolioDraft,'strategy workflow retains the combination draft');
-    console.log('PASS bundled strategy service, 16 strategies, 136 input stocks, actual trades, four-point plateau and unified report viewer.');
+    console.log('PASS bundled strategy service, 9 unified strategies, 136 input stocks, actual trades, four-point plateau and unified report viewer.');
     const payload = { kind: 'portfolio', name: '便携版 · 39日多策略全池验收',
       config: { startDate: sample.dates[300], endDate: sample.dates[338], initialCapital: 100000, topN: 5,
         maxPositions: 5, maxStockWeight: .2, rebalanceMode: 'risk', maxHoldingDays: 5,
@@ -377,13 +383,13 @@ async function main() {
     await session.close(); session = null;
     const evidence = { passed: true, directory: application, testedAt: new Date().toISOString(), version: diagnostic.data.app.version,
       fullPoolSize: 136, tradingDays: 39, strategies: 2, singleDevelopmentDays: 20, frozenValidationDays: 19,
-      strategyCatalogueSize:16,strategyTradeCount:strategyReport.result.trades.length,plateauPoints:4,strategyReportsPersisted:true,
+      strategyCatalogueSize:9,strategyTradeCount:strategyReport.result.trades.length,plateauPoints:4,strategyReportsPersisted:true,
       frozenPlanPersisted: true, validationStatus: validationReport.data.result.validationAudit.status,
       hostPythonDisabled: true, restarted: true, isolatedWorkspace: directory,singleExecutable:oneFile,duplicateLaunchVerified:oneFile,
       sectorCutoffValidated:true,sectorAsOf:sectorCutoff,sectorReturn5:sectorSnapshot.data.items[0].return5 };
     if(oneFile)assert.deepEqual(await fs.readdir(path.dirname(application)),[path.basename(application)],'only the exe is needed beside the program');
     await fs.writeFile(path.join(root, 'artifacts/portable-smoke.json'), JSON.stringify(evidence, null, 2) + '\n');
-    console.log('PASS packaged launch without host runtimes, 16 strategies, strategy backtest and four-point plateau, unified UI, 136-stock pool, date validation, 39-day portfolio and report/account restart persistence.');
+    console.log('PASS packaged launch without host runtimes, 9 unified strategies, strategy backtest and four-point plateau, unified UI, 136-stock pool, date validation, 39-day portfolio and report/account restart persistence.');
   } finally { session?.kill(); }
 }
 if (require.main === module) main().catch(error => { console.error(error.stack); process.exitCode = 1; });

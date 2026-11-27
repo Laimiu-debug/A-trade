@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import sys
 
 from .tq_bridge import TQBridge
@@ -74,6 +75,10 @@ def create_server(bridge):
 def main():
     if len(sys.argv) != 2:
         return 2
+    # This read-only worker shapes short quote tables and shares memory with the desktop.
+    os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+    from .dev_dependencies import use_prepared_dependencies
+    use_prepared_dependencies("mcp", "pandas")
     bridge = TQBridge(sys.argv[1])
     original_stdout = sys.stdout
     sys.stdout = _ProtocolStdout(original_stdout)

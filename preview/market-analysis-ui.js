@@ -58,7 +58,7 @@
       const command = connected ? 'L' : 'M'; connected = true;
       return `${command}${(index + .5) / count * 1000},${105 - Number(value) * 95}`;
     }).join(' ');
-    return `<div class="market-style-history-controls"><div class="market-style-ranges" aria-label="风格历史范围">${[60, 120, 250, 500, 1000].map(value => `<button type="button" data-market-history-days="${value}" aria-pressed="${historyDays === value}" ${busy ? 'disabled' : ''}>${value} 日</button>`).join('')}</div><div class="market-style-date-controls"><button type="button" data-market-style-step="-1" aria-label="前一交易日" ${!total || selected === 0 ? 'disabled' : ''}>前一日</button><input type="date" data-market-style-date aria-label="查看风格日期" min="${E(first || '')}" max="${E(last || '')}" value="${E(day || '')}" ${!total ? 'disabled' : ''}><button type="button" data-market-style-step="1" aria-label="后一交易日" ${!total || selected === total - 1 ? 'disabled' : ''}>后一日</button></div></div>${count ? `<div class="market-style-chart-heading"><span>MA20 之上占比 · 风格时间轴</span><div class="market-style-zoom-controls"><span>滚轮缩放 · 拖动查看</span><button type="button" data-market-style-zoom="out" aria-label="缩小时间轴" title="缩小时间轴" ${count === total ? 'disabled' : ''}>−</button><button type="button" data-market-style-zoom="in" aria-label="放大时间轴" title="放大时间轴" ${count <= Math.min(10, total) ? 'disabled' : ''}>＋</button><button type="button" data-market-style-zoom="reset" ${count === total ? 'disabled' : ''}>显示全部</button></div></div><div class="market-style-history" data-market-style-chart data-style-start="${start}" data-style-count="${count}" data-style-total="${total}" aria-label="历史风格与市场广度，可滚轮缩放和拖动"><svg viewBox="0 0 1000 142" preserveAspectRatio="none" aria-hidden="true"><path d="M0 10H1000M0 57.5H1000M0 105H1000" class="market-gridline"/><path d="${path}" fill="none" stroke="#4c82cd" stroke-width="1.8" vector-effect="non-scaling-stroke"/></svg><div class="market-style-days">${visible.map((item, index) => `<button type="button" data-market-style-day="${E(item.date)}" style="--style-color:${styles[item.key] || styles.insufficient}" class="${day === item.date ? 'active' : ''}" aria-pressed="${day === item.date}" tabindex="${index === focusIndex ? 0 : -1}" aria-label="${E(item.date + ' ' + (item.profile?.headline || item.label))}" title="${E(item.date + ' · ' + (item.profile?.headline || item.label))} · 时间轴大类 ${E(item.label)} · MA20之上 ${pct(item.metrics?.breadth, true)}"><i></i></button>`).join('')}</div></div><div class="market-style-axis">${[...new Set([0, Math.floor((count - 1) / 4), Math.floor((count - 1) / 2), Math.floor((count - 1) * .75), count - 1])].map(index => `<span>${E(visible[index].date)}</span>`).join('')}</div><p class="market-style-visible-range">${E(visible[0].date)} — ${E(visible.at(-1).date)} · 当前 ${count} / 全部 ${total} 个交易日</p><div class="market-analysis-legend">${Object.entries(styles).filter(([key]) => visible.some(item => item.key === key)).map(([key, color]) => `<span><i style="background:${color}"></i>${E(visible.find(item => item.key === key).label)}</span>`).join('')}</div>` : ''}${styleDateNote ? `<p class="market-style-date-note" role="status">${E(styleDateNote)}</p>` : ''}`;
+    return `<div class="market-style-history-controls"><div class="market-style-ranges" aria-label="风格历史范围">${[60, 120, 250, 500, 1000].map(value => `<button type="button" data-market-history-days="${value}" aria-pressed="${historyDays === value}" ${busy ? 'disabled' : ''}>${value} 日</button>`).join('')}</div><div class="market-style-date-controls"><button type="button" data-market-style-step="-1" aria-label="前一交易日" ${!total || selected === 0 ? 'disabled' : ''}>前一日</button><input type="date" data-market-style-date aria-label="查看风格日期" min="${E(first || '')}" max="${E(last || '')}" value="${E(day || '')}" ${!total ? 'disabled' : ''}><button type="button" data-market-style-step="1" aria-label="后一交易日" ${!total || selected === total - 1 ? 'disabled' : ''}>后一日</button></div></div>${count ? `<div class="market-style-chart-heading"><span>MA20 之上占比 · 风格时间轴</span><div class="market-style-zoom-controls"><span>滚轮缩放 · 拖动查看</span><button type="button" data-market-style-zoom="out" aria-label="缩小时间轴" title="缩小时间轴" ${count === total ? 'disabled' : ''}>−</button><button type="button" data-market-style-zoom="in" aria-label="放大时间轴" title="放大时间轴" ${count <= Math.min(10, total) ? 'disabled' : ''}>＋</button><button type="button" data-market-style-zoom="reset" ${count === total ? 'disabled' : ''}>显示全部</button></div></div><div class="market-style-history" data-market-style-chart data-style-start="${start}" data-style-count="${count}" data-style-total="${total}" aria-label="历史风格与市场广度，可滚轮缩放和拖动"><svg viewBox="0 0 1000 142" preserveAspectRatio="none" aria-hidden="true"><path d="M0 10H1000M0 57.5H1000M0 105H1000" class="market-gridline"/><path d="${path}" fill="none" stroke="#4c82cd" stroke-width="1.8" vector-effect="non-scaling-stroke"/></svg><div class="market-style-days">${visible.map((item, index) => `<button type="button" data-market-style-day="${E(item.date)}" style="--style-color:${styles[item.key] || styles.insufficient}" class="${day === item.date ? 'active' : ''}" aria-pressed="${day === item.date}" tabindex="${index === focusIndex ? 0 : -1}" aria-label="${E(item.date + ' ' + (item.profile?.headline || item.label))}" title="${E(item.date + ' · ' + (item.profile?.headline || item.label))} · 时间轴大类 ${E(item.label)} · MA20之上 ${pct(item.metrics?.breadth, true)}${item.dynamic?.status === 'observed' ? ` · 动态雷达 ${E(item.dynamic.regimeLabel || '')} (温度 ${n(item.dynamic.offenseScore, 0)})` : ''}"><i></i></button>`).join('')}</div></div><div class="market-style-axis">${[...new Set([0, Math.floor((count - 1) / 4), Math.floor((count - 1) / 2), Math.floor((count - 1) * .75), count - 1])].map(index => `<span>${E(visible[index].date)}</span>`).join('')}</div><p class="market-style-visible-range">${E(visible[0].date)} — ${E(visible.at(-1).date)} · 当前 ${count} / 全部 ${total} 个交易日</p><div class="market-analysis-legend">${Object.entries(styles).filter(([key]) => visible.some(item => item.key === key)).map(([key, color]) => `<span><i style="background:${color}"></i>${E(visible.find(item => item.key === key).label)}</span>`).join('')}</div>` : ''}${styleDateNote ? `<p class="market-style-date-note" role="status">${E(styleDateNote)}</p>` : ''}`;
   }
   function profileValue(item = {}, detailed = false) {
     if (!finite(item.value)) return '—';
@@ -86,12 +86,134 @@
     const selected = (data?.timeline || []).find(item => item.date === chosenDay);
     return {day: selected?.date || data?.asOf, current: selected || data?.style};
   }
+  function safeColor(raw, fallback = '#476eae') {
+    return /^#[0-9a-fA-F]{6}$/.test(String(raw || '')) ? String(raw) : fallback;
+  }
+  function signedNum(value, digits = 1, suffix = '') {
+    if (!finite(value)) return '—';
+    const num = Number(value);
+    return `${num > 0 ? '+' : ''}${n(num, digits)}${suffix}`;
+  }
+  function dynamicStylePanel(dynamic, day) {
+    if (!dynamic || typeof dynamic !== 'object') return '';
+    const color = safeColor(dynamic.regimeColor, '#476eae');
+    const tone = ['positive', 'neutral', 'warning', 'negative', 'amber', 'teal', 'unknown'].includes(dynamic.regimeTone) ? dynamic.regimeTone : 'unknown';
+    if (dynamic.status !== 'observed') {
+      return `<section class="market-dynamic-radar market-dynamic-insufficient" data-market-dynamic-style data-dynamic-date="${E(day || '')}"><header><h3>动态风格雷达与切换预警</h3><span>${E(dynamic.regimeLabel || '样本不足')}</span></header><p>${E(dynamic.summary || '有效样本不足，暂不输出动态风格雷达。')}</p></section>`;
+    }
+    const offense = finite(dynamic.offenseScore) ? clamp(Number(dynamic.offenseScore), 0, 100) : 50;
+    const ema = dynamic.offenseEma;
+    const vel = dynamic.offenseVelocity;
+    const pct30 = dynamic.offensePercentile30;
+    const boardAxis = finite(dynamic.boardAxis) ? clamp(Number(dynamic.boardAxis), -100, 100) : null;
+    const boardPos = boardAxis === null ? 50 : clamp((boardAxis + 100) / 2, 3, 97);
+    const structAxis = finite(dynamic.structureAxis) ? clamp(Number(dynamic.structureAxis), -100, 100) : null;
+    const structPos = structAxis === null ? 50 : clamp((structAxis + 100) / 2, 3, 97);
+    const bm = dynamic.boardMetrics || {};
+    const sm = dynamic.structureMetrics || {};
+    const liq = dynamic.liquidity || {};
+    const alerts = Array.isArray(dynamic.shiftAlerts) ? dynamic.shiftAlerts : [];
+    const guide = dynamic.strategyGuide || {};
+    const matched = Array.isArray(guide.matchedStrategies) ? guide.matchedStrategies : [];
+    const plan = guide.positionPlan || {};
+    const thermoTone = offense >= 60 ? '#0f766e' : offense >= 42 ? '#2563eb' : offense >= 30 ? '#d97706' : '#dc2626';
+    return `<section class="market-dynamic-radar market-dynamic-${tone}" data-market-dynamic-style data-dynamic-date="${E(day || '')}" style="--dyn-color:${color}">
+      <div class="market-dynamic-top">
+        <div class="market-dynamic-status">
+          <div class="market-dynamic-badges">
+            <span class="market-dynamic-badge">${E(dynamic.regimeLabel || '结构轮动震荡')}</span>
+            <span class="market-dynamic-chip">动量 · ${E(dynamic.momentumLabel || '—')}</span>
+            <span class="market-dynamic-chip">置信度 ${n(dynamic.confidencePct, 0)}%</span>
+            ${Number(dynamic.streakDays) > 0 ? `<span class="market-dynamic-chip">延续 ${n(dynamic.streakDays, 0)} 日</span>` : ''}
+          </div>
+          <h4>${E(dynamic.headline || '')}</h4>
+          <p>${E(dynamic.summary || '')}</p>
+        </div>
+        <div class="market-dynamic-thermo" aria-label="市场进攻温度计">
+          <div class="market-dynamic-thermo-head">
+            <span>进攻温度计</span>
+            <strong style="color:${thermoTone}">${n(offense, 1)} <small>/ 100</small></strong>
+          </div>
+          <div class="market-dynamic-thermo-bar"><i style="width:${offense}%;background:${thermoTone}"></i></div>
+          <div class="market-dynamic-thermo-meta">
+            <span>3日平滑 <b>${n(ema, 1)}</b></span>
+            <span>5日动量 <b>${signedNum(vel, 1)}</b></span>
+            <span>近30日分位 <b>${finite(pct30) ? `第 ${n(pct30, 0)}%` : '—'}</b></span>
+          </div>
+          <div class="market-dynamic-thermo-liq">
+            <span>量能气候：<b>${E(liq.label || '—')}</b></span>
+            <span>观察总额 ${finite(liq.totalAmountYi) ? `${n(liq.totalAmountYi, 0)} 亿` : '—'}${finite(liq.totalAmountRatio20) ? `（20日均 ${n(liq.totalAmountRatio20, 2)}x）` : ''}</span>
+          </div>
+        </div>
+      </div>
+      ${alerts.length ? `<div class="market-dynamic-alerts" data-market-shift-alerts>${alerts.map(alert => {
+        const sev = ['danger', 'warning', 'positive'].includes(alert.severity) ? alert.severity : 'warning';
+        return `<article class="market-shift-alert market-shift-${sev}">
+          <strong>${E(alert.title || '')}</strong>
+          <p>${E(alert.detail || '')}</p>
+          ${alert.actionHint ? `<small>应对建议：${E(alert.actionHint)}</small>` : ''}
+        </article>`;
+      }).join('')}</div>` : ''}
+      <div class="market-dynamic-axes">
+        <article class="market-axis-card">
+          <div class="market-axis-head">
+            <span>赛道切换轴（主板 vs 20cm科技）</span>
+            <b>${E(dynamic.boardLabel || '—')}${boardAxis !== null ? ` (${signedNum(boardAxis, 1)})` : ''}</b>
+          </div>
+          <div class="market-axis-scale">
+            <small>10cm 主板题材</small>
+            <div class="market-axis-track"><span class="market-axis-mid"></span><i style="left:${boardPos}%"></i></div>
+            <small>20cm 科创创业</small>
+          </div>
+          <dl class="market-axis-stats">
+            <div><dt>20cm 5日/广度</dt><dd>${signedNum(bm.growth20MedianRet5, 2, '%')} · ${pct(bm.growth20Breadth, true)}</dd></div>
+            <div><dt>10cm 5日/广度</dt><dd>${signedNum(bm.main10MedianRet5, 2, '%')} · ${pct(bm.main10Breadth, true)}</dd></div>
+            <div><dt>20cm成交占比 / 5日切换</dt><dd>${pct(bm.growth20AmountShare, true)} · ${signedNum(dynamic.boardAxisDelta5, 1)}</dd></div>
+          </dl>
+        </article>
+        <article class="market-axis-card">
+          <div class="market-axis-head">
+            <span>结构偏好轴（容量趋势 vs 连板接力）</span>
+            <b>${E(dynamic.structureLabel || '—')}${structAxis !== null ? ` (${signedNum(structAxis, 1)})` : ''}</b>
+          </div>
+          <div class="market-axis-scale">
+            <small>大容量趋势中军</small>
+            <div class="market-axis-track"><span class="market-axis-mid"></span><i style="left:${structPos}%"></i></div>
+            <small>短线连板接力</small>
+          </div>
+          <dl class="market-axis-stats">
+            <div><dt>前10%成交核心 5日超额</dt><dd>${signedNum(sm.coreExcess5, 2, '%')}</dd></div>
+            <div><dt>前10%成交核心 20日超额</dt><dd>${signedNum(sm.coreExcess20, 2, '%')}</dd></div>
+            <div><dt>连板高度 / 连板家数 / 晋级</dt><dd>${n(sm.maxBoardHeight, 0)}板 · ${n(sm.multiBoardApprox, 0)}只 · ${pct(sm.promotionRate, true)}</dd></div>
+          </dl>
+        </article>
+      </div>
+      <div class="market-dynamic-guide">
+        <div class="market-dynamic-guide-head">
+          <div>
+            <strong>当前风格适配策略与分仓建议</strong>
+            <small>仓位上限 <b>${E(plan.totalRange || '—')}</b> · 分仓 <b>${E(plan.slots || '—')}</b> · 单票 <b>${E(plan.maxSingle || '—')}</b></small>
+          </div>
+          <div class="market-dynamic-guide-actions">
+            <button type="button" data-nav="R01">打开策略中心 →</button>
+            <button type="button" data-nav="R03">前往策略回测 →</button>
+          </div>
+        </div>
+        ${matched.length ? `<div class="market-dynamic-strategy-list">${matched.map(item => `<div class="market-dynamic-strategy-item">
+          <span class="market-dynamic-fit">${E(item.fit || '适配')}</span>
+          <b>${E(item.name || item.id || '')}</b>
+          <p>${E(item.note || '')}</p>
+        </div>`).join('')}</div>` : ''}
+        ${plan.riskHint ? `<p class="market-dynamic-risk-hint">风控纪律：${E(plan.riskHint)}</p>` : ''}
+      </div>
+    </section>`;
+  }
   function overview({data, busy, error, historyDays = 250}) {
     const timeline = data?.timeline || [], {day, current} = selectedObservation(data);
-    const metrics = current?.metrics || {}, profile = current?.profile;
-    return `<section class="panel market-analysis-style"><div class="market-section-heading"><div><h2>市场风格观察</h2><p class="market-subtle">趋势、广度、量能、接力、偏好与风险 · 基于本地日线</p></div><button class="btn small" data-market-action="refresh-research" ${busy ? 'disabled' : ''}>${busy ? '正在统计…' : '更新观察'}</button></div>${error ? `<p class="market-warning" role="alert">${E(error)}</p>` : ''}${!data ? `<div class="market-empty compact"><p>${busy ? '正在读取本地股票，计算同一交易日的市场广度与风格…' : '选择并读取本地日线后，这里显示市场风格与判定依据。'}</p></div>` : `<div class="market-analysis-lead"><div><span class="market-analysis-date">${E(day || '—')} · 收盘观察${data.cached ? ' · 已保存快照' : ''}</span><h3 style="--style-color:${profile ? '#304c73' : styles[current?.key] || styles.insufficient}">${E(profile?.headline || current?.label || '数据不足')}</h3><p>${E(profile?.summary || current?.reason || '')}</p><div class="market-profile-coarse"><span>时间轴大类</span><b style="--style-color:${styles[current?.key] || styles.insufficient}">${E(current?.label || '数据不足')}</b><small>${current?.key === 'insufficient' ? '样本不足，尚未判定大类风格' : current?.key === 'unconfirmed' ? '尚未形成已确认大类；细分维度反映当日读数' : current?.pendingKey ? '新大类仍在连续确认中；细分维度反映当日读数' : '连续确认口径；与当日细分读数分开观察'}</small></div></div><div class="market-analysis-coverage"><strong>${n(metrics.sampleCount, 0)} <small>/ ${n(metrics.expectedCount, 0)}</small></strong><span>可观察股票 · 覆盖率 ${pct(metrics.coverage, true)}</span><p>本次统计日 ${E(data.asOf || '—')}</p></div></div>${styleProfile(profile, day)}<div class="market-analysis-facts">${[
+    const metrics = current?.metrics || {}, profile = current?.profile, dynamic = current?.dynamic;
+    return `<section class="panel market-analysis-style"><div class="market-section-heading"><div><h2>市场风格观察</h2><p class="market-subtle">动态多轴雷达、切换预警 + 六维量价证据 · 基于本地日线</p></div><button class="btn small" data-market-action="refresh-research" ${busy ? 'disabled' : ''}>${busy ? '正在统计…' : '更新观察'}</button></div>${error ? `<p class="market-warning" role="alert">${E(error)}</p>` : ''}${!data ? `<div class="market-empty compact"><p>${busy ? '正在读取本地股票，计算同一交易日的市场广度与风格…' : '选择并读取本地日线后，这里显示市场风格与判定依据。'}</p></div>` : `<div class="market-analysis-lead"><div><span class="market-analysis-date">${E(day || '—')} · 收盘观察${data.cached ? ' · 已保存快照' : ''}</span><h3 style="--style-color:${profile ? '#304c73' : styles[current?.key] || styles.insufficient}">${E(profile?.headline || current?.label || '数据不足')}</h3><p>${E(profile?.summary || current?.reason || '')}</p><div class="market-profile-coarse"><span>时间轴大类</span><b style="--style-color:${styles[current?.key] || styles.insufficient}">${E(current?.label || '数据不足')}</b><small>${current?.key === 'insufficient' ? '样本不足，尚未判定大类风格' : current?.key === 'unconfirmed' ? '尚未形成已确认大类；细分维度与动态雷达反映当日读数' : current?.pendingKey ? '新大类仍在连续确认中；细分维度与动态雷达反映当日读数' : '连续确认口径；与当日动态雷达及细分读数互补观察'}</small></div></div><div class="market-analysis-coverage"><strong>${n(metrics.sampleCount, 0)} <small>/ ${n(metrics.expectedCount, 0)}</small></strong><span>可观察股票 · 覆盖率 ${pct(metrics.coverage, true)}</span><p>本次统计日 ${E(data.asOf || '—')}</p></div></div>${dynamicStylePanel(dynamic, day)}${styleProfile(profile, day)}<div class="market-analysis-facts">${[
       ['站上 MA20', pct(metrics.breadth, true)], ['20日中位涨幅', pct(metrics.medianReturn20)], ['上涨 / 下跌', `${n(metrics.advanceCount, 0)} / ${n(metrics.declineCount, 0)}`], ['近似涨停 / 跌停', `${n(metrics.limitUpApprox, 0)} / ${n(metrics.limitDownApprox, 0)}`], ['连板 / 最高高度', `${n(metrics.multiBoardApprox, 0)} / ${n(metrics.maxBoardHeight, 0)}`], ['高弹性成交占比', pct(metrics.wildAmountShare, true)]
-    ].map(([label, value]) => `<div><span>${label}</span><b>${value}</b></div>`).join('')}</div>${leadershipEvidence(metrics.leadership || current?.leadership?.metrics, day)}<div data-market-style-explorer>${historyView(timeline, day, historyDays, busy)}</div><p class="market-analysis-method">六个维度使用所选日及此前的行情分别判定，不合成为单一评分；样本不足时不输出强弱结论。时间轴颜色保留已确认大类：趋势扩散、连板活跃、高弹性、轮动或退潮；普通大类变化需连续两日确认，旧标签最多沿用20个交易日，过期显示待确认。细分读数与大类可能不同。仅作价格与成交活跃度观察。</p><div class="market-analysis-notes">${(data.warnings || []).map(message => `<p>${E(message)}</p>`).join('')}</div>`}</section>`;
+    ].map(([label, value]) => `<div><span>${label}</span><b>${value}</b></div>`).join('')}</div>${leadershipEvidence(metrics.leadership || current?.leadership?.metrics, day)}<div data-market-style-explorer>${historyView(timeline, day, historyDays, busy)}</div><p class="market-analysis-method">动态雷达使用严格因果的 30 日滚动分位、3 日 EMA 平滑、板块赛道轴（20cm vs 10cm）与结构偏好轴（容量核心 vs 连板接力），提前发出切换与顶背离预警；下方六个维度保留独立原始阈值与逐日样本核验。时间轴大类沿用连续两日确认机制。均基于本地日线量价事实，不构成投资建议。</p><div class="market-analysis-notes">${(data.warnings || []).map(message => `<p>${E(message)}</p>`).join('')}</div>`}</section>`;
   }
   function leadershipEvidence(metrics, day) {
     if (!metrics) return `<div class="market-leader-entry"><p>连板接力、昨日高标反馈与趋势成交占比可在连板龙头中并排回看。</p><button type="button" data-nav="T08" data-leader-day="${E(day || '')}">查看连板龙头 →</button></div>`;

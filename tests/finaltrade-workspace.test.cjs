@@ -23,6 +23,20 @@ test('browser preview displays the desktop requirement without recursive renderi
  const {context}=load();await context.FinaltradeWorkspace.mount();
  assert.ok(context.document.getElementById('strategy-workspace-root').innerHTML.includes('请在桌面应用中'));assert.equal(context.document.getElementById('strategy-workspace-root').children.length,0);
 });
+test('a late editor route cannot undo a newer sidebar selection',async()=>{
+ const {context,listeners,messages}=load(async()=>({ok:true}));
+ await context.StrategyWorkspace.mount();
+ const frame=context.document.getElementById('strategy-workspace-root').children[0];
+ const report=route=>listeners['window:message']({origin:'atrade://reference',source:frame.contentWindow,data:{channel:'atrade.research.v1',action:'route',payload:{route}}});
+ report('/screener');
+ context.AT.state.page='R12';await context.StrategyWorkspace.mount();
+ context.AT.state.page='R13';await context.StrategyWorkspace.mount();
+ report('/signals');
+ assert.equal(context.AT.state.page,'R13');
+ assert.equal(messages.at(-1).data.route,'/trade');
+ report('/trade');
+ assert.equal(context.AT.state.page,'R13');
+});
 test('stock chart routes open the native market page and restore the precise research origin',async()=>{
  const {context,listeners,messages}=load(async()=>({ok:true}));
  context.AT.state.page='R05';await context.StrategyWorkspace.mount();

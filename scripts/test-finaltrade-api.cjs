@@ -8,7 +8,11 @@ const service=new FinaltradeService(directory);
   assert.equal((await fetch(service.url+'/api/strategies')).status,403,'direct local port requires the private handshake');
   assert.equal((await fetch(service.url+'/assets/index.js')).status,403,'assets also require the handshake');
   const request=new Request('atrade://reference/api/strategies');
-  const catalogue=await (await service.proxy(request)).json();assert.equal(catalogue.items.length,16);
+  const catalogue=await (await service.proxy(request)).json();assert.equal(catalogue.items.length,9);
+  for(const sid of ['wujiang_mainline_v1','mainline_halfway_v1','first_to_second_v1','highboard_sniper_v1','ruhan_halfway_v1','strong_trend_dip_v1']){assert.ok(catalogue.items.some(i=>i.strategy_id===sid),'missing '+sid);}
+  const masterPlan=await service.proxy(new Request('atrade://reference/api/atrade/master-plan',{method:'POST',headers:{'Content-Type':'application/json',Origin:'atrade://reference'},body:JSON.stringify({strategy_id:'wujiang_mainline_v1',mode:'full_market'})}));
+  assert.equal(masterPlan.status,200,'master-plan endpoint generates fallback rehearsal plan cleanly');
+  const planBody=await masterPlan.json();assert.equal(planBody.styleKey,'wujiang_dynamic');assert.ok(Array.isArray(planBody.timelineChecklist)&&planBody.timelineChecklist.length>0);
   const params={markets:['sh','sz'],mode:'strict',return_window_days:40,top_n:500,turnover_threshold:.05,amount_threshold:5e8,amplitude_threshold:.03};
   const response=await service.proxy(new Request('atrade://reference/api/screener/run',{method:'POST',headers:{'Content-Type':'application/json',Origin:'atrade://reference'},body:JSON.stringify(params)}));
   assert.equal(response.status,404,'no real market cannot return the source demo stocks');
@@ -24,9 +28,9 @@ const service=new FinaltradeService(directory);
   assert.equal(independentConfig.status,403);assert.equal((await independentConfig.json()).code,'PROJECT_SETTINGS_ONLY');
   require('node:child_process').execFileSync(require('../desktop/business-service.cjs').pythonCommand(),['-c','import sqlite3,json,sys; db=sqlite3.connect(sys.argv[1]); db.execute("CREATE TABLE meta(key TEXT PRIMARY KEY,value TEXT)"); db.execute("INSERT INTO meta VALUES(?,?)",("path",json.dumps(sys.argv[2]))); db.commit(); db.close()',path.join(directory,'market.sqlite3'),path.join(directory,'changed-source')],{windowsHide:true});
   const changed=await service.proxy(new Request('atrade://reference/api/strategies'));
-  assert.equal(changed.status,200);assert.equal((await changed.json()).items.length,16);
+  assert.equal(changed.status,200);assert.equal((await changed.json()).items.length,9);
   const synced=await (await service.proxy(new Request('atrade://reference/api/config'))).json();assert.equal(synced.tdx_data_path,path.join(directory,'changed-source'));
   const status=await (await service.proxy(new Request('atrade://reference/api/atrade/status'))).json();assert.equal(status.available,false);assert.equal(status.source_changed,false);
-  console.log('PASS private API, 16 strategies, no-data rejection, isolated configuration and source synchronization without restarting.');
+  console.log('PASS private API, 9 unified strategies, master-plan endpoint, no-data rejection, isolated configuration and source synchronization without restarting.');
  }finally{service.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

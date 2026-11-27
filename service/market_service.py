@@ -18,6 +18,7 @@ from service.funds_activity import FundsActivity
 from service.regulatory_watch import RegulatoryWatch
 from service.valuation_context import finance_context
 from service.security_search import SecuritySearch
+from service.master_slips import MasterSlipsService
 
 
 def _now():
@@ -79,11 +80,13 @@ class MarketService:
             self.sector_history = SectorHistory(self)
             self.funds_activity = FundsActivity(self)
             self.regulatory = RegulatoryWatch(self)
+            self.masters = MasterSlipsService(self)
         except Exception:
             self.db.close()
             raise
 
     def close(self):
+        self.masters.close()
         self.regulatory.close()
         self.analysis.close()
         self.information.close()
@@ -111,6 +114,8 @@ class MarketService:
 
     def dispatch(self, method, payload=None):
         payload = payload or {}
+        if method.startswith("market.masters."):
+            return self.masters.dispatch(method, payload)
         if method.startswith("market.emotion.themes."):
             from service.emotion_cycle import themes_dispatch
             return themes_dispatch(self, method, payload)
@@ -170,6 +175,7 @@ class MarketService:
         if not same:
             self.analysis.invalidate()
             self.research.invalidate()
+            self.masters.invalidate_analysis()
         with self.db:
             if not same:
                 self.db.execute("DELETE FROM securities")
@@ -238,6 +244,7 @@ class MarketService:
             self.bump_source_revision()
         self.analysis.invalidate()
         self.research.invalidate()
+        self.masters.invalidate_analysis()
         return self.status()
 
     def search(self, payload):

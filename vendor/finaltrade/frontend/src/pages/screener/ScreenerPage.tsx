@@ -1053,7 +1053,7 @@ export function ScreenerPage() {
   const [rawInputPool, setRawInputPool] = useState<ScreenerResult[]>(initialCache.raw_input_pool ?? [])
   const [b1Loading, setB1Loading] = useState(false)
   const [quickSearchKeyword, setQuickSearchKeyword] = useState('')
-  const [strategyId, setStrategyId] = useState<StrategyId>(() => getSharedLastStrategyId('wyckoff_trend_v1'))
+  const [strategyId, setStrategyId] = useState<StrategyId>(() => getSharedLastStrategyId('wujiang_mainline_v1'))
 
   const pageAIContext = useMemo(
     () => ({
@@ -1193,7 +1193,7 @@ export function ScreenerPage() {
     if (strategyItems.length <= 0) return
     const allIds = new Set(strategyItems.map((item) => item.strategy_id))
     if (allIds.has(strategyId)) return
-    setStrategyId(resolveDefaultStrategyId(strategyItems, 'wyckoff_trend_v1'))
+    setStrategyId(resolveDefaultStrategyId(strategyItems, 'wujiang_mainline_v1'))
   }, [strategyId, strategyItems])
 
   useEffect(() => {
@@ -2956,7 +2956,7 @@ export function ScreenerPage() {
                   onChange={(value) => setStrategyId(String(value) as StrategyId)}
                   options={(strategyItems.length > 0
                     ? strategyItems
-                    : [{ strategy_id: 'wyckoff_trend_v1', name: '维科夫趋势V1', version: '1.0.0', enabled: true }])
+                    : [{ strategy_id: 'wujiang_mainline_v1', name: '乌江双轨主线核心', version: '2.0.0', enabled: true }])
                     .map((item) => ({
                       value: item.strategy_id,
                       label: `${item.name} (${item.version})${item.enabled === false ? ' - 已禁用' : ''}`,

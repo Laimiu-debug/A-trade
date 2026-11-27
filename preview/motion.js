@@ -4,7 +4,6 @@
   const AT = (window.AT = window.AT || {});
   const query = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : { matches: false, addEventListener() {} };
   const activeGhosts = new Map();
-  const tabSnapshots = new Map();
 
   function reduced() {
     return Boolean(AT.state?.reduced || query.matches || document.documentElement.classList.contains('reduce-motion') || document.body?.classList.contains('reduce-motion'));
@@ -118,34 +117,12 @@
   }
 
   /**
-   * FLIP active indicator glide for segmented controls & tab bars.
-   * Call captureTabs(key, activeEl) before a tab click/re-render and animateTabs(key, newActiveEl) after.
+   * Tab switches rely on clean CSS color/border transitions rather than transforming
+   * button elements horizontally (which stretched label text and flashed across tabs).
    */
-  function captureTabs(key, activeEl) {
-    if (!key || !activeEl || reduced()) return;
-    const rect = activeEl.getBoundingClientRect();
-    if (rect.width > 0) tabSnapshots.set(key, { left: rect.left, width: rect.width, time: performance.now() });
-  }
+  function captureTabs() {}
 
-  function animateTabs(key, newActiveEl) {
-    const prev = tabSnapshots.get(key);
-    tabSnapshots.delete(key);
-    if (!prev || !newActiveEl || reduced() || performance.now() - prev.time > 400) return;
-    const next = newActiveEl.getBoundingClientRect();
-    if (!next.width) return;
-    const dx = prev.left - next.left;
-    const sx = prev.width / next.width;
-    if (Math.abs(dx) < 1 && Math.abs(sx - 1) < 0.02) return;
-    if (typeof newActiveEl.animate === 'function') {
-      newActiveEl.animate(
-        [
-          { transform: `translate3d(${dx.toFixed(1)}px, 0, 0) scaleX(${sx.toFixed(3)})`, transformOrigin: 'left center' },
-          { transform: 'translate3d(0, 0, 0) scaleX(1)', transformOrigin: 'left center' }
-        ],
-        { duration: 200, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
-      );
-    }
-  }
+  function animateTabs() {}
 
   /**
    * Apple-grade horizontal momentum physics for the Milestone Pass Rail:
@@ -319,23 +296,6 @@
       requestAnimationFrame(stepFrame);
     });
   }
-
-  // Global passive FLIP tracker for segmented/tab buttons
-  document.addEventListener('pointerdown', e => {
-    const btn = e.target?.closest?.('.segmented button, .tabs button, .local-tab, .context-nav button, .business-tabs button, .milestone-filters button');
-    if (!btn) return;
-    const container = btn.closest('.segmented, .tabs, .local-tabs, .context-nav, .business-tabs, .milestone-filters');
-    if (!container) return;
-    const current = container.querySelector('.active, [aria-selected="true"], [aria-current="page"], [aria-pressed="true"]');
-    if (current && current !== btn) {
-      const key = container.className.split(' ')[0] + ':' + (container.id || container.getAttribute('aria-label') || 'default');
-      captureTabs(key, current);
-      requestAnimationFrame(() => {
-        const nextActive = btn.isConnected ? btn : document.querySelector(`.${container.className.split(' ')[0]} .active, .${container.className.split(' ')[0]} [aria-selected="true"], .${container.className.split(' ')[0]} [aria-current="page"], .${container.className.split(' ')[0]} [aria-pressed="true"]`);
-        if (nextActive) animateTabs(key, nextActive);
-      });
-    }
-  }, { passive: true });
 
   query.addEventListener?.('change', syncReduced);
 

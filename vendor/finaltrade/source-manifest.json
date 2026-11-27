@@ -46,13 +46,15 @@
     },
     {
       "path": "backend/app/core/ai_local_store.py",
-      "sha256": "c4ad6d09aa6024111364df4b9d48d653853330403a82dac2b0149a42eedf7aa5",
-      "bytes": 3523
+      "sha256": "7b977aeb87d44d27ed34eda62c6f3c1605ed659e02816ab0e03efa06ee3263ce",
+      "bytes": 3622,
+      "upstreamSha256": "c4ad6d09aa6024111364df4b9d48d653853330403a82dac2b0149a42eedf7aa5"
     },
     {
       "path": "backend/app/core/ai_parameter_proposal.py",
-      "sha256": "3efabf13d40011f4ba7c6e6c31874364678c319f49b9da2f3ad963d40db2dfc1",
-      "bytes": 16604
+      "sha256": "8cc1164e51f3120a158a83d3c05167fa1af3120860d5a51b85d5a9484c3f3874",
+      "bytes": 16607,
+      "upstreamSha256": "3efabf13d40011f4ba7c6e6c31874364678c319f49b9da2f3ad963d40db2dfc1"
     },
     {
       "path": "backend/app/core/ai_playbook.py",
@@ -61,8 +63,9 @@
     },
     {
       "path": "backend/app/core/ai_session_store.py",
-      "sha256": "82d66c38aaf5522d9a755262dc58d6f0da279a7e04b31e1593179ef1d58627e4",
-      "bytes": 4406
+      "sha256": "1222834b85db3e21919951a2be6bae8c1cf31b9eb06a5353ee5dcef54d7f96af",
+      "bytes": 4505,
+      "upstreamSha256": "82d66c38aaf5522d9a755262dc58d6f0da279a7e04b31e1593179ef1d58627e4"
     },
     {
       "path": "backend/app/core/b1_strategy.py",
@@ -71,8 +74,8 @@
     },
     {
       "path": "backend/app/core/backtest_engine.py",
-      "sha256": "119fcc20631035ec034716a5cdd535f20187c859d0b171d3e71cae8bc6bf0001",
-      "bytes": 201193,
+      "sha256": "98691805d877ad3350baeddfea045cb1a2a8ecfe820b0de737ca02327f847a4b",
+      "bytes": 205339,
       "upstreamSha256": "7b6e1b8322a0bcde022d2ec78516dc0756b3bbf9693a097e84b40a490aaebf28"
     },
     {
@@ -121,6 +124,12 @@
       "bytes": 20242
     },
     {
+      "path": "backend/app/core/master_alpha_strategies.py",
+      "sha256": "0f0de22aacf959468f933f0043a8cf98f3bc80f159ec0ebc6c8c99d49a4363b8",
+      "bytes": 38349,
+      "upstreamSha256": null
+    },
+    {
       "path": "backend/app/core/plateau_features.py",
       "sha256": "a113f74b04dcdf055a5bba2ca019801ef68ccf5e7db18e3c23686c471e14bf0b",
       "bytes": 1099,
@@ -133,8 +142,9 @@
     },
     {
       "path": "backend/app/core/sector_analyzer.py",
-      "sha256": "b9e66697f4d11091cfa8f447341d5f554f680032a4269d665e9c38929daf79de",
-      "bytes": 10406
+      "sha256": "45a41adaf598de0db68a745ff5e3cb25391482e70ebf2d3172cb1dfdd7295880",
+      "bytes": 13191,
+      "upstreamSha256": "b9e66697f4d11091cfa8f447341d5f554f680032a4269d665e9c38929daf79de"
     },
     {
       "path": "backend/app/core/sector_capital_flow.py",
@@ -153,18 +163,20 @@
     },
     {
       "path": "backend/app/core/strategy_ai_meta.py",
-      "sha256": "eea0c47fba14a0e6b4dbe55bff199c6615add30ae279fcd932a8e5788af03188",
-      "bytes": 5446
+      "sha256": "52ecd406571de2811c5da21e7f9ddeb40e27b1c17e95eaba6387e0bde864917c",
+      "bytes": 5191,
+      "upstreamSha256": "eea0c47fba14a0e6b4dbe55bff199c6615add30ae279fcd932a8e5788af03188"
     },
     {
       "path": "backend/app/core/strategy_plugins.py",
-      "sha256": "b813bd1c996327175594c39f44e0de6fe7fe82cadc2cb33a35bc140a2ca3fb0b",
-      "bytes": 37936
+      "sha256": "1dcd6dca279929dce39abddc9002319b31efc5567312fcae6ca49984591392a7",
+      "bytes": 40169,
+      "upstreamSha256": "b813bd1c996327175594c39f44e0de6fe7fe82cadc2cb33a35bc140a2ca3fb0b"
     },
     {
       "path": "backend/app/core/strategy_registry.py",
-      "sha256": "760768bbb13f65ed4d72604be34f06ceb85a38742f318fc2f12eca4635249414",
-      "bytes": 78279,
+      "sha256": "36d0aa270c938c3ee2bb8b117dde48bc16d0a488bd13ff276d97efbeef954818",
+      "bytes": 33098,
       "upstreamSha256": "e0fbf337b191942d3f4a650ab3d053c2dbbb25e2808ac7b11c36d7a2538d2b97"
     },
     {
@@ -184,13 +196,14 @@
     },
     {
       "path": "backend/app/core/wyckoff_event_store.py",
-      "sha256": "16148fa9a0078dce7e9ffaf14543f184007f9ab320bbcbba03af7371c3de5675",
-      "bytes": 19813
+      "sha256": "90f4d0eb86d558b7e4ec048e3a1fc4bf960ee91ee660cf1eff26aa4ff117975d",
+      "bytes": 21073,
+      "upstreamSha256": "16148fa9a0078dce7e9ffaf14543f184007f9ab320bbcbba03af7371c3de5675"
     },
     {
       "path": "backend/app/main.py",
-      "sha256": "345bca8a24e08e66db6a51c80cc8ae427204752bb8e2dec69ac2cdfc7201aadc",
-      "bytes": 55725,
+      "sha256": "de3c18222cd57a4ec69829107bf308bea6ee749379cf8d54dcfeb0cfef9d1a76",
+      "bytes": 55728,
       "upstreamSha256": "eae923162e76c90b676bb5872c42e04f3ff1a7cb3b49855a4ba198c50eacd061"
     },
     {
@@ -200,8 +213,8 @@
     },
     {
       "path": "backend/app/models.py",
-      "sha256": "8704af1b5baf80fdad5e9593a12fa8c5c8e83a5703c5a244509de76f438fec6d",
-      "bytes": 64711,
+      "sha256": "286b9895dfa390b40ea81bc6f09eda5d05394fbf007cd8ab649585ee95d7922f",
+      "bytes": 64720,
       "upstreamSha256": "6a62fe8eb69c3aab8d3bf85a8a56a35ff82b74ad9bb950520f04766e45baff52"
     },
     {
@@ -241,8 +254,8 @@
     },
     {
       "path": "backend/app/store.py",
-      "sha256": "fe3d49cec31109d62e94d5478e8cf2021c445bb66cdf82c4a83a4802ddf6048a",
-      "bytes": 878301,
+      "sha256": "0d61d09edbb108909336a3e0c353cbcb6ff624ebe761eed8d853e181492c9276",
+      "bytes": 897503,
       "upstreamSha256": "6cf84239fcc8ce3fd5bc941682e7eb5a2718d68968b0706170563503924459be"
     },
     {
@@ -393,8 +406,8 @@
     },
     {
       "path": "frontend/src/pages/backtest/BacktestPage.tsx",
-      "sha256": "830e4b3a94a91fff0d4480094030248d1ad5ba6c01096492ae4706d1a3bac528",
-      "bytes": 350516,
+      "sha256": "6d5f145497778f994cc4c78f195a229e363b209c699ebf7a509bd8ccc4ab7a92",
+      "bytes": 353470,
       "upstreamSha256": "39cb14c1a6d8a7302590559f805fc349260e6140ca9a0a38af07b96fce93c39a"
     },
     {
@@ -414,8 +427,9 @@
     },
     {
       "path": "frontend/src/pages/cross-validate/CrossValidatePage.tsx",
-      "sha256": "27c72197b9697c8cd5f35c8ec84a1216204ed8e4399916dac450acb6262f12c7",
-      "bytes": 54258
+      "sha256": "75c2342b2653f8b3a7ceaacdd7370c2a081b2583590f2a94fb078d9589b36c03",
+      "bytes": 54267,
+      "upstreamSha256": "27c72197b9697c8cd5f35c8ec84a1216204ed8e4399916dac450acb6262f12c7"
     },
     {
       "path": "frontend/src/pages/market-trend/MarketTrendPage.tsx",
@@ -475,8 +489,8 @@
     },
     {
       "path": "frontend/src/pages/screener/ScreenerPage.tsx",
-      "sha256": "7527da8fdf8539848601d0b85aba074d27c5897389c1fe70b4c75d7e05162048",
-      "bytes": 126102,
+      "sha256": "793740dc0ff4efb893ae211684a1b91ca896b2b5e3a1d9360c308e41b8e40ca7",
+      "bytes": 126118,
       "upstreamSha256": "2c260e653de9f6e2a05f08365d1b5f2b370cefbac8b50919574648a4cf69a25d"
     },
     {
@@ -500,6 +514,12 @@
       "bytes": 42042
     },
     {
+      "path": "frontend/src/pages/signals/MasterTraderPlanPanel.tsx",
+      "sha256": "272089c38769f179ab64c9b267d4e069de87506ab80d9a6383c8b77620694b32",
+      "bytes": 33213,
+      "upstreamSha256": null
+    },
+    {
       "path": "frontend/src/pages/signals/SignalsBacktestPage.tsx",
       "sha256": "6efdca16836d2edb510e84793c0fc5ec3a57df2243b4de157694015e3c25696e",
       "bytes": 54053
@@ -511,14 +531,15 @@
     },
     {
       "path": "frontend/src/pages/signals/SignalsPage.tsx",
-      "sha256": "6c0b26ba0831c289addf622adcd9fc770922b3756204ca606c2a1b681e6e1638",
-      "bytes": 91601,
+      "sha256": "de30ecee644e535a3e1f99bd871d09dbc38030bfd94445ba5f04c62a49e5247a",
+      "bytes": 95110,
       "upstreamSha256": "d33fd3665cab1c95e2428534f86f7c753ffd22d90cd03b63e6d837025cef72ac"
     },
     {
       "path": "frontend/src/pages/strategy/compareView.ts",
-      "sha256": "f20fcd88c6b3e515270ff72bb49e21196acb0607decd895e5847e411e74512fd",
-      "bytes": 12964
+      "sha256": "acd2d2dbc011d8db966a372c0fbd5b20d9821bfb32cb7e772a45a26e1692a6f1",
+      "bytes": 12967,
+      "upstreamSha256": "f20fcd88c6b3e515270ff72bb49e21196acb0607decd895e5847e411e74512fd"
     },
     {
       "path": "frontend/src/pages/strategy/EventJudgmentPage.tsx",
@@ -532,8 +553,8 @@
     },
     {
       "path": "frontend/src/pages/strategy/StrategyCenterPage.tsx",
-      "sha256": "3251b42601a60e1acbea2bc41f8ff3fc9e0c71b7619f9112f15aeedd4d6ec118",
-      "bytes": 44186,
+      "sha256": "a9ca8317fb6a4247f1f8a528c36bdc28810257997173b7faa90bb43af225e56e",
+      "bytes": 44232,
       "upstreamSha256": "b42c35900653df295d99cab2da45777082d65637d56d311277c0585b40db38a3"
     },
     {
@@ -603,8 +624,9 @@
     },
     {
       "path": "frontend/src/shared/charts/KLineChart.tsx",
-      "sha256": "1a0fea4eec68e4d88fa45f961122488fd48442cfbadae79798c999b4dcecf297",
-      "bytes": 59119
+      "sha256": "e8280ae8eeac6b3203b36cc8e64f43f09ed90ef0369787c71128ad369ab3c4f2",
+      "bytes": 59376,
+      "upstreamSha256": "1a0fea4eec68e4d88fa45f961122488fd48442cfbadae79798c999b4dcecf297"
     },
     {
       "path": "frontend/src/shared/components/AIAssistantDrawer.module.css",
@@ -749,8 +771,8 @@
     },
     {
       "path": "frontend/src/shared/utils/strategyParams.ts",
-      "sha256": "c1ff6414fdfe2da3dfb32cd7dd80f44b6de0b79257387288e319c6623734f5f4",
-      "bytes": 14829,
+      "sha256": "2cd6e5719cc411a758c5164d981e435c75dffbbb5fc6ddd8ec1cc7f17b6613fb",
+      "bytes": 18086,
       "upstreamSha256": "c6c832d58ea40c74a012a814af1364eb2064a096cd2e7c26a8a83f2cef0ee854"
     },
     {
@@ -928,5 +950,5 @@
     }
   ],
   "upstreamSourceState": "working-tree",
-  "atradePatchRevision": "source-aware-backtest-cache-v6"
+  "atradePatchRevision": "master-strategies-0.5.0"
 }

@@ -67,7 +67,7 @@ class BacktestHistoryTests(unittest.TestCase):
         config.candles_window_bars = 120
         self.store.set_config(config)
         self.payload = BacktestRunRequest(date_from='2026-04-01', date_to='2026-06-01',
-            strategy_id='ths_main_force_golden_cross_v1', mode='full_market', max_symbols=120,
+            strategy_id='wujiang_mainline_v1', mode='full_market', max_symbols=120,
             pool_roll_mode='weekly', enable_advanced_analysis=False, execution_path_preference='legacy')
         self.symbols = ['sh600001', 'sh600002', 'sh600003']
 
@@ -140,7 +140,7 @@ class BacktestHistoryTests(unittest.TestCase):
             with self.subTest(engine=engine):
                 result = self.store.run_backtest(self.payload.model_copy(update={
                     'execution_path_preference': engine,
-                    'strategy_id': 'wyckoff_trend_v1' if engine == 'matrix' else self.payload.strategy_id}))
+                    'strategy_id': 'wyckoff_trend_v2' if engine == 'matrix' else self.payload.strategy_id}))
                 self.assertEqual(result.execution_path, engine)
                 self.assertEqual(result.effective_run_request.date_from, self.payload.date_from)
                 self.assertEqual(result.effective_run_request.date_to, self.payload.date_to)

@@ -21,13 +21,18 @@ const STRATEGY_SHAPES = [
 
 
 const STRATEGY_SHAPE_MAP: Record<string, string> = {
-  wyckoff_trend_v1: 'triangle',
+  wujiang_mainline_v1: 'path://M0,-8L4,-2L8,0L4,4L0,8L-4,4L-8,0L-4,-2Z',
+  mainline_halfway_v1: 'triangle',
+  first_to_second_v1: 'path://M0,-7L3,-2L8,-2L4,2L5,7L0,4L-5,7L-4,2L-8,-2L-3,-2Z',
+  strong_trend_dip_v1: 'pin',
+  vcp_contraction_v1: 'arrow',
+  wulong_cluster_v1: 'roundRect',
   wyckoff_trend_v2: 'diamond',
+  wyckoff_trend_v1: 'triangle',
   score_only_rank_v1: 'pin',
   ths_main_force_flip_v1: 'circle',
   ths_main_force_golden_cross_v1: 'rect',
   ths_force_rhythm_v1: 'path://M-6,0L0,-6L6,0L0,6Z',
-  wulong_cluster_v1: 'roundRect',
   matrix_signal_v1: 'arrow',
   relative_strength_breakout_v1: 'path://M0,-6L6,0L0,6L-6,0Z',
   b1_mtf_v1: 'path://M0,-6L4,4L-6,-1L6,-1L-4,4Z',

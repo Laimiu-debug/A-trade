@@ -10,7 +10,7 @@ import { requestDesktop, notifyDesktop } from './research-bridge'
 import { useRegisterPageAIContext } from '@/shared/ai/PageAIContext'
 
 const statusText: Record<string, string> = { pending: '排队中', queued: '排队中', running: '运行中', paused: '已暂停', pausing: '正在暂停', stopping: '正在停止', succeeded: '已完成', completed: '已完成', failed: '失败', cancelled: '已停止', stopped: '已停止' }
-const typeText: Record<string, string> = { backtest: '策略回测', plateau: '收益平原', singleBacktest: '策略回测', singlePlateau: '收益平原', portfolio: '组合研究', comparison: '组合对比', walkForward: '滚动研究', systemPlateau: '系统平原', frozenValidation: '参数验证', poolPreview: '选股计算' }
+const typeText: Record<string, string> = { backtest: '策略回测', plateau: '收益平原', singleBacktest: '策略回测', singlePlateau: '收益平原', portfolio: '组合研究', comparison: '组合对比', walkForward: '滚动研究', systemPlateau: '系统平原', frozenValidation: '参数验证', poolPreview: '选股计算', masterBacktest: '高手思路回测' }
 const complete = (status: string) => ['succeeded', 'completed'].includes(status)
 function saveJSON(data: unknown, name: string) {
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }))
@@ -26,7 +26,7 @@ export function ResearchTasks({ reports = false }: { reports?: boolean }) {
     if (outcomes[0].status === 'fulfilled') rows.push(...outcomes[0].value.items.map((row: any) => ({ ...row, transport: 'strategy' })))
     else errors.push(outcomes[0].reason.message)
     // Local research reports fractions; the unified table and strategy API use percentage points.
-    if (outcomes[1].status === 'fulfilled') rows.push(...outcomes[1].value.tasks.map((row: any) => ({ ...row, transport: 'portfolio', date_from: row.config?.startDate || row.startDate, date_to: row.config?.endDate || row.endDate, created_at: row.createdAt, updated_at: row.updatedAt, progress: typeof row.progress === 'number' ? row.progress * 100 : row.progress?.percent || 0 })))
+    if (outcomes[1].status === 'fulfilled') rows.push(...outcomes[1].value.tasks.map((row: any) => ({ ...row, transport: 'portfolio', date_from: row.config?.startDate || row.startDate, date_to: row.config?.endDate || row.endDate, created_at: row.createdAt, updated_at: row.updatedAt, message: row.message || row.phase, stats: row.stats, progress: typeof row.progress === 'number' ? row.progress * 100 : row.progress?.percent || 0 })))
     else errors.push(outcomes[1].reason.message)
     if(outcomes[2].status==='fulfilled')rows.push(...outcomes[2].value.items.map((row:any)=>({...row,id:row.report_id,name:row.source_file_name||'已保存报告',kind:row.has_plateau_result?'plateau':'backtest',transport:'report',status:'succeeded',progress:100,stats:{total_return:row.total_return,trade_count:row.trade_count}})))
     else errors.push(outcomes[2].reason.message)
@@ -40,6 +40,7 @@ export function ResearchTasks({ reports = false }: { reports?: boolean }) {
     try {
       if (action === 'view') {
         if(row.transport==='report')navigate('/backtest?report='+encodeURIComponent(row.id)+(row.has_plateau_result?'&section=plateau':''))
+        else if (row.transport === 'portfolio' && row.kind === 'masterBacktest') await requestDesktop('navigate', { page: 'T11', taskId: row.id })
         else if (row.transport === 'portfolio') await requestDesktop('navigate', { page: 'R04', taskId: row.id })
         else {
           const plateau = row.kind === 'plateau', task = await apiRequest<any>(`/api/backtest/${plateau ? 'plateau/' : ''}tasks/${encodeURIComponent(row.id)}`)

@@ -22,7 +22,15 @@ const METHODS = new Set(['workspace', 'account.save', 'account.archive', 'accoun
   'market.analysis.sentiment', 'market.emotion.themes.list', 'market.emotion.themes.save', 'market.emotion.themes.delete',
   'market.watchlist.list', 'market.watchlist.save', 'market.watchlist.delete',
   'market.watchlist.save-many', 'market.watchlist.export', 'market.watchlist.import',
-  'market.watchlist.backup.export', 'market.watchlist.backup.preview', 'market.watchlist.backup.restore']);
+  'market.watchlist.backup.export', 'market.watchlist.backup.preview', 'market.watchlist.backup.restore',
+  'market.masters.list', 'market.masters.save', 'market.masters.delete',
+  'market.masters.trades.list', 'market.masters.trades.save', 'market.masters.trades.delete',
+  'market.masters.import.parse', 'market.masters.import.commit', 'market.masters.analyze',
+  'market.masters.reports.list', 'market.masters.reports.save', 'market.masters.reports.delete',
+  'market.masters.export', 'market.masters.importDb',
+  'market.masters.presets.list', 'market.masters.presets.install',
+  'market.masters.advise', 'market.masters.backtest',
+  'market.masters.stockMarkers', 'market.masters.stockSimulate']);
 const MAX_BYTES = 32 * 1024 * 1024;
 
 function pythonCommand() {

@@ -113,7 +113,7 @@ class BaseStrategyPlugin:
 
 class WyckoffTrendPlugin(BaseStrategyPlugin):
     def __init__(self, strategy_id: str) -> None:
-        self.strategy_id = str(strategy_id).strip() or "wyckoff_trend_v1"
+        self.strategy_id = str(strategy_id).strip() or "wyckoff_trend_v2"
 
 
 class ScoreOnlyRankPlugin(BaseStrategyPlugin):
@@ -945,6 +945,63 @@ class ForceRhythmPlugin(BaseStrategyPlugin):
     ) -> BacktestRunRequest:
         _ = params
         return payload.model_copy(update={"exit_events": []})
+
+
+class MasterAlphaStrategyPlugin(BaseStrategyPlugin):
+    """顽主杯 6 大高手实战模式 + VCP 收缩突破核心量化策略插件。"""
+
+    def __init__(self, strategy_id: str) -> None:
+        self.strategy_id = str(strategy_id).strip() or "wujiang_mainline_v1"
+
+    def generate_signals(
+        self,
+        *,
+        row: ScreenerResult,
+        snapshot: dict[str, Any],
+        params: dict[str, Any],
+    ) -> bool:
+        _ = row
+        indicator = snapshot.get("master_alpha_signal")
+        if not isinstance(indicator, dict):
+            return False
+        from .master_alpha_strategies import evaluate_master_alpha_signal
+
+        evaluation = evaluate_master_alpha_signal(self.strategy_id, indicator, params)
+        return bool(evaluation.get("signal", False))
+
+    def rank_signals(
+        self,
+        *,
+        signal: SignalResult,
+        row: ScreenerResult,
+        params: dict[str, Any],
+        fallback_score: float,
+    ) -> float:
+        _ = params
+        quality_score = _safe_float(getattr(signal, "entry_quality_score", fallback_score), fallback_score)
+        volume_bonus = _clamp_score((float(getattr(row, "up_down_volume_ratio", 1.0) or 1.0) - 1.0) / 0.8 * 100.0)
+        return _clamp_score(quality_score * 0.85 + volume_bonus * 0.15)
+
+    def exit_policy(
+        self,
+        *,
+        payload: BacktestRunRequest,
+        params: dict[str, Any],
+    ) -> BacktestRunRequest:
+        from .master_alpha_strategies import MASTER_TRADER_STYLE_MAP, _safe_bool
+
+        updates: dict[str, Any] = {"exit_events": []}
+        if self.strategy_id in MASTER_TRADER_STYLE_MAP:
+            use_partial_trim = _safe_bool((params or {}).get("use_partial_trim"), True)
+            if use_partial_trim and float(payload.trailing_stop_pct or 0.0) <= 0.0:
+                updates.update({
+                    "trailing_stop_pct": 0.055,
+                    "intraday_trailing_enabled": True,
+                    "intraday_trailing_reduce_ratio": 0.5,
+                    "daily_trailing_clear_enabled": True,
+                    "daily_trailing_confirm_days": 2,
+                })
+        return payload.model_copy(update=updates)
 
 
 class B1MultiTimeframePlugin(BaseStrategyPlugin):

@@ -59,3 +59,26 @@ it('shows completed portfolio and saved reports as completed results without a p
     expect(row.getByRole('button', { name: '查看结果' })).toBeEnabled()
   }
 })
+
+it('renders masterBacktest tasks with stats and navigates to T11 on view', async () => {
+  const { requestDesktop } = await import('../desktop/research-bridge')
+  const { fireEvent } = await import('@testing-library/react')
+  responses.portfolio = [{
+    id: 'master-bt-1',
+    name: '乌江望月动态波段验证',
+    kind: 'masterBacktest',
+    status: 'completed',
+    progress: 1,
+    config: { startDate: '2026-05-01', endDate: '2026-11-25' },
+    stats: { total_return: 0.0707, trade_count: 148 },
+  }]
+  renderTasks()
+  const row = await taskRow('乌江望月动态波段验证')
+  expect(row.getByText('高手思路回测 · 2026-05-01 ～ 2026-11-25')).toBeInTheDocument()
+  expect(row.getByText(/7\.07%/)).toBeInTheDocument()
+  expect(row.getByText(/148 笔/)).toBeInTheDocument()
+  fireEvent.click(row.getByRole('button', { name: '查看结果' }))
+  await vi.waitFor(() => {
+    expect(requestDesktop).toHaveBeenCalledWith('navigate', { page: 'T11', taskId: 'master-bt-1' })
+  })
+})

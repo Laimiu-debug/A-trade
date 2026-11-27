@@ -3,7 +3,7 @@ const { BusinessService, METHODS } = require('./business-service.cjs');
 const CANCELLED = '已取消本次市场计算，保留上次结果。';
 const SOURCE_CHANGED = '数据源已更新，请重新读取市场观察。';
 const SOURCE_METHODS = new Set(['market.configure', 'market.scan', 'market.online.configure']);
-const isCalculation = method => method === 'market.research' || method === 'market.snapshot' || method === 'market.finance.screen' || method.startsWith('market.analysis.');
+const isCalculation = method => method === 'market.research' || method === 'market.snapshot' || method === 'market.finance.screen' || method === 'market.masters.analyze' || method === 'market.masters.advise' || method === 'market.masters.backtest' || method.startsWith('market.analysis.');
 const canonical = value => JSON.stringify(value, (_key, item) => item && typeof item === 'object' && !Array.isArray(item)
   ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);
 

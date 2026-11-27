@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 from ..utils.persistence import read_state, write_state
 
-DEFAULT_STATE_DIR = Path.home() / ".tdx-trend"
+DEFAULT_STATE_DIR = Path(os.environ["TDX_TREND_STATE_DIR"]) if os.environ.get("TDX_TREND_STATE_DIR") else (Path.home() / ".tdx-trend")
 SESSION_DIR_NAME = "ai_sessions"
 SESSION_TTL_DAYS = 30
 MAX_MESSAGES_PER_SESSION = 50

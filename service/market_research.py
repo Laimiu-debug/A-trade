@@ -21,9 +21,14 @@ from statistics import median
 from service import tdx
 from service.leader_research import Leadership, limit_flags
 from service.market_style import profile as style_profile, RULES as PROFILE_RULES
+from service.market_style_v2 import (
+    VERSION as DYNAMIC_STYLE_VERSION,
+    DynamicStyleTracker,
+    compute_dynamic_timeline,
+)
 
 
-VERSION = "local-market-research-v6-multidimensional"
+VERSION = "local-market-research-v7-dynamic-style"
 SNAPSHOT_VERSION = "local-market-snapshot-v1"
 TAIL_RECORDS = 120
 HISTORY_CHOICES = (60, 120, 250, 500, 1000)
@@ -275,11 +280,13 @@ def build_snapshot(inputs, *, total, failures=0, source="", computed_at=None,
         dates = list(calendar)
     date_indexes = {day: i for i, day in enumerate(dates)}
     stats = [{"expected": 0, "returns": array("d"), "returns5": array("d"), "changes": array("d"),
-              "amountRatios": array("d"), "preferenceAmountCount": 0,
+              "amounts": array("d"), "amountRatios": array("d"), "preferenceAmountCount": 0,
               "pairedBreadthCount": 0, "pairedAboveNow": 0, "pairedAboveBefore": 0,
               "above": 0, "up": 0, "down": 0, "flat": 0,
               "limitUp": 0, "limitDown": 0, "multi": 0, "height": 0,
-              "wild": 0, "wildAmount": 0, "amount": 0} for _ in dates]
+              "wild": 0, "wildAmount": 0, "amount": 0,
+              "g20_r5": array("d"), "g20_r20": array("d"), "g20_above": 0, "g20_amt": 0.0,
+              "m10_r5": array("d"), "m10_r20": array("d"), "m10_above": 0, "m10_amt": 0.0} for _ in dates]
     leadership = Leadership(dates)
     items, stale_items = [], []
     for completed, security in enumerate(inputs, 1):
@@ -317,9 +324,11 @@ def build_snapshot(inputs, *, total, failures=0, source="", computed_at=None,
             usable = kind == "stock" and len(window60) == 60 and all(window60) and ret20 is not None and row[2] > 0 and previous is not None
             if usable:
                 stat = stats[i]
+                ret5 = period_return(5)
                 stat["returns"].append(ret20)
-                stat["returns5"].append(period_return(5))
+                stat["returns5"].append(ret5)
                 stat["changes"].append(change * 100)
+                stat["amounts"].append(row[3])
                 stat["preferenceAmountCount"] += int(positive_volume_run >= 60 and row[3] > 0)
                 previous_amounts = aligned[i - 20:i]
                 if row[3] > 0 and all(value[2] > 0 and value[3] > 0 for value in previous_amounts):
@@ -331,7 +340,8 @@ def build_snapshot(inputs, *, total, failures=0, source="", computed_at=None,
                     stat["pairedBreadthCount"] += 1
                     stat["pairedAboveNow"] += int(row[1] > ma20)
                     stat["pairedAboveBefore"] += int(aligned[i - 5][1] > previous_ma20)
-                stat["above"] += int(row[1] > ma20)
+                above_ma20 = int(row[1] > ma20)
+                stat["above"] += above_ma20
                 stat["up"] += int(change > 0)
                 stat["down"] += int(change < 0)
                 stat["flat"] += int(change == 0)
@@ -340,6 +350,16 @@ def build_snapshot(inputs, *, total, failures=0, source="", computed_at=None,
                 stat["multi"] += int(height >= 2)
                 stat["height"] = max(stat["height"], height)
                 stat["amount"] += row[3]
+                if board in ("star", "chinext"):
+                    stat["g20_r5"].append(ret5)
+                    stat["g20_r20"].append(ret20)
+                    stat["g20_above"] += above_ma20
+                    stat["g20_amt"] += row[3]
+                elif board == "main":
+                    stat["m10_r5"].append(ret5)
+                    stat["m10_r20"].append(ret20)
+                    stat["m10_above"] += above_ma20
+                    stat["m10_amt"] += row[3]
                 if (period_return(10) or 0) > 30:
                     stat["wild"] += 1
                     stat["wildAmount"] += row[3]
@@ -351,6 +371,39 @@ def build_snapshot(inputs, *, total, failures=0, source="", computed_at=None,
     metric_rows = []
     for day, stat in zip(dates, stats):
         count = len(stat["returns"])
+        g20_cnt = len(stat["g20_r5"])
+        m10_cnt = len(stat["m10_r5"])
+        total_amt = float(stat["amount"] or 0.0)
+        core_r5, core_r20, core_amt_share = None, None, None
+        if count >= 5 and total_amt > 0:
+            pos_amts = sorted(a for a in stat["amounts"] if a > 0)
+            if len(pos_amts) >= 5:
+                thresh = pos_amts[max(0, int(len(pos_amts) * 0.90) - 1)]
+                c_r5, c_r20, c_amt = [], [], 0.0
+                for a, r5_v, r20_v in zip(stat["amounts"], stat["returns5"], stat["returns"]):
+                    if a >= thresh:
+                        c_r5.append(r5_v)
+                        c_r20.append(r20_v)
+                        c_amt += a
+                if c_r5:
+                    core_r5 = _rounded(median(c_r5))
+                    core_r20 = _rounded(median(c_r20))
+                    core_amt_share = _rounded(c_amt / total_amt)
+        board_stats = {
+            "growth20Count": g20_cnt,
+            "growth20Breadth": _rounded(stat["g20_above"] / g20_cnt) if g20_cnt else None,
+            "growth20MedianRet5": _rounded(median(stat["g20_r5"])) if g20_cnt else None,
+            "growth20MedianRet20": _rounded(median(stat["g20_r20"])) if g20_cnt else None,
+            "growth20AmountShare": _rounded(stat["g20_amt"] / total_amt) if (g20_cnt and total_amt > 0) else None,
+            "main10Count": m10_cnt,
+            "main10Breadth": _rounded(stat["m10_above"] / m10_cnt) if m10_cnt else None,
+            "main10MedianRet5": _rounded(median(stat["m10_r5"])) if m10_cnt else None,
+            "main10MedianRet20": _rounded(median(stat["m10_r20"])) if m10_cnt else None,
+            "main10AmountShare": _rounded(stat["m10_amt"] / total_amt) if (m10_cnt and total_amt > 0) else None,
+            "coreTop10Ret5": core_r5,
+            "coreTop10Ret20": core_r20,
+            "coreTop10AmountShare": core_amt_share,
+        }
         metrics = {"sampleCount": count, "expectedCount": stat["expected"],
                    "coverage": _rounded(count / stat["expected"]) if stat["expected"] else 0,
                    "breadth": _rounded(stat["above"] / count) if count else None,
@@ -367,28 +420,32 @@ def build_snapshot(inputs, *, total, failures=0, source="", computed_at=None,
                    "advanceCount": stat["up"], "declineCount": stat["down"], "flatCount": stat["flat"],
                    "limitUpApprox": leader_rows[day]["metrics"]["limitUpCount"], "limitDownApprox": leader_rows[day]["metrics"]["risk"]["limitDownCount"],
                    "multiBoardApprox": leader_rows[day]["metrics"]["multiBoardCount"], "maxBoardHeight": leader_rows[day]["metrics"]["maxHeight"],
-                   "wildCount": stat["wild"], "wildAmountShare": _rounded(stat["wildAmount"] / stat["amount"]) if stat["amount"] else 0}
+                   "wildCount": stat["wild"], "wildAmountShare": _rounded(stat["wildAmount"] / stat["amount"]) if stat["amount"] else 0,
+                   "totalAmountYi": _rounded(total_amt / 1e8, 2),
+                   "boardStats": board_stats}
         metrics["leadership"] = leader_rows[day]["metrics"]
         metric_rows.append(metrics)
+    dynamic_rows = compute_dynamic_timeline(metric_rows, min_market_symbols=MIN_MARKET_SYMBOLS, min_coverage=MIN_COVERAGE)
     timeline = []
     previous_profile = None
-    for day, metrics, state in zip(dates, metric_rows, confirm_styles(_raw_style(metrics) for metrics in metric_rows)):
+    for day, metrics, state, dynamic in zip(dates, metric_rows, confirm_styles(_raw_style(metrics) for metrics in metric_rows), dynamic_rows):
         current_profile = style_profile(metrics, previous_profile, min_market_symbols=MIN_MARKET_SYMBOLS, min_coverage=MIN_COVERAGE)
         timeline.append({"date": day, **state, "label": LABELS[state["key"]],
                          "confirmationDays": CONFIRM_DAYS,
                          "reason": _reason(state["key"], metrics, state["pendingKey"], state["pendingCount"]),
-                         "metrics": metrics, "profile": current_profile,
+                         "metrics": metrics, "profile": current_profile, "dynamic": dynamic,
                          "leadership": {"scope": "all_stocks", "asOf": day, "metrics": metrics["leadership"],
                                         "rotationEvents": [leader_rows[day]["rotationEvent"]] if leader_rows[day]["rotationEvent"] else []}})
         previous_profile = current_profile
     empty_metrics = {"sampleCount": 0, "expectedCount": 0, "coverage": 0, "breadth": None,
                      "medianReturn20": None, "advanceCount": 0, "declineCount": 0, "flatCount": 0,
                      "limitUpApprox": 0, "limitDownApprox": 0, "multiBoardApprox": 0,
-                     "maxBoardHeight": 0, "wildCount": 0, "wildAmountShare": 0}
+                     "maxBoardHeight": 0, "wildCount": 0, "wildAmountShare": 0, "totalAmountYi": 0.0, "boardStats": {}}
     current = {key: value for key, value in timeline[-1].items() if key != "date"} if timeline else {
         "key": "insufficient", "label": LABELS["insufficient"], "rawKey": "insufficient", "pendingKey": None,
         "pendingCount": 0, "confirmationDays": CONFIRM_DAYS, "reason": "请先下载并扫描本地日线。", "metrics": empty_metrics,
-        "profile": style_profile(empty_metrics, min_market_symbols=MIN_MARKET_SYMBOLS, min_coverage=MIN_COVERAGE)}
+        "profile": style_profile(empty_metrics, min_market_symbols=MIN_MARKET_SYMBOLS, min_coverage=MIN_COVERAGE),
+        "dynamic": DynamicStyleTracker(min_market_symbols=MIN_MARKET_SYMBOLS, min_coverage=MIN_COVERAGE).step(empty_metrics)}
     valid = sum(item["kind"] == "stock" for item in items)
     stale = sum(item["kind"] == "stock" for item in stale_items)
     return {"items": sort_items(items), "staleItems": sorted(stale_items, key=lambda item: item["symbol"]),
@@ -406,6 +463,7 @@ def build_snapshot(inputs, *, total, failures=0, source="", computed_at=None,
                       "trendStrength": "连续 60 个市场日有成交、站上 MA20 与 MA60，且最近 5 日的 20 日收益均为正",
                       "promotion": "昨日连板且今日可核验为分母；缺日、无成交、超名义涨跌幅单列未观测；分母为零返回空值",
                       "profile": PROFILE_RULES,
+                      "dynamicStyleVersion": DYNAMIC_STYLE_VERSION,
                       "volumeRatio5": "当日成交量 / 前五个市场交易日平均成交量；不含当日，缺日则不计算"}}
 
 

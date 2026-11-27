@@ -361,13 +361,10 @@ details[open] > :not(summary) {
 
 /* 5. Page, Workspace & Directional Step Continuity */
 .at-page-enter {
-  animation: at-page-fade var(--motion-fast) var(--ease-standard) both;
-}
-.at-page-enter > .page-heading {
-  animation: at-page-in var(--motion-normal) var(--ease-standard) both;
+  animation: at-page-fade 110ms var(--ease-standard) both;
 }
 @keyframes at-page-fade {
-  from { opacity: 0.01; }
+  from { opacity: 0.92; }
   to { opacity: 1; }
 }
 @keyframes at-page-in {

@@ -53,7 +53,7 @@ class BacktestSourceRevisionTests(unittest.TestCase):
         config.markets = ['sh']
         self.store.set_config(config)
         self.payload = BacktestRunRequest(date_from=self.days[-5], date_to=self.days[-1],
-            strategy_id='ths_main_force_golden_cross_v1', mode='full_market',
+            strategy_id='wujiang_mainline_v1', mode='full_market',
             pool_roll_mode='daily', enable_advanced_analysis=False,
             execution_path_preference='legacy')
 
@@ -171,10 +171,10 @@ class BacktestSourceRevisionTests(unittest.TestCase):
                     worker.result()
 
     def test_legacy_recomputes_after_correction_and_rejects_deleted_source(self):
-        self.check_run_revision('legacy', 'ths_main_force_golden_cross_v1')
+        self.check_run_revision('legacy', 'wujiang_mainline_v1')
 
     def test_matrix_rebuilds_after_correction_and_rejects_deleted_source(self):
-        self.check_run_revision('matrix', 'wyckoff_trend_v1')
+        self.check_run_revision('matrix', 'wyckoff_trend_v2')
 
     def check_run_revision(self, execution, strategy):
         payload = self.payload.model_copy(update={'execution_path_preference': execution,

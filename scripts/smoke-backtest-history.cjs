@@ -57,7 +57,7 @@ async function main() {
     const config = await call({ path: '/api/config' }); assert.equal(config.candles_window_bars, 120);
     receipt.chartBars = config.candles_window_bars;
     const request = { mode: 'full_market', date_from: '2026-04-01', date_to: '2026-06-01', max_symbols: 120,
-      strategy_id: 'ths_main_force_golden_cross_v1', pool_roll_mode: 'weekly', window_days: 60, enable_advanced_analysis: false };
+      strategy_id: 'wujiang_mainline_v1', pool_roll_mode: 'weekly', window_days: 60, enable_advanced_analysis: false };
     async function task(pathname, body) {
       const start = await call({ path: pathname, method: 'POST', body });
       assert.ok(start.task_id);
@@ -72,7 +72,7 @@ async function main() {
     }
     for (const engine of ['legacy', 'matrix']) {
       const body = { ...request, execution_path_preference: engine,
-        strategy_id: engine === 'matrix' ? 'wyckoff_trend_v1' : request.strategy_id };
+        strategy_id: engine === 'matrix' ? 'wyckoff_trend_v2' : request.strategy_id };
       const report = await task('/api/backtest/tasks', body), result = report.result;
       assert.ok(result); assert.equal(result.execution_path, engine);
       assert.equal(result.effective_run_request.date_from, request.date_from);

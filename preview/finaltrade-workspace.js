@@ -4,6 +4,7 @@
  const channel='atrade.research.v1',routes={R11:'/screener',R01:'/strategy',R02:'/strategy/events',R12:'/signals',R13:'/trade',R03:'/backtest',R05:'/backtest?section=plateau',R08:'/reports',G02:'/tasks',G03:'/tasks'};
  let ready=false,loading=false,error='',frame=null,childRoute='',desiredRoute='',evidence=null,timer=null,taskSummary={running:0,queued:0},legacySummary={running:0,queued:0};
  const requests=new Set();
+ let pendingRoute='';
  const handles=page=>Object.hasOwn(routes,page);
  const root=()=>document.getElementById('strategy-workspace-root');
  function context(){let dates={};try{const config=JSON.parse(localStorage.getItem('atrade.single-editor.v1')||'null')?.draft?.config||{};if(/^\d{4}-\d{2}-\d{2}$/.test(config.startDate||''))dates.dateFrom=config.startDate;if(/^\d{4}-\d{2}-\d{2}$/.test(config.endDate||''))dates.dateTo=config.endDate;}catch{}return {compact:AT.state.compact===true,largeText:AT.state.largeText===true,reduced:AT.state.reduced===true,fees:AT.state.fees,positionRules:AT.state.positionRules,initialCapital:AT.state.startCapital,accountId:AT.state.businessAccountId||null,researchDates:dates};}
@@ -16,11 +17,17 @@
   if(label&&label.textContent!=='本地策略研究')label.textContent='本地策略研究';if(status&&status.textContent.trim()!=='共用行情来源 · 结果保存在本机')status.innerHTML='<i class="status-dot"></i> 共用行情来源 · 结果保存在本机';
  }
  function render(){return `<section class="strategy-workspace" data-strategy-workspace><div class="strategy-startup panel"><h2>策略工作区</h2><p role="status">${AT.escape(error||'正在载入策略与行情…')}</p>${error?'<button class="btn" data-strategy-retry>重新载入</button>':''}</div></section>`;}
- function openRoute(route){desiredRoute=route;if(ready&&frame&&childRoute!==route)post('navigate',{route});}
+ function openRoute(route){
+  desiredRoute=route;
+  if(!ready||!frame||pendingRoute===route||!pendingRoute&&childRoute===route)return;
+  pendingRoute=route;
+  post('navigate',{route});
+ }
+ function openStrategy(page,route){desiredRoute=route||routes[page]||'/signals';AT.navigate(page);if(ready&&frame)openRoute(desiredRoute);}
  async function mount(page=AT.state.page){
   const container=root();if(!container)return;
   container.hidden=false;document.getElementById('main').hidden=true;const skip=document.querySelector('.skip-link');if(skip)skip.href='#strategy-workspace-root';updateShell();
-  const requested=routes[page]||'/screener';if(!desiredRoute||!childRoute||!routeBelongsToPage(childRoute,page))desiredRoute=requested;
+  const requested=routes[page]||'/screener';if(!desiredRoute||!routeBelongsToPage(desiredRoute,page))desiredRoute=requested;
   if(ready){openRoute(desiredRoute);post('context',context());return;}
   if(loading||error)return;
   if(!window.atradeDesktop?.startResearch){error='请在桌面应用中使用策略工作区。';container.innerHTML=render();return;}
@@ -44,8 +51,9 @@
    const result=await atradeDesktop.business(payload.method,payload.payload||{});if(!result.ok)throw Error(result.error);return result.data;
   }
   if(action==='navigate'){
-   if(!['C01','C02','C03','C07','A04','R04','R15','M04','G01'].includes(payload.page))throw Error('页面不存在。');
+   if(!['C01','C02','C03','C07','A04','R04','R15','M04','G01','T11'].includes(payload.page))throw Error('页面不存在。');
    if(payload.page==='R04'&&payload.taskId){await ResearchModule.openTask(payload.taskId,'R04');return true;}
+   if(payload.page==='T11'&&payload.taskId){AT.navigate('T11');await AT.masterSlips?.openBacktestTask?.(payload.taskId);return true;}
    if(payload.page==='G01'){if(!/^(sh|sz|bj)\d{6}$/.test(payload.symbol||''))throw Error('证券代码无效。');AT.navigate('G01',payload.symbol);return true;}
    if(payload.page==='M04'&&/^(sh|sz|bj)\d{6}$/.test(payload.symbol||''))AT.state.stock=payload.symbol;
    AT.navigate(payload.page);return true;
@@ -69,6 +77,12 @@
   if(event.origin!=='atrade://reference'||event.source!==frame?.contentWindow||event.data?.channel!==channel)return;
   const {action,payload={},id}=event.data;
   if(action==='route'){
+   if(pendingRoute&&payload.route!==pendingRoute){
+    // A late iframe notification must not undo the latest sidebar selection.
+    post('navigate',{route:pendingRoute});
+    return;
+   }
+   pendingRoute='';
    const stock=/^\/stocks\/((?:sh|sz|bj)\d{6})\/chart(?:\?(.*))?$/.exec(String(payload.route||''));
    if(stock){
     if(!handles(AT.state.page))return;
@@ -90,6 +104,6 @@
  });
  document.addEventListener('click',event=>{if(event.target.closest?.('[data-strategy-retry]')){error='';void mount();}});
  function aiContext(){if(!handles(AT.state.page)||!evidence)return null;const chart=/^\/stocks\/((?:sh|sz|bj)\d{6})\/chart/.exec(childRoute),{desktopVisible,...details}=evidence,serialized=JSON.stringify(details),dates=[...new Set([...serialized.matchAll(/\b\d{4}-\d{2}-\d{2}\b/g)].map(match=>match[0]))].slice(0,20);return AT.pageAIContext.limit(AT.pageAIContext.sanitize({version:1,page:{id:AT.state.page,title:chart?evidence.title||'个股图表':AT.pages[AT.state.page]?.title,scope:chart?'stock:'+chart[1]:AT.state.page},capturedAt:new Date().toISOString(),dataDates:dates,filters:{...evidence.filters,...(evidence.as_of_date?{asOf:evidence.as_of_date}:{})},summary:serialized.slice(0,20000),tables:desktopVisible?.tables||[],evidence:details,limitations:['仅包含当前策略工作区的参数与当前可见表格分页，不包含未显示的其他分页、账户凭据或私密备注。',...(!dates.length?['当前工作区材料未给出可核对的数据日期，不能把保存时间或页面打开时间当作行情日期。']:[])]}));}
- window.StrategyWorkspace={handles,render,mount,hide,updateShell,context,aiContext,openRoute,planSaved(id){post('plan-saved',{id});},counts:()=>({...taskSummary}),async flush(){return true;}};
+ window.StrategyWorkspace={handles,render,mount,hide,updateShell,context,aiContext,openRoute,openStrategy,planSaved(id){post('plan-saved',{id});},counts:()=>({...taskSummary}),async flush(){return true;}};
  window.FinaltradeWorkspace=window.StrategyWorkspace;
 })();

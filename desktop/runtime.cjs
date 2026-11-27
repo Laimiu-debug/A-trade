@@ -8,6 +8,7 @@ const { MarketService } = require('./market-service.cjs');
 const { AIService } = require('./ai-service.cjs');
 const { createAccountValuation } = require('./account-valuation.cjs');
 const { buildReviewContext } = require('./review-context.cjs');
+const { summarizeSelfAccount } = require('./master-self-compare.cjs');
 const { externalDocument } = require('./external-links.cjs');
 const { createAppWindow } = require('./app-window.cjs');
 
@@ -145,9 +146,62 @@ async function createDesktop({ dataDirectory, show = true, onWindow, window } = 
   'market.analysis.sentiment', 'market.emotion.themes.list', 'market.emotion.themes.save', 'market.emotion.themes.delete',
   'market.watchlist.list', 'market.watchlist.save', 'market.watchlist.delete',
   'market.watchlist.save-many', 'market.watchlist.export', 'market.watchlist.import',
-  'market.watchlist.backup.export', 'market.watchlist.backup.preview', 'market.watchlist.backup.restore']);
+  'market.watchlist.backup.export', 'market.watchlist.backup.preview', 'market.watchlist.backup.restore',
+  'market.masters.list', 'market.masters.save', 'market.masters.delete',
+  'market.masters.trades.list', 'market.masters.trades.save', 'market.masters.trades.delete',
+  'market.masters.import.parse', 'market.masters.import.commit', 'market.masters.analyze',
+  'market.masters.compareSelf',
+  'market.masters.reports.list', 'market.masters.reports.save', 'market.masters.reports.delete',
+  'market.masters.export', 'market.masters.importDb',
+  'market.masters.presets.list', 'market.masters.presets.install',
+  'market.masters.advise', 'market.masters.backtest',
+  'market.masters.stockMarkers', 'market.masters.stockSimulate']);
   ipcMain.handle('atrade:market', async (event, method, payload = {}) => {
     if (!trusted(event) || !marketMethods.has(method)) return { ok: false, error: '不支持此行情请求。' };
+    if (method === 'market.masters.compareSelf') {
+      const ws = await business.request('workspace', payload.accountId ? { accountId: payload.accountId } : {});
+      if (!ws.ok) return ws;
+      const selfSummary = summarizeSelfAccount(ws.data);
+      return marketBusiness.request('market.masters.analyze', {
+        masterId: payload.masterId,
+        refresh: payload.refresh === true,
+        selfSummary,
+      });
+    }
+    if (method === 'market.masters.advise') {
+      let positions = Array.isArray(payload.customPositions) ? payload.customPositions : null;
+      let accountSummary = payload.customSummary && typeof payload.customSummary === 'object' ? payload.customSummary : null;
+      let accountSource = 'custom';
+      let accountName = '';
+      if (!positions) {
+        accountSource = 'account';
+        const ws = await business.request('workspace', payload.accountId ? { accountId: payload.accountId } : {});
+        if (ws.ok && ws.data) {
+          positions = Array.isArray(ws.data.positions) ? ws.data.positions : [];
+          accountSummary = ws.data.summary || {};
+          accountName = ws.data.account?.name || '';
+        } else {
+          positions = [];
+          accountSummary = {};
+        }
+      }
+      return marketBusiness.request('market.masters.advise', {
+        masterId: payload.masterId || undefined,
+        styleKey: payload.styleKey || undefined,
+        targetDate: payload.targetDate || undefined,
+        maxPositions: payload.maxPositions,
+        customMaxPositions: payload.customMaxPositions,
+        stopLossPct: payload.stopLossPct,
+        useRegimeSwitch: payload.useRegimeSwitch,
+        useFastWeakCut: payload.useFastWeakCut,
+        useAddOnWin: payload.useAddOnWin,
+        usePartialTrim: payload.usePartialTrim,
+        accountSource,
+        accountName: accountName || undefined,
+        positions,
+        accountSummary: accountSummary || {},
+      });
+    }
     return marketBusiness.request(method, payload);
   });
   ipcMain.handle('atrade:open-external', async (event, value) => {
@@ -193,7 +247,7 @@ async function createDesktop({ dataDirectory, show = true, onWindow, window } = 
   ipcMain.handle('atrade:ai', async (event, method, payload = {}) => {
     if (!trusted(event)) return { ok: false, error: '此页面无权调用 AI。' };
     try {
-      if (!payload || typeof payload !== 'object' || Array.isArray(payload) || Buffer.byteLength(JSON.stringify(payload)) > 18 * 1024 * 1024) return { ok: false, error: 'AI 请求内容过大或格式无效。' };
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload) || Buffer.byteLength(JSON.stringify(payload)) > 30 * 1024 * 1024) return { ok: false, error: 'AI 请求内容过大或格式无效。' };
       if (method === 'review') {
         const data = await business.request('workspace', { accountId: payload.accountId });
         if (!data.ok) return data;
@@ -282,7 +336,7 @@ async function createDesktop({ dataDirectory, show = true, onWindow, window } = 
     let timeout;
     const deadline = new Promise(resolve => { timeout = setTimeout(() => resolve(false), 8000); });
     const save = preflightFailed ? Promise.resolve(false) : win.webContents.executeJavaScript(
-      '(async () => { if (typeof AT === "undefined") return false; if (window.ResearchModule?.flush && await window.ResearchModule.flush() === false) return false; if (AT.analysisTools?.flush && await AT.analysisTools.flush() === false) return false; if (AT.marketUI?.flush && await AT.marketUI.flush() === false) return false; if (AT.stockResearch?.flush && await AT.stockResearch.flush() === false) return false; if (AT.watchlistBackup?.flush && await AT.watchlistBackup.flush() === false) return false; if (AT.marketWatch?.flush && await AT.marketWatch.flush() === false) return false; if (AT.aiSettings?.flush && await AT.aiSettings.flush() === false) return false; if (AT.accountModule?.flush && await AT.accountModule.flush() === false) return false; return typeof AT.persist === "function" ? await AT.persist() : false; })()',
+      '(async () => { if (typeof AT === "undefined") return false; if (window.ResearchModule?.flush && await window.ResearchModule.flush() === false) return false; if (AT.analysisTools?.flush && await AT.analysisTools.flush() === false) return false; if (AT.masterSlips?.flush && await AT.masterSlips.flush() === false) return false; if (AT.marketUI?.flush && await AT.marketUI.flush() === false) return false; if (AT.stockResearch?.flush && await AT.stockResearch.flush() === false) return false; if (AT.watchlistBackup?.flush && await AT.watchlistBackup.flush() === false) return false; if (AT.marketWatch?.flush && await AT.marketWatch.flush() === false) return false; if (AT.aiSettings?.flush && await AT.aiSettings.flush() === false) return false; if (AT.accountModule?.flush && await AT.accountModule.flush() === false) return false; return typeof AT.persist === "function" ? await AT.persist() : false; })()',
     ).catch(() => false);
     Promise.race([save, deadline]).then(async saved => {
       clearTimeout(timeout);

@@ -14,8 +14,45 @@
 .stock-research-table small{display:block;color:var(--secondary);font-size:11px;white-space:normal}.stock-research-link{padding:0;border:0;background:none;color:var(--primary);font:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
 .stock-research-empty{padding:14px 0;color:var(--secondary);font-size:13px;line-height:1.7}.stock-research-fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.stock-research-note-label{display:grid;gap:7px;font-size:12px;margin:12px 0}.stock-research-note textarea{width:100%;resize:vertical}.stock-research-note form{padding:12px 0}
 .stock-research-events{display:flex;gap:10px 16px;flex-wrap:wrap;font-size:12px;padding-bottom:12px}
-.stock-research-legend{display:flex;gap:10px 18px;flex-wrap:wrap;padding:10px 20px 4px;font-size:12px;color:var(--secondary)}.stock-research-legend>span{display:flex;align-items:center;gap:5px}.stock-research-legend i{width:8px;height:8px;border-radius:50%;background:var(--primary)}.stock-research-legend .sr-buy{background:var(--color-up)}.stock-research-legend .sr-sell{background:var(--color-down)}.stock-research-legend .sr-note{background:#a16207}.stock-research-legend a{margin-left:auto;color:var(--primary)}
+.stock-research-legend{display:flex;gap:8px 14px;flex-wrap:wrap;align-items:center;padding:10px 20px 6px;font-size:12px;color:var(--secondary);border-top:1px solid var(--border);margin-top:6px}
+.stock-research-legend>span,.stock-research-toggle{display:inline-flex;align-items:center;gap:5px;cursor:pointer;user-select:none}
+.stock-research-toggle input{margin:0;cursor:pointer}
+.stock-research-legend i{width:9px;height:9px;border-radius:50%;background:var(--primary);display:inline-block}
+.stock-research-legend .sr-buy{background:var(--color-up)}
+.stock-research-legend .sr-sell{background:var(--color-down)}
+.stock-research-legend .sr-m-open{background:#DC2626}
+.stock-research-legend .sr-m-add{background:#B91C1C;box-shadow:0 0 0 1.5px #F59E0B}
+.stock-research-legend .sr-m-trim{background:#D97706}
+.stock-research-legend .sr-m-stop{background:#0F766E}
+.stock-research-legend .sr-slip-buy{background:#7C3AED}
+.stock-research-legend .sr-note{background:#a16207}
+.stock-research-legend a{margin-left:auto;color:var(--primary)}
+.stock-research-simbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:6px 20px 8px;font-size:12px;background:var(--subtle);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.stock-research-simbar select{font:inherit;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 8px;max-width:280px}
+.stock-research-sim-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-variant-numeric:tabular-nums}
 .stock-research-legacy{flex-basis:100%;color:#a16207;font-weight:500}
-.stock-research-selected{display:flex;gap:12px;padding:6px 20px;font-size:12px;line-height:1.7}.stock-research-selected>span{color:var(--secondary)}
-.stock-research-mark{cursor:pointer}.stock-research-mark circle{fill:var(--primary);stroke:var(--surface);stroke-width:1.5}.stock-research-mark.sr-buy circle{fill:var(--color-up)}.stock-research-mark.sr-sell circle{fill:var(--color-down)}.stock-research-mark text{fill:#fff;font-size:11px;font-weight:600;pointer-events:none}.stock-research-mark:focus{outline:2px solid var(--primary)}.stock-research-start path{stroke:#a16207;stroke-width:1.3;stroke-dasharray:4 4;pointer-events:none}.stock-research-start text{fill:#a16207;font-size:11px;pointer-events:none}
+.stock-research-selected{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:7px 20px;font-size:12px;line-height:1.65;background:color-mix(in srgb,var(--subtle) 55%,transparent)}
+.stock-research-selected>span{color:var(--secondary)}
+.sr-day-chip{display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:5px;font-size:11.5px;border:1px solid var(--border);background:var(--surface);color:var(--text);margin:1px 4px 1px 0}
+.sr-day-chip.is-buy{border-color:color-mix(in srgb,var(--color-up) 45%,transparent);color:var(--color-up)}
+.sr-day-chip.is-sell{border-color:color-mix(in srgb,var(--color-down) 45%,transparent);color:var(--color-down)}
+.sr-day-chip.is-trim{border-color:color-mix(in srgb,#D97706 45%,transparent);color:#B45309}
+.sr-day-chip.is-slip{border-color:color-mix(in srgb,#7C3AED 45%,transparent);color:#6D28D9}
+.stock-research-mark{cursor:pointer}
+.stock-research-mark circle,.stock-research-mark rect{fill:var(--primary);stroke:var(--surface);stroke-width:1.4}
+.stock-research-mark polygon{fill:var(--primary)}
+.stock-research-mark.sr-buy rect,.stock-research-mark.sr-buy circle,.stock-research-mark.sr-buy polygon{fill:var(--color-up)}
+.stock-research-mark.sr-sell rect,.stock-research-mark.sr-sell circle,.stock-research-mark.sr-sell polygon{fill:var(--color-down)}
+.stock-research-mark.sr-m-open rect,.stock-research-mark.sr-m-open polygon{fill:#DC2626}
+.stock-research-mark.sr-m-add rect{fill:#B91C1C;stroke:#FDE047;stroke-width:1.8}
+.stock-research-mark.sr-m-add polygon{fill:#B91C1C}
+.stock-research-mark.sr-m-trim rect,.stock-research-mark.sr-m-trim polygon{fill:#D97706}
+.stock-research-mark.sr-m-stop rect,.stock-research-mark.sr-m-stop polygon{fill:#0F766E}
+.stock-research-mark.sr-m-sell rect,.stock-research-mark.sr-m-sell polygon{fill:#0284C7}
+.stock-research-mark.sr-slip-buy rect,.stock-research-mark.sr-slip-buy polygon{fill:#7C3AED}
+.stock-research-mark.sr-slip-sell rect,.stock-research-mark.sr-slip-sell polygon{fill:#475569}
+.stock-research-mark text{fill:#fff;font-size:10px;font-weight:700;pointer-events:none}
+.stock-research-mark:focus{outline:2px solid var(--primary)}
+.stock-research-start path{stroke:#a16207;stroke-width:1.3;stroke-dasharray:4 4;pointer-events:none}
+.stock-research-start text{fill:#a16207;font-size:11px;pointer-events:none}
 @media(max-width:1050px){.stock-research-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:650px){.stock-research-panel{padding:12px}.stock-research-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.stock-research-filters>label{width:100%}.stock-research-filters select{max-width:100%}.stock-research-selected{flex-direction:column;gap:2px}.stock-research-metrics strong{font-size:16px}}

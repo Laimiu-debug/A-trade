@@ -51,9 +51,12 @@ import {
   getSharedStrategyParams,
   normalizeStrategyParams,
   parseStrategyParamSchema,
+  isMasterTraderStrategy,
+  MASTER_TRADER_STRATEGY_META,
   resolveDefaultStrategyId,
   setSharedStrategyParams,
 } from '@/shared/utils/strategyParams'
+import { MasterTraderPlanPanel } from './MasterTraderPlanPanel'
 import { upsertPendingBuyDraft } from '@/shared/utils/simPendingOrders'
 import { useBacktestTaskStore } from '@/state/backtestTaskStore'
 import { useUIStore } from '@/state/uiStore'
@@ -188,6 +191,26 @@ const THS_SIGNAL_STRATEGY_IDS = new Set([
 
 function resolveSignalPageCopy(strategyId: StrategyId, strategyName?: string | null): SignalPageCopy {
   const normalizedStrategyId = String(strategyId ?? '').trim()
+  const masterMeta = MASTER_TRADER_STRATEGY_META[normalizedStrategyId]
+  if (masterMeta || normalizedStrategyId === 'vcp_contraction_v1') {
+    const label = (strategyName ?? '').trim() || masterMeta?.masterName || 'VCP收缩突破'
+    return {
+      isThsMainRetail: true,
+      title: `待买信号（${label}）`,
+      subtitle: masterMeta
+        ? `${masterMeta.tagline} · 与明日实战预测及「策略回测」完全同源。`
+        : 'VCP三段波幅与量能逐段收敛蓄势后放量突破平台高点，与「策略回测」完全同源。',
+      badge: masterMeta ? '大佬模式' : '形态突破',
+      phaseColumnTitle: '结构分组',
+      eventColumnTitle: '触发买点',
+      scoreColumnTitle: '信号评分',
+      sequenceLabel: '触发条件',
+      riskLabel: '风控提示',
+      hintEmptyText: '无附加说明',
+      detailTitle: `当前运行策略：${label}`,
+      detailDescription: '信号计算、明日持仓/开仓预测与策略回测共用同一套特征公式、本地通达信日线与风控规则。',
+    }
+  }
   if (THS_SIGNAL_STRATEGY_IDS.has(normalizedStrategyId)) {
     const strategyLabel = (strategyName ?? '').trim() || '主力/散户量能'
     const isRhythm = normalizedStrategyId === 'ths_force_rhythm_v1'
@@ -485,7 +508,7 @@ export function SignalsPage() {
   const hasModeInQuery = initialModeParam === 'full_market' || initialModeParam === 'trend_pool'
   const initialMode: SignalScanMode = hasModeInQuery
     ? (initialModeParam as SignalScanMode)
-    : (cachedMode ?? 'trend_pool')
+    : (cachedMode ?? (runId ? 'trend_pool' : 'full_market'))
   const parsedInitialWindowDays = Number(searchParams.get('window_days') ?? searchParams.get('signal_window_days') ?? 60)
   const initialWindowDays = Number.isFinite(parsedInitialWindowDays)
     ? Math.max(20, Math.min(240, Math.round(parsedInitialWindowDays)))
@@ -526,7 +549,7 @@ export function SignalsPage() {
   const strategyIdFromQuery = (searchParams.get('strategy_id') ?? '').trim()
   const initialStrategyId: StrategyId = strategyIdFromQuery
     ? strategyIdFromQuery
-    : getSharedLastStrategyId('wyckoff_trend_v1')
+    : getSharedLastStrategyId('wujiang_mainline_v1')
   const initialStrategyParams = (() => {
     const raw = (searchParams.get('strategy_params') ?? '').trim()
     if (!raw) return getSharedStrategyParams(initialStrategyId)
@@ -569,6 +592,7 @@ export function SignalsPage() {
   const refreshTrackerRef = useRef(0)
   const missingRunHandledRef = useRef('')
   const searchParamsSnapshot = searchParams.toString()
+  const lastSyncedSearchRef = useRef(searchParamsSnapshot)
   const strategyCatalogQuery = useQuery({
     queryKey: ['strategy-catalog'],
     queryFn: getStrategies,
@@ -637,7 +661,7 @@ export function SignalsPage() {
     if (strategyItems.length <= 0) return
     const allIds = new Set(strategyItems.map((item) => item.strategy_id))
     if (allIds.has(strategyId)) return
-    const fallback = resolveDefaultStrategyId(strategyItems, 'wyckoff_trend_v1')
+    const fallback = resolveDefaultStrategyId(strategyItems, 'wujiang_mainline_v1')
     setStrategyId(fallback)
     setStrategyParams(getSharedStrategyParams(fallback))
   }, [strategyId, strategyItems])
@@ -721,6 +745,30 @@ export function SignalsPage() {
   }, [tablePageSize])
 
   useEffect(() => {
+    if (searchParamsSnapshot === lastSyncedSearchRef.current) return
+    lastSyncedSearchRef.current = searchParamsSnapshot
+    const incoming = new URLSearchParams(searchParamsSnapshot)
+    const incomingStrategy = (incoming.get('strategy_id') ?? '').trim()
+    if (incomingStrategy && incomingStrategy !== strategyId) {
+      setStrategyId(incomingStrategy as StrategyId)
+      const rawParams = (incoming.get('strategy_params') ?? '').trim()
+      if (rawParams) {
+        try {
+          setStrategyParams(normalizeStrategyParams(JSON.parse(rawParams) as unknown))
+        } catch {
+          setStrategyParams(getSharedStrategyParams(incomingStrategy as StrategyId))
+        }
+      } else {
+        setStrategyParams(getSharedStrategyParams(incomingStrategy as StrategyId))
+      }
+    }
+    const incomingMode = incoming.get('mode') ?? incoming.get('signal_mode')
+    if ((incomingMode === 'full_market' || incomingMode === 'trend_pool') && incomingMode !== mode) {
+      setMode(incomingMode)
+    }
+  }, [mode, searchParamsSnapshot, strategyId])
+
+  useEffect(() => {
     const queryMarketFilters = parseMarketFiltersFromSearchParams(new URLSearchParams(searchParamsSnapshot))
     if (queryMarketFilters.length > 0) {
       setMarketFilters((previous) => (isSameMarketFilters(previous, queryMarketFilters) ? previous : queryMarketFilters))
@@ -795,7 +843,9 @@ export function SignalsPage() {
       next.delete('as_of_date')
     }
 
-    if (next.toString() !== current.toString()) {
+    const nextText = next.toString()
+    if (nextText !== current.toString()) {
+      lastSyncedSearchRef.current = nextText
       setSearchParams(next, { replace: true })
     }
   }, [
@@ -910,6 +960,7 @@ export function SignalsPage() {
   ])
 
   const trendPoolReady = mode !== 'trend_pool' || Boolean(runId)
+  const strategyReady = !strategyCatalogQuery.isLoading
 
   const signalQuery = useQuery({
     queryKey: [
@@ -934,7 +985,7 @@ export function SignalsPage() {
       replayContext?.maxSymbols ?? -1,
       refreshCounter,
     ],
-    enabled: trendPoolReady,
+    enabled: trendPoolReady && strategyReady,
     queryFn: async () => {
       const shouldRefresh = refreshCounter > refreshTrackerRef.current
       if (shouldRefresh) {
@@ -1531,6 +1582,9 @@ export function SignalsPage() {
   )
 
   const handleForceRefresh = () => {
+    if (mode === 'trend_pool' && !runId) {
+      setMode('full_market')
+    }
     setManualRefreshing(true)
     setRefreshCounter((previous) => previous + 1)
   }
@@ -1602,6 +1656,7 @@ export function SignalsPage() {
               >
                 绑定最新筛选任务
               </Button>
+              <Button size="small" type="primary" onClick={() => setMode('full_market')}>切换全市场直接运行</Button>
               <Button size="small" onClick={() => navigate('/screener')}>去选股池</Button>
             </Space>
           )}
@@ -1728,7 +1783,7 @@ export function SignalsPage() {
               }}
               options={(strategyItems.length > 0
                 ? strategyItems
-                : [{ strategy_id: 'wyckoff_trend_v1', name: '维科夫趋势V1', version: '1.0.0', enabled: true }])
+                : [{ strategy_id: 'wujiang_mainline_v1', name: '乌江望月 · 双轨主线核心', version: '2.1.0', enabled: true }])
                 .map((item) => ({
                   value: item.strategy_id,
                   label: `${item.name} (${item.version})${item.enabled === false ? ' - 已禁用' : ''}`,
@@ -2022,6 +2077,23 @@ export function SignalsPage() {
             </Col>
           </Row></Space>
       </Card>
+
+      {isMasterTraderStrategy(strategyId) ? (
+        <MasterTraderPlanPanel
+          strategyId={strategyId}
+          strategyParams={strategyParamsPayload}
+          mode={mode}
+          runId={runId}
+          trendStep={trendStep}
+          asOfDate={normalizedAsOfDate || undefined}
+          windowDays={windowDays}
+          minScore={minScore}
+          refreshToken={refreshCounter}
+          signalsData={trendPoolReady ? signalQuery.data : undefined}
+          signalsLoading={trendPoolReady && (!strategyReady || signalQuery.isLoading || (manualRefreshing && signalQuery.isFetching))}
+          onForceRefreshSignals={handleForceRefresh}
+        />
+      ) : null}
 
       <Card data-research="signal-results" className="glass-card" variant="borderless">
         <Table

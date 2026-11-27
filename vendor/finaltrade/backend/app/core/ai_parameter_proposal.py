@@ -83,7 +83,7 @@ class AIParameterProposalService:
         strategy_id = (
             enriched.refs.get("strategy_id")
             or enriched.payload.get("strategy_id")
-            or "wyckoff_trend_v1"
+            or "wujiang_mainline_v1"
         )
         playbook_text = build_playbook_text(
             self._registry,

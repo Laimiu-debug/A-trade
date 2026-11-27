@@ -87,7 +87,7 @@ function normalizeCompareParamCategory(raw: unknown): CompareParamCategory {
 }
 
 function normalizeCompareStrategyIds(raw: unknown, fallbackStrategyId: StrategyId): StrategyId[] {
-  const fallback = String(fallbackStrategyId || '').trim() || 'wyckoff_trend_v1'
+  const fallback = String(fallbackStrategyId || '').trim() || 'wujiang_mainline_v1'
   const normalized = Array.isArray(raw)
     ? raw.map((item) => String(item).trim()).filter((item) => item.length > 0)
     : []

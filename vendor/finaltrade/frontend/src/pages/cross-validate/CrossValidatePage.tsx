@@ -196,7 +196,7 @@ export function CrossValidatePage() {
   const [marketFilters, setMarketFilters] = useState<Market[]>(cached.marketFilters ?? [])
   const [boardFilters, setBoardFilters] = useState<BoardFilter[]>(cached.boardFilters ?? [])
   const [selectedStrategyIds, setSelectedStrategyIds] = useState<StrategyId[]>(
-    cached.selectedStrategyIds ?? ['wyckoff_trend_v1', 'trend_king_v1'],
+    cached.selectedStrategyIds ?? ['wujiang_mainline_v1', 'mainline_halfway_v1'],
   )
   const [strategyConfigs, setStrategyConfigs] = useState<Record<string, StrategyConfigState>>(
     cached.strategyConfigs ?? {},

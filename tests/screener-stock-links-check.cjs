@@ -1,7 +1,11 @@
 const assert=require('node:assert/strict');
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 module.exports=async({evaluate,frame,wait})=>{
- const parentWait=async(expression,label)=>{for(let i=0;i<450;i++){if(await evaluate(expression))return;await delay(100);}throw Error('Timed out: '+label)};
+ const parentWait=async(expression,label)=>{
+  for(let i=0;i<450;i++){if(await evaluate(expression))return;await delay(100);}
+  const shell=await evaluate(`({page:AT.state.page,stock:AT.state.stock,market:AT.marketUI.diagnostics(),view:document.querySelector('#main')?.innerText.slice(-1400)})`);
+  throw Error('Timed out: '+label+' '+JSON.stringify(shell));
+ };
  const state=()=>frame.executeJavaScript(`(()=>{const rows=[...document.querySelectorAll('.ant-table-row')].filter(el=>el.getClientRects().length);return {active:document.querySelector('.screener-pool-card--active')?.innerText,page:document.querySelector('.ant-pagination-item-active')?.getAttribute('title'),rows:rows.map(el=>el.dataset.rowKey),checks:rows.map(el=>el.querySelector('input[type=checkbox]')?.checked??false),filters:[...document.querySelectorAll('.ant-table-filter-trigger.active')].map(el=>el.innerText)}})()`);
  await wait(`document.querySelectorAll('.ant-table-row [data-screener-stock-link="symbol"]').length>=2`,'clickable stock codes');
  // Check actual table filtering and a non-default page, which a remount would reset.

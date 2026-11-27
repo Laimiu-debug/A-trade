@@ -65,7 +65,7 @@ export function StrategyCenterPage() {
     }, { replace: true })
   }, [setSearchParams])
 
-  const initialStrategyId = useMemo<StrategyId>(() => getSharedLastStrategyId('wyckoff_trend_v1'), [])
+  const initialStrategyId = useMemo<StrategyId>(() => getSharedLastStrategyId('wujiang_mainline_v1'), [])
   const initialCompareSnapshot = useMemo<CompareViewSnapshot>(
     () =>
       loadCompareViewSnapshot(initialStrategyId) ?? {
@@ -132,7 +132,7 @@ export function StrategyCenterPage() {
     if (strategyItems.length <= 0) return
     const allIds = new Set(strategyItems.map((item) => item.strategy_id))
     if (allIds.has(strategyId)) return
-    const fallback = resolveDefaultStrategyId(strategyItems, 'wyckoff_trend_v1')
+    const fallback = resolveDefaultStrategyId(strategyItems, 'wujiang_mainline_v1')
     setStrategyId(fallback)
     setStrategyParams(getSharedStrategyParams(fallback))
   }, [strategyId, strategyItems])
@@ -664,7 +664,7 @@ export function StrategyCenterPage() {
                 }}
                 options={(strategyItems.length > 0
                   ? strategyItems
-                  : [{ strategy_id: 'wyckoff_trend_v1', name: '维科夫趋势V1', version: '1.0.0', enabled: true }])
+                  : [{ strategy_id: 'wujiang_mainline_v1', name: '乌江望月 · 双轨主线核心', version: '2.1.0', enabled: true }])
                   .map((item) => ({
                     value: item.strategy_id,
                     label: `${item.name} (${item.version})${item.enabled === false ? ' - 已禁用' : ''}`,
@@ -841,7 +841,7 @@ export function StrategyCenterPage() {
                   onChange={handleCompareStrategyChange}
                   options={(strategyItems.length > 0
                     ? strategyItems
-                    : [{ strategy_id: 'wyckoff_trend_v1', name: '维科夫趋势V1', version: '1.0.0', enabled: true }])
+                    : [{ strategy_id: 'wujiang_mainline_v1', name: '乌江望月 · 双轨主线核心', version: '2.1.0', enabled: true }])
                     .map((item) => ({
                       value: item.strategy_id,
                       label: `${item.name} (${item.version})${item.enabled === false ? ' - 已禁用' : ''}`,

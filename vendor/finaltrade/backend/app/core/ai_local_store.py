@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-DEFAULT_STATE_DIR = Path.home() / ".tdx-trend"
+DEFAULT_STATE_DIR = Path(os.environ["TDX_TREND_STATE_DIR"]) if os.environ.get("TDX_TREND_STATE_DIR") else (Path.home() / ".tdx-trend")
 LOCAL_PLAYBOOK_FILE = "ai_playbook.local.json"
 QUICK_PROMPTS_FILE = "ai_quick_prompts.json"
 

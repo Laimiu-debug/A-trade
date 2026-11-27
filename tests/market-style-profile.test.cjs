@@ -108,3 +108,47 @@ test('all profile text is escaped and unexpected tones cannot inject attributes 
   assert.match(html,/market-profile-card market-profile-unknown/);
   assert.doesNotMatch(html,/<img|<script>|<iframe| onclick="bad/);
 });
+
+test('dynamic style radar renders offense thermometer, dual axes, shift alerts, strategy guide and escapes text',()=>{
+  const data = dataFor();
+  data.timeline[0].dynamic = {
+    version: 'market-style-dynamic-v2',
+    status: 'observed',
+    regimeKey: 'main_10cm_relay',
+    regimeLabel: '主板10cm题材抱团',
+    regimeTone: 'amber',
+    regimeColor: '#d97706',
+    headline: '资金聚焦主板 10cm 题材前排',
+    summary: '进攻温度 58.2/100',
+    confidencePct: 82,
+    streakDays: 2,
+    offenseScore: 58.2,
+    offenseEma: 56.5,
+    offenseVelocity: 6.4,
+    offensePercentile30: 71,
+    momentumLabel: '温和改善',
+    boardAxis: -34.5,
+    boardAxisDelta5: -22.0,
+    boardLabel: '10cm主板主导',
+    boardMetrics: {growth20MedianRet5: -2.5, growth20Breadth: 0.34, main10MedianRet5: 2.1, main10Breadth: 0.58, growth20AmountShare: 0.31},
+    structureAxis: 28.0,
+    structureLabel: '短线连板接力主导',
+    structureMetrics: {coreExcess5: -1.2, coreExcess20: -2.0, maxBoardHeight: 6, multiBoardApprox: 22, promotionRate: 0.48},
+    liquidity: {label: '温和放量活跃', totalAmountYi: 19200, totalAmountRatio20: 1.16},
+    shiftAlerts: [{id: 'track_shift_to_10cm', severity: 'warning', title: '赛道切换预警<script>x</script>', detail: '资金切向主板10cm', actionHint: '切至主板轨'}],
+    strategyGuide: {
+      matchedStrategies: [{id: 'wujiang_mainline_v1', name: '乌江双轨主线核心', fit: '首选', note: '主板封板与首阴反包'}],
+      positionPlan: {totalRange: '45%–65%', slots: '2–3 只', maxSingle: '15%–20%', riskHint: '严控旧科技抄底'},
+    },
+  };
+  data.style = data.timeline[0];
+  const html = runtime().render(data);
+  assert.match(html, /data-market-dynamic-style/);
+  assert.match(html, /主板10cm题材抱团/);
+  assert.match(html, /58\.20|58\.2/);
+  assert.match(html, /10cm主板主导/);
+  assert.match(html, /短线连板接力主导/);
+  assert.match(html, /乌江双轨主线核心/);
+  assert.match(html, /赛道切换预警&lt;script&gt;x&lt;\/script&gt;/);
+  assert.doesNotMatch(html, /<script>x<\/script>/);
+});

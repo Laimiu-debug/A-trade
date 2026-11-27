@@ -15,7 +15,7 @@ atexit.register(TEMP.cleanup)
 configure_environment(TEMP.name)
 sys.path.insert(0, str(REFERENCE / 'backend'))
 from app.models import BacktestRunRequest, BacktestPlateauRunRequest, BacktestResponse, ScreenerParams
-from app.store import InMemoryStore
+from app.store import BacktestValidationError, InMemoryStore
 
 
 class FullPoolTests(unittest.TestCase):
@@ -27,7 +27,7 @@ class FullPoolTests(unittest.TestCase):
                                    sim_state_path=str(Path(self.temp.name) / 'sim-state.json'))
         self.payload = BacktestRunRequest(mode='trend_pool', trend_step='step1',
             date_from='2026-04-01', date_to='2026-04-02', enable_advanced_analysis=False,
-            strategy_id='score_only_rank_v1', execution_path_preference='legacy')
+            strategy_id='mainline_halfway_v1', execution_path_preference='legacy')
         self.rows = [SimpleNamespace(symbol=f'sh{600000 + i:06d}') for i in range(256)]
         self.params = ScreenerParams(markets=['sh'], mode='strict', return_window_days=40,
             top_n=500, turnover_threshold=.05, amount_threshold=5e8, amplitude_threshold=.03)
@@ -118,6 +118,12 @@ class FullPoolTests(unittest.TestCase):
             result = self.store.run_backtest_plateau(payload)
         self.assertEqual({p.params.max_symbols for p in result.points}, {0})
         self.assertEqual(observed, [0, 0])
+
+    def test_retired_strategy_is_rejected_before_scanning_the_plateau(self):
+        base = self.payload.model_copy(update={'strategy_id': 'score_only_rank_v1'})
+        with self.assertRaises(BacktestValidationError) as raised:
+            self.store.run_backtest_plateau(BacktestPlateauRunRequest(base_payload=base))
+        self.assertEqual(raised.exception.code, 'STRATEGY_NOT_FOUND')
 
 
 if __name__ == '__main__':

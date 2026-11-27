@@ -62,6 +62,8 @@ class _Connection:
             self.ready.set()
 
     async def _serve(self):
+        from .dev_dependencies import use_prepared_dependencies
+        use_prepared_dependencies("mcp", "pandas")
         try:
             from mcp import ClientSession, StdioServerParameters
             from mcp.client.stdio import stdio_client

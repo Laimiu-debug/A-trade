@@ -484,7 +484,7 @@
     }).join('');
     const labels = [...new Set([0, Math.floor((count - 1) / 2), count - 1])].map(index => `<text x="${left + step * (index + .5)}" y="421" text-anchor="${index === 0 ? 'start' : index === count - 1 ? 'end' : 'middle'}" class="market-axis-label">${date(visible[index].date)}</text>`).join('');
     const overlays = AT.marketAnalysis.price({rows, studies, start, count, left, step, top, bottom, priceY});
-    const strategyMarks = AT.stockResearch?.overlay({symbol:barsData?.symbol,rows,start,count,left,step,priceY}) || '';
+    const strategyMarks = AT.stockResearch?.overlay({symbol:barsData?.symbol,rows,start,count,left,step,top,bottom,priceY}) || '';
     return `<svg class="market-candles" viewBox="0 0 ${width} 442" role="img" tabindex="0" aria-label="未复权日线 K 线与成交量，滚轮缩放，左右方向键查看相邻交易日" data-market-chart data-market-zoom="daily" data-chart-start="${start}" data-chart-count="${count}" data-chart-total="${rows.length}" data-chart-left="${left}" data-chart-step="${step}"><title>未复权日线 · 滚轮缩放</title>${grid}<text x="${left}" y="304" class="market-axis-label">成交量（${E(barsData?.volumeUnit || '原始单位')}）</text><text x="${width - right + 12}" y="${volTop + 5}" class="market-axis-label">${shortAmount(volumeMax)}</text>${candles}${overlays}<path data-market-crosshair d="M${left + step * (clamp(selectedIndex - start, 0, count - 1) + .5)} ${top}V${volBottom}" class="market-crosshair"/>${strategyMarks}${labels}</svg>`;
   }
   function intradayReadout(row) {
@@ -839,12 +839,18 @@
     if (page === 'M03' && !sectorId) {queueMicrotask(() => {if (AT.state.page === 'M03') AT.navigate('M02');}); return '<section class="panel sector-date-controls" role="status">正在返回板块列表，请选择要查看的板块。</section>';}
     if (pendingDay && page === 'G01' && pendingDay.symbol !== AT.state.stock) pendingDay = null;
     if (chartDrag && (page !== 'G01' || chartDrag.symbol !== AT.state.stock || chartDrag.mode !== chartMode)) endChartDrag();
-    if (page === 'G01' && lastRenderedPage !== 'G01') { barsSerial++; barsKey = ''; barsData = null; barsError = ''; barsBusy = false; }
+    const enteringStock = page === 'G01' && lastRenderedPage !== 'G01';
+    if (enteringStock) { barsSerial++; barsKey = ''; barsData = null; barsError = ''; barsBusy = false; }
     if (page === 'G01' && chartSymbol !== AT.state.stock) {chartSymbol = AT.state.stock; chartMode = 'daily'; intradayDate = ''; intradaySerial++; intradayBusy = false; intradayKey = ''; intradayData = null; intradayError = '';}
     if (['M02', 'M03'].includes(page) && page !== lastRenderedPage) {sectorOffset = 0; sectorQuery = '';}
     lastRenderedPage = page;
     if (!marketPages.has(page)) return previousView(page);
-    queueMicrotask(() => { if (AT.state.page === page) ensurePage(page); });
+    queueMicrotask(() => {
+      if (AT.state.page !== page) return;
+      // The workspace may have switched its shared market directory while the chart was hidden.
+      if (enteringStock) void loadStatus(true);
+      ensurePage(page);
+    });
     return page === 'C01' ? settingsView() : page === 'G04' ? statusView() : page === 'M01' ? overviewView() : page === 'M02' ? sectorsView() : page === 'M03' ? sectorsView(true) : page === 'M04' ? listView() : page === 'M05' ? newsView() : barsView();
   };
   function updateShell(page) {
@@ -853,7 +859,7 @@
     if (page !== 'M02') AT.sectorComparison?.endDrag(false);
     if (page !== 'G01') pendingDay = null;
     if (page === 'M05' || page.startsWith('T')) {endChartDrag(); lastRenderedPage = page;}
-    if (!marketPages.has(page)) return;
+    if (!marketPages.has(page)) {lastRenderedPage = page; return;}
     const label = $('.demo-label'), status = $('.statusbar>span:first-child');
     if (label) label.textContent = page === 'C01' ? '桌面设置' : '真实行情 · TDX / MCP';
     const asOf = ['M02', 'M03'].includes(page) && sectorBasis === 'daily' ? sectorData?.asOf : page === 'G01' && barsKey === `${version}|${AT.state.stock}` && barsData ? barsData.dataAsOf : source?.latestDate;

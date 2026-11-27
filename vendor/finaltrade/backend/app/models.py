@@ -312,7 +312,7 @@ class SignalsResponse(BaseModel):
     degraded: bool = False
     degraded_reason: str | None = None
     source_count: int = 0
-    strategy_id: StrategyId = "wyckoff_trend_v1"
+    strategy_id: StrategyId = "wujiang_mainline_v1"
     strategy_version: str = "1.0.0"
     strategy_params: dict[str, Any] = Field(default_factory=dict)
     strategy_params_hash: str = ""
@@ -722,7 +722,7 @@ class BacktestRunRequest(BaseModel):
     run_id: str | None = None
     trend_step: TrendPoolStep = "auto"
     board_filters: list[BoardFilter] = Field(default_factory=list, max_length=5)
-    strategy_id: StrategyId = "wyckoff_trend_v1"
+    strategy_id: StrategyId = "wujiang_mainline_v1"
     strategy_params: dict[str, Any] = Field(default_factory=dict)
     date_from: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
     date_to: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
@@ -906,7 +906,7 @@ class BacktestResponse(BaseModel):
     monte_carlo: BacktestMonteCarloSummary | None = None
     walk_forward: BacktestWalkForwardReport | None = None
     execution_path: Literal["matrix", "legacy"] | None = None
-    strategy_id: StrategyId = "wyckoff_trend_v1"
+    strategy_id: StrategyId = "wujiang_mainline_v1"
     strategy_version: str = "1.0.0"
     strategy_params: dict[str, Any] = Field(default_factory=dict)
     strategy_params_hash: str = ""

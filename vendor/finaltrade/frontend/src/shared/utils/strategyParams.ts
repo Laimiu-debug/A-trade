@@ -32,6 +32,11 @@ const STRATEGY_ENUM_OPTION_LABELS: Record<string, Record<string, string>> = {
     B: 'B级',
     C: 'C级',
   },
+  track_mode: {
+    dual: '双轨自适应(20cm科技+10cm主板)',
+    growth_20cm: '仅20cm科创创业科技',
+    main_10cm: '仅10cm主板题材',
+  },
 }
 
 const HIDDEN_STRATEGY_IDS = new Set<string>([
@@ -46,8 +51,101 @@ const HIDDEN_STRATEGY_NAME_PREFIXES = [
   '主力回踩续涨',
 ]
 
+export type MasterTraderStrategyPresetMeta = {
+  strategyId: string
+  masterName: string
+  styleKey: string
+  tagline: string
+  maxPositions: number
+  positionPctPercent: number
+  stopLossPercent: number
+  takeProfitPercent: number
+  maxHoldDays: number
+}
+
+export const MASTER_TRADER_STRATEGY_META: Record<string, MasterTraderStrategyPresetMeta> = {
+  wujiang_mainline_v1: {
+    strategyId: 'wujiang_mainline_v1',
+    masterName: '乌江望月',
+    styleKey: 'wujiang_dynamic',
+    tagline: '20cm科技容量起爆 + 10cm主板首阴反包/连板切换 · 浮盈加仓 · 破位快砍',
+    maxPositions: 4,
+    positionPctPercent: 18,
+    stopLossPercent: 5,
+    takeProfitPercent: 18,
+    maxHoldDays: 5,
+  },
+  mainline_halfway_v1: {
+    strategyId: 'mainline_halfway_v1',
+    masterName: '灰常懒',
+    styleKey: 'huichanglan_mainline',
+    tagline: '绝对主线低位放量半路(+2.5%~+6.5%) · 80%早盘15分秒砍腾子弹',
+    maxPositions: 3,
+    positionPctPercent: 20,
+    stopLossPercent: 4.8,
+    takeProfitPercent: 16,
+    maxHoldDays: 4,
+  },
+  first_to_second_v1: {
+    strategyId: 'first_to_second_v1',
+    masterName: '希望姐姐',
+    styleKey: 'xiwangjiejie_1to2',
+    tagline: '100%纯主板一进二换手接力 · 等权克制 · 炸板次日09:35无条件核出',
+    maxPositions: 3,
+    positionPctPercent: 24,
+    stopLossPercent: 6,
+    takeProfitPercent: 18,
+    maxHoldDays: 3,
+  },
+  highboard_sniper_v1: {
+    strategyId: 'highboard_sniper_v1',
+    masterName: '暴涨基金董事长',
+    styleKey: 'dongshizhang_highboard',
+    tagline: '66%日子空仓等待 · 仅狙击2板+纯主板情绪最高标 · 断板秒走',
+    maxPositions: 2,
+    positionPctPercent: 28,
+    stopLossPercent: 6,
+    takeProfitPercent: 25,
+    maxHoldDays: 4,
+  },
+  ruhan_halfway_v1: {
+    strategyId: 'ruhan_halfway_v1',
+    masterName: '如晗',
+    styleKey: 'ruhan_halfway',
+    tagline: '4–5仓均衡半路推土机 · 弱势退潮期自动触发66%降仓开关',
+    maxPositions: 5,
+    positionPctPercent: 18,
+    stopLossPercent: 5,
+    takeProfitPercent: 14,
+    maxHoldDays: 4,
+  },
+  strong_trend_dip_v1: {
+    strategyId: 'strong_trend_dip_v1',
+    masterName: '松雅湖的松松',
+    styleKey: 'songsong_defensive',
+    tagline: 'MA20上方强趋势回撤缩量承接 · 紧止损3.2% · 弱市强制断电空仓',
+    maxPositions: 4,
+    positionPctPercent: 18,
+    stopLossPercent: 3.2,
+    takeProfitPercent: 9,
+    maxHoldDays: 3,
+  },
+}
+
+export function isMasterTraderStrategy(strategyId: unknown): boolean {
+  return Boolean(MASTER_TRADER_STRATEGY_META[String(strategyId ?? '').trim()])
+}
+
 /** 与 backend EVENT_INDEPENDENT_STRATEGY_IDS 对齐：用策略内置信号入场，不依赖威科夫 entry_events */
 const EVENT_INDEPENDENT_BACKTEST_STRATEGY_IDS = new Set<string>([
+  'wujiang_mainline_v1',
+  'mainline_halfway_v1',
+  'first_to_second_v1',
+  'highboard_sniper_v1',
+  'ruhan_halfway_v1',
+  'strong_trend_dip_v1',
+  'vcp_contraction_v1',
+  'wulong_cluster_v1',
   'score_only_rank_v1',
   'matrix_signal_v1',
   'ths_main_force_flip_v1',
@@ -55,7 +153,6 @@ const EVENT_INDEPENDENT_BACKTEST_STRATEGY_IDS = new Set<string>([
   'ths_force_rhythm_v1',
   'emotion_limit_up_v1',
   'limit_up_arb_v1',
-  'wulong_cluster_v1',
   'b1_mtf_v1',
   'trend_king_v1',
   'trend_king_limitup_v1',
@@ -65,12 +162,19 @@ const EVENT_INDEPENDENT_BACKTEST_STRATEGY_IDS = new Set<string>([
 ])
 
 const OPTIONAL_EXIT_EVENT_BACKTEST_STRATEGY_IDS = new Set<string>([
+  'wujiang_mainline_v1',
+  'mainline_halfway_v1',
+  'first_to_second_v1',
+  'highboard_sniper_v1',
+  'ruhan_halfway_v1',
+  'strong_trend_dip_v1',
+  'vcp_contraction_v1',
+  'wulong_cluster_v1',
   'ths_main_force_flip_v1',
   'ths_main_force_golden_cross_v1',
   'ths_force_rhythm_v1',
   'emotion_limit_up_v1',
   'limit_up_arb_v1',
-  'wulong_cluster_v1',
   'b1_mtf_v1',
   'trend_king_v1',
   'trend_king_limitup_v1',
@@ -83,7 +187,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function normalizeStrategyId(raw: unknown, fallback: StrategyId = 'wyckoff_trend_v1'): StrategyId {
+function normalizeStrategyId(raw: unknown, fallback: StrategyId = 'wujiang_mainline_v1'): StrategyId {
   const text = String(raw || '').trim()
   if (HIDDEN_STRATEGY_IDS.has(text)) return fallback
   return text || fallback
@@ -223,7 +327,7 @@ export function buildStrategyParamsPayload(options: {
 
 export function resolveDefaultStrategyId(
   items: StrategyDescriptor[],
-  fallback: StrategyId = 'wyckoff_trend_v1',
+  fallback: StrategyId = 'wujiang_mainline_v1',
 ): StrategyId {
   const normalized = filterVisibleStrategies(items)
   const enabled = normalized.filter((item) => item.enabled)
@@ -231,7 +335,7 @@ export function resolveDefaultStrategyId(
   if (defaultItem) return defaultItem.strategy_id
   if (enabled.length > 0) return enabled[0].strategy_id
   const fallbackExists = normalized.some((item) => item.strategy_id === fallback)
-  return fallbackExists ? fallback : (normalized[0]?.strategy_id || fallback || 'wyckoff_trend_v1')
+  return fallbackExists ? fallback : (normalized[0]?.strategy_id || fallback || 'wujiang_mainline_v1')
 }
 
 export type StrategyParamPreset = {
@@ -252,7 +356,7 @@ const STRATEGY_SHARED_STORAGE_KEY = 'tdx-strategy-shared-v1'
 
 function buildDefaultSharedState(): StrategySharedState {
   return {
-    last_strategy_id: 'wyckoff_trend_v1',
+    last_strategy_id: 'wujiang_mainline_v1',
     params_by_strategy: {},
     presets_by_strategy: {},
   }
@@ -278,7 +382,7 @@ function normalizeSharedState(raw: unknown): StrategySharedState {
   const defaults = buildDefaultSharedState()
   if (!isRecord(raw)) return defaults
 
-  const lastStrategyId = normalizeStrategyId(raw.last_strategy_id, defaults.last_strategy_id || 'wyckoff_trend_v1')
+  const lastStrategyId = normalizeStrategyId(raw.last_strategy_id, defaults.last_strategy_id || 'wujiang_mainline_v1')
 
   const paramsByStrategy: Record<string, Record<string, unknown>> = {}
   if (isRecord(raw.params_by_strategy)) {
@@ -347,7 +451,7 @@ export function setSharedStrategyParams(strategyId: StrategyId, params: Record<s
   saveStrategySharedState(next)
 }
 
-export function getSharedLastStrategyId(fallback: StrategyId = 'wyckoff_trend_v1'): StrategyId {
+export function getSharedLastStrategyId(fallback: StrategyId = 'wujiang_mainline_v1'): StrategyId {
   const state = loadStrategySharedState()
   return normalizeStrategyId(state.last_strategy_id, fallback)
 }

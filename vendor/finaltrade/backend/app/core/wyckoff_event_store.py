@@ -59,6 +59,8 @@ class WyckoffEventStore:
         self._enabled = bool(enabled)
         self._read_only = bool(read_only)
         self._lock = RLock()
+        self._batch_conn: sqlite3.Connection | None = None
+        self._batch_depth = 0
         self._runtime_cache: dict[tuple[str, str, int, str, str, str, str], dict[str, Any]] = {}
         self._runtime_cache_limit = self._resolve_runtime_cache_limit()
         if self._enabled and not self._read_only:
@@ -108,7 +110,35 @@ class WyckoffEventStore:
             self._runtime_cache.pop(stale_key, None)
 
     @contextmanager
+    def batch(self) -> Iterator[None]:
+        if not self._enabled:
+            yield
+            return
+        with self._lock:
+            self._batch_depth += 1
+            created_here = False
+            if self._batch_conn is None and (not self._read_only or self._db_path.exists()):
+                self._db_path.parent.mkdir(parents=True, exist_ok=True)
+                self._batch_conn = sqlite3.connect(str(self._db_path), timeout=30.0)
+                created_here = True
+            try:
+                yield
+                if created_here and self._batch_conn is not None and not self._read_only:
+                    self._batch_conn.commit()
+            finally:
+                self._batch_depth = max(0, self._batch_depth - 1)
+                if created_here and self._batch_conn is not None:
+                    try:
+                        self._batch_conn.close()
+                    except Exception:
+                        pass
+                    self._batch_conn = None
+
+    @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
+        if self._batch_conn is not None:
+            yield self._batch_conn
+            return
         conn = sqlite3.connect(str(self._db_path), timeout=30.0)
         try:
             with conn:
@@ -513,7 +543,8 @@ class WyckoffEventStore:
                             """,
                             record_values,
                         )
-                        conn.commit()
+                        if self._batch_conn is None:
+                            conn.commit()
                 break
             except sqlite3.OperationalError:
                 if attempt >= max_attempts:

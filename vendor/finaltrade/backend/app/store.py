@@ -217,6 +217,11 @@ from .core.force_rhythm_strategy import (
     evaluate_force_rhythm_signal,
 )
 from .core.ths_volume_signal import calculate_ths_main_retail_signal
+from .core.master_alpha_strategies import (
+    MASTER_ALPHA_STRATEGY_IDS,
+    calculate_master_alpha_signals,
+    evaluate_master_alpha_signal,
+)
 from .core.strategy_plugins import calculate_wulong_cluster_signal, evaluate_wulong_cluster_signal
 from .core.b1_strategy import calculate_b1_signal, evaluate_b1_signal
 from .core.trend_king_strategy import calculate_trend_king_signal, evaluate_trend_king_signal
@@ -293,7 +298,7 @@ class InMemoryStore:
     _SCREENER_RESULT_CACHE_VERSION = "screener-run-v3"
     _SIGNALS_RESULT_CACHE_VERSION = "signals-v2"
     _BACKTEST_TREND_FILTER_CACHE_VERSION = "trend-filter-v5-date-history"
-    _BACKTEST_RESULT_CACHE_VERSION = "backtest-result-v9-full-pool-default"
+    _BACKTEST_RESULT_CACHE_VERSION = "backtest-result-v11-master-unified-9"
     _BACKTEST_SIGNAL_MATRIX_CACHE_VERSION = "signal-matrix-v3-date-history"
     _BACKTEST_PRECHECK_CACHE_VERSION = "precheck-v3-full-pool-default"
     _BACKTEST_REPORT_SCHEMA_VERSION = "ftbt-1.0"
@@ -591,7 +596,7 @@ class InMemoryStore:
             else:
                 path_text = "legacy"
         updates: dict[str, Any] = {
-            "strategy_id": str(strategy_meta.get("strategy_id") or "wyckoff_trend_v1"),
+            "strategy_id": str(strategy_meta.get("strategy_id") or "wujiang_mainline_v1"),
             "strategy_version": str(strategy_meta.get("version") or "1.0.0"),
             "strategy_params": dict(strategy_params),
             "strategy_params_hash": str(strategy_params_hash),
@@ -6082,16 +6087,21 @@ class InMemoryStore:
             symbol=symbol,
             sector_data=sector_data,
         )
+        base["master_alpha_signal"] = calculate_master_alpha_signals(
+            candles,
+            symbol=symbol,
+            sector_data=sector_data,
+        )
         return base
 
     def _resolve_sector_data(self, candles: list[CandlePoint]) -> dict[str, Any] | None:
         try:
             cache = self._sector_cache
-            if cache.is_expired():
-                tdx_path = str(getattr(self._config, "tdx_data_path", "") or "").strip()
+            tdx_path = str(getattr(self._config, "tdx_data_path", "") or "").strip()
+            if cache.is_expired(tdx_path):
                 if tdx_path:
                     cache.refresh(tdx_path)
-            if not cache.is_expired():
+            if not cache.is_expired(tdx_path) and cache.sector_candles:
                 closes = [float(c.close) for c in candles if float(c.close) > 0]
                 sector_name, rank, m5 = cache.lookup(closes)
                 if sector_name is not None:
@@ -6537,12 +6547,63 @@ class InMemoryStore:
             "confirmation_status": "confirmed",
         }
 
+    @staticmethod
+    def _build_master_alpha_strategy_signal_context(
+        strategy_id: str,
+        snapshot: dict[str, object],
+        params: dict[str, object] | None = None,
+    ) -> dict[str, object] | None:
+        normalized_id = str(strategy_id).strip()
+        if normalized_id not in MASTER_ALPHA_STRATEGY_IDS:
+            return None
+        indicator = snapshot.get("master_alpha_signal")
+        if not isinstance(indicator, dict):
+            return None
+        evaluation = evaluate_master_alpha_signal(normalized_id, indicator, params)
+        if not bool(evaluation.get("signal", False)):
+            return None
+        trigger_date = str(evaluation.get("trigger_date") or "").strip()
+        if not trigger_date:
+            return None
+        signal_score = max(0.0, min(100.0, float(evaluation.get("signal_score", 0.0) or 0.0)))
+        event_grade = str(evaluation.get("event_grade") or ("A" if signal_score >= 80 else ("B" if signal_score >= 65 else "C")))
+        label = str(evaluation.get("label") or normalized_id)
+        phase = str(evaluation.get("phase") or "主升趋势")
+        reason = str(evaluation.get("reason") or f"{label}信号触发")
+        return {
+            "primary_signal": "A",
+            "signal_name": label,
+            "trigger_date": trigger_date,
+            "phase": phase,
+            "phase_hint": reason,
+            "entry_quality_score": signal_score,
+            "health_score": signal_score,
+            "event_score": signal_score,
+            "event_strength_score": signal_score,
+            "phase_score": signal_score,
+            "structure_score": signal_score,
+            "trend_score": signal_score,
+            "volatility_score": max(0.0, min(100.0, signal_score)),
+            "event_background_score": signal_score,
+            "event_position_score": signal_score,
+            "event_confirmation_score": signal_score,
+            "candle_quality_score": signal_score,
+            "cost_center_shift_score": signal_score,
+            "event_grade": event_grade,
+            "event_count": 1,
+            "sequence_ok": True,
+            "confirmation_status": "confirmed",
+        }
+
     def _build_strategy_signal_context(
         self,
         strategy_id: str,
         snapshot: dict[str, object],
         params: dict[str, object] | None = None,
     ) -> dict[str, object] | None:
+        master_context = self._build_master_alpha_strategy_signal_context(strategy_id, snapshot, params)
+        if master_context is not None:
+            return master_context
         ths_context = self._build_ths_strategy_signal_context(strategy_id, snapshot)
         if ths_context is not None:
             return ths_context
@@ -6649,6 +6710,7 @@ class InMemoryStore:
         window_days: int,
         *,
         as_of_date: str | None = None,
+        attach_extra_indicators: bool = True,
     ) -> dict[str, object]:
         """Calculate Wyckoff snapshot with lazy persisted daily event cache."""
         candles, resolved_as_of_date = self._slice_candles_as_of(
@@ -6689,7 +6751,7 @@ class InMemoryStore:
             self._record_wyckoff_snapshot_read_latency(read_duration_ms)
             if cached is not None:
                 self._bump_wyckoff_metric("cache_hits", 1)
-                return self._attach_ths_volume_signal(cached, candles, symbol=symbol)
+                return self._attach_ths_volume_signal(cached, candles, symbol=symbol) if attach_extra_indicators else cached
 
         self._bump_wyckoff_metric("cache_misses", 1)
         snapshot = SignalAnalyzer.calculate_wyckoff_snapshot(
@@ -6698,7 +6760,8 @@ class InMemoryStore:
             window_days,
             event_judgment_profile=event_judgment_profile,
         )
-        snapshot = self._attach_ths_volume_signal(snapshot, candles, symbol=symbol)
+        if attach_extra_indicators:
+            snapshot = self._attach_ths_volume_signal(snapshot, candles, symbol=symbol)
         quality_flags = self._inspect_wyckoff_snapshot_quality(snapshot, trade_date=trade_date)
         self._record_wyckoff_snapshot_quality(quality_flags)
         if symbol and trade_date:
@@ -6715,6 +6778,123 @@ class InMemoryStore:
             if write_ok:
                 self._bump_wyckoff_metric("lazy_fill_writes", 1)
         return snapshot
+
+    def _fast_signal_scan_snapshot(
+        self,
+        strategy_id_text: str,
+        row: ScreenerResult,
+        *,
+        window_days: int,
+        resolved_as_of_date: str | None,
+        normalized_strategy_params: dict[str, Any],
+    ) -> dict[str, object] | None:
+        """Fast-path signal evaluation avoiding 8 unused indicators and redundant Wyckoff DB writes."""
+        sid = str(strategy_id_text or "").strip()
+        if sid in {"wyckoff_trend_v1", "wyckoff_trend_v2"}:
+            snapshot = self._calc_wyckoff_snapshot(
+                row,
+                window_days=window_days,
+                as_of_date=resolved_as_of_date,
+                attach_extra_indicators=False,
+            )
+            if not self._strategy_registry.generate_signals(
+                strategy_id=sid,
+                row=row,
+                snapshot=snapshot,
+                params=normalized_strategy_params,
+            ):
+                return None
+            return snapshot
+
+        symbol = str(row.symbol).strip().lower()
+        candles, _ = self._slice_candles_as_of(self._ensure_candles(row.symbol), resolved_as_of_date)
+
+        if sid in MASTER_ALPHA_STRATEGY_IDS:
+            ind = calculate_master_alpha_signals(
+                candles,
+                symbol=symbol,
+                sector_data=None,
+                need_vcp=(sid == "vcp_contraction_v1"),
+            )
+            probe_res = evaluate_master_alpha_signal(sid, ind, {**normalized_strategy_params, "min_score": 0.0})
+            if not bool(probe_res.get("signal", False)):
+                return None
+            sec_data = self._resolve_sector_data(candles[-41:] if len(candles) > 41 else candles)
+            if isinstance(sec_data, dict):
+                ind["sector_rank"] = int(sec_data.get("sector_rank") or 99)
+            eval_res = evaluate_master_alpha_signal(sid, ind, normalized_strategy_params)
+            if not bool(eval_res.get("signal", False)):
+                return None
+            sig_score = max(0.0, min(100.0, float(eval_res.get("signal_score", 0.0) or 0.0)))
+            return {
+                "master_alpha_signal": ind,
+                "events": [],
+                "risk_events": [],
+                "event_dates": {},
+                "event_chain": [],
+                "sequence_ok": True,
+                "entry_quality_score": sig_score,
+                "phase": str(eval_res.get("phase") or "主升趋势"),
+                "signal": str(eval_res.get("label") or sid),
+                "trigger_date": str(eval_res.get("trigger_date") or ""),
+                "phase_hint": str(eval_res.get("reason") or ""),
+                "structure_hhh": "FORCE|FLOW|SYNC",
+                "weekly_context_multiplier": 1.0,
+            }
+
+        from .core.backtest_engine import TREND_KING_STRATEGY_IDS
+
+        probe_snapshot: dict[str, object] | None = None
+        if sid in {"ths_main_force_flip_v1", "ths_main_force_golden_cross_v1"}:
+            probe_snapshot = {"ths_main_retail_signal": calculate_ths_main_retail_signal(candles)}
+        elif sid == "ths_force_rhythm_v1":
+            probe_snapshot = {"force_rhythm_signal": calculate_force_rhythm_signal(candles)}
+        elif sid == "wulong_cluster_v1":
+            probe_snapshot = {"wulong_cluster_signal": calculate_wulong_cluster_signal(candles)}
+        elif sid == "b1_mtf_v1":
+            probe_snapshot = {"b1_mtf_signal": calculate_b1_signal(candles)}
+        elif sid in TREND_KING_STRATEGY_IDS:
+            sector_data = self._resolve_sector_data(candles)
+            probe_snapshot = {"trend_king_signal": calculate_trend_king_signal(candles, sector_data=sector_data)}
+        elif sid == "emotion_limit_up_v1":
+            sector_data = self._resolve_sector_data(candles)
+            probe_snapshot = {"emotion_limit_up_signal": calculate_emotion_limit_up_signal(candles, sector_data=sector_data)}
+        elif sid == "limit_up_arb_v1":
+            sector_data = self._resolve_sector_data(candles)
+            probe_snapshot = {
+                "limit_up_arb_signal": calculate_limit_up_arb_signal(candles, symbol=symbol, sector_data=sector_data)
+            }
+
+        if probe_snapshot is not None:
+            if not self._strategy_registry.generate_signals(
+                strategy_id=sid,
+                row=row,
+                snapshot=probe_snapshot,
+                params=normalized_strategy_params,
+            ):
+                return None
+            base_wyckoff = self._calc_wyckoff_snapshot(
+                row,
+                window_days=window_days,
+                as_of_date=resolved_as_of_date,
+                attach_extra_indicators=False,
+            )
+            return {**base_wyckoff, **probe_snapshot}
+
+        full_snapshot = self._calc_wyckoff_snapshot(
+            row,
+            window_days=window_days,
+            as_of_date=resolved_as_of_date,
+            attach_extra_indicators=True,
+        )
+        if not self._strategy_registry.generate_signals(
+            strategy_id=sid,
+            row=row,
+            snapshot=full_snapshot,
+            params=normalized_strategy_params,
+        ):
+            return None
+        return full_snapshot
 
     def _is_signals_disk_cache_enabled(self) -> bool:
         return self._env_flag("TDX_TREND_SIGNALS_DISK_CACHE", True)
@@ -7155,288 +7335,290 @@ class InMemoryStore:
         resolved_signal_as_of_date = resolved_as_of_date
         row_by_symbol = {str(row.symbol).strip().lower(): row for row in candidates}
 
-        for scan_index, row in enumerate(candidates):
-            if scan_index % self._SIGNAL_SCAN_CANCEL_CHECK_BATCH == 0:
-                self._raise_if_cross_validate_cancelled(should_cancel)
-            if row.symbol in seen_symbols:
-                continue
-            snapshot = self._calc_wyckoff_snapshot(row, window_days=window_days, as_of_date=resolved_as_of_date)
-            if not self._strategy_registry.generate_signals(
-                strategy_id=strategy_id_text,
-                row=row,
-                snapshot=snapshot,
-                params=normalized_strategy_params,
-            ):
-                continue
-            events = snapshot["events"] if isinstance(snapshot["events"], list) else []
-            risk_events = snapshot["risk_events"] if isinstance(snapshot["risk_events"], list) else []
-            raw_event_dates = snapshot.get("event_dates")
-            event_dates: dict[str, str] = {}
-            if isinstance(raw_event_dates, dict):
-                for event_code, event_date in raw_event_dates.items():
-                    code_text = str(event_code).strip()
-                    date_text = str(event_date).strip()
-                    if code_text and date_text:
-                        event_dates[code_text] = date_text
-            raw_event_chain = snapshot.get("event_chain")
-            event_chain: list[dict[str, str]] = []
-            if isinstance(raw_event_chain, list):
-                for node in raw_event_chain:
-                    if not isinstance(node, dict):
-                        continue
-                    code_text = str(node.get("event", "")).strip()
-                    date_text = str(node.get("date", "")).strip()
-                    category_text = str(node.get("category", "")).strip()
-                    if code_text and date_text:
+        with self._wyckoff_event_store.batch():
+            for scan_index, row in enumerate(candidates):
+                if scan_index % self._SIGNAL_SCAN_CANCEL_CHECK_BATCH == 0:
+                    self._raise_if_cross_validate_cancelled(should_cancel)
+                if row.symbol in seen_symbols:
+                    continue
+                snapshot = self._fast_signal_scan_snapshot(
+                    strategy_id_text,
+                    row,
+                    window_days=window_days,
+                    resolved_as_of_date=resolved_as_of_date,
+                    normalized_strategy_params=normalized_strategy_params,
+                )
+                if snapshot is None:
+                    continue
+                events = snapshot["events"] if isinstance(snapshot["events"], list) else []
+                risk_events = snapshot["risk_events"] if isinstance(snapshot["risk_events"], list) else []
+                raw_event_dates = snapshot.get("event_dates")
+                event_dates: dict[str, str] = {}
+                if isinstance(raw_event_dates, dict):
+                    for event_code, event_date in raw_event_dates.items():
+                        code_text = str(event_code).strip()
+                        date_text = str(event_date).strip()
+                        if code_text and date_text:
+                            event_dates[code_text] = date_text
+                raw_event_chain = snapshot.get("event_chain")
+                event_chain: list[dict[str, str]] = []
+                if isinstance(raw_event_chain, list):
+                    for node in raw_event_chain:
+                        if not isinstance(node, dict):
+                            continue
+                        code_text = str(node.get("event", "")).strip()
+                        date_text = str(node.get("date", "")).strip()
+                        category_text = str(node.get("category", "")).strip()
+                        if code_text and date_text:
+                            event_chain.append({
+                                "event": code_text,
+                                "date": date_text,
+                                "category": category_text or "other",
+                            })
+                if not event_chain and event_dates:
+                    risk_event_set = {str(event).strip() for event in risk_events}
+                    for code_text, date_text in sorted(event_dates.items(), key=lambda item: (item[1], item[0])):
                         event_chain.append({
                             "event": code_text,
                             "date": date_text,
-                            "category": category_text or "other",
+                            "category": "distributionRisk" if code_text in risk_event_set else "accumulation",
                         })
-            if not event_chain and event_dates:
-                risk_event_set = {str(event).strip() for event in risk_events}
-                for code_text, date_text in sorted(event_dates.items(), key=lambda item: (item[1], item[0])):
-                    event_chain.append({
-                        "event": code_text,
-                        "date": date_text,
-                        "category": "distributionRisk" if code_text in risk_event_set else "accumulation",
-                    })
-            strategy_signal_context = self._build_strategy_signal_context(
-                strategy_id_text,
-                snapshot,
-                normalized_strategy_params,
-            )
-            sequence_ok = bool(snapshot["sequence_ok"])
-            entry_quality_score = float(snapshot["entry_quality_score"])
-            health_score = float(snapshot.get("health_score", entry_quality_score) or entry_quality_score)
-            event_score = float(
-                snapshot.get(
-                    "event_score",
-                    snapshot.get("event_strength_score", entry_quality_score),
+                strategy_signal_context = self._build_strategy_signal_context(
+                    strategy_id_text,
+                    snapshot,
+                    normalized_strategy_params,
                 )
-                or 0.0
-            )
-            event_strength_score = float(snapshot.get("event_strength_score", event_score) or event_score)
-            phase_score = float(snapshot.get("phase_score", entry_quality_score) or entry_quality_score)
-            structure_score = float(snapshot.get("structure_score", entry_quality_score) or entry_quality_score)
-            trend_score = float(snapshot.get("trend_score", entry_quality_score) or entry_quality_score)
-            volatility_score = float(snapshot.get("volatility_score", entry_quality_score) or entry_quality_score)
-            slope_stability = float(snapshot.get("slope_stability", 0.0) or 0.0)
-            volatility_stability = float(snapshot.get("volatility_stability", 0.0) or 0.0)
-            pullback_quality = float(snapshot.get("pullback_quality", 0.0) or 0.0)
-            event_background_score = float(snapshot.get("event_background_score", 0.0) or 0.0)
-            event_position_score = float(snapshot.get("event_position_score", 0.0) or 0.0)
-            event_vol_price_score = float(snapshot.get("event_vol_price_score", 0.0) or 0.0)
-            event_confirmation_score = float(snapshot.get("event_confirmation_score", 0.0) or 0.0)
-            candle_quality_score = float(snapshot.get("candle_quality_score", 0.0) or 0.0)
-            cost_center_shift_score = float(snapshot.get("cost_center_shift_score", 0.0) or 0.0)
-            weekly_context_score = float(snapshot.get("weekly_context_score", 0.0) or 0.0)
-            weekly_context_multiplier = float(snapshot.get("weekly_context_multiplier", 1.0) or 1.0)
-            event_recency_score = float(snapshot.get("event_recency_score", 0.0) or 0.0)
-            phase_context_score = float(snapshot.get("phase_context_score", 0.0) or 0.0)
-            risk_score = float(snapshot.get("risk_score", 0.0) or 0.0)
-            confirmation_status = self._normalize_confirmation_status(snapshot.get("confirmation_status", "unconfirmed"))
-            event_grade = self._normalize_event_grade(snapshot.get("event_grade", "C"))
-            raw_event_confirmation_map = snapshot.get("event_confirmation_map")
-            event_confirmation_map: dict[str, str] = {}
-            if isinstance(raw_event_confirmation_map, dict):
-                for event_name, status in raw_event_confirmation_map.items():
-                    name_text = str(event_name).strip()
-                    status_text = str(status).strip().lower()
-                    if not name_text or status_text not in {"confirmed", "pending", "failed"}:
-                        continue
-                    event_confirmation_map[name_text] = status_text
-            total_event_count = len(event_chain) if event_chain else len(events) + len(risk_events)
-
-            if strategy_signal_context is not None:
-                trigger_name = str(strategy_signal_context["signal_name"])
-                trigger_date = str(strategy_signal_context["trigger_date"])
-                events = [trigger_name]
-                risk_events = []
-                event_dates = {trigger_name: trigger_date}
-                event_chain = [{"event": trigger_name, "date": trigger_date, "category": "custom"}]
-                sequence_ok = bool(strategy_signal_context.get("sequence_ok", True))
-                entry_quality_score = float(strategy_signal_context.get("entry_quality_score", entry_quality_score) or 0.0)
-                health_score = float(strategy_signal_context.get("health_score", entry_quality_score) or 0.0)
-                event_score = float(strategy_signal_context.get("event_score", entry_quality_score) or 0.0)
-                event_strength_score = float(strategy_signal_context.get("event_strength_score", entry_quality_score) or 0.0)
-                phase_score = float(strategy_signal_context.get("phase_score", entry_quality_score) or 0.0)
-                structure_score = float(strategy_signal_context.get("structure_score", entry_quality_score) or 0.0)
-                trend_score = float(strategy_signal_context.get("trend_score", entry_quality_score) or 0.0)
-                volatility_score = float(strategy_signal_context.get("volatility_score", entry_quality_score) or 0.0)
-                candle_quality_score = entry_quality_score
-                cost_center_shift_score = entry_quality_score
-                weekly_context_score = entry_quality_score
-                event_background_score = entry_quality_score
-                event_position_score = entry_quality_score
-                event_vol_price_score = entry_quality_score
-                event_confirmation_score = entry_quality_score
-                event_recency_score = entry_quality_score
-                phase_context_score = entry_quality_score
-                risk_score = 0.0
-                event_grade = self._normalize_event_grade(strategy_signal_context.get("event_grade", "B"))
-                confirmation_status = self._normalize_confirmation_status(
-                    strategy_signal_context.get("confirmation_status", "confirmed")
+                sequence_ok = bool(snapshot["sequence_ok"])
+                entry_quality_score = float(snapshot["entry_quality_score"])
+                health_score = float(snapshot.get("health_score", entry_quality_score) or entry_quality_score)
+                event_score = float(
+                    snapshot.get(
+                        "event_score",
+                        snapshot.get("event_strength_score", entry_quality_score),
+                    )
+                    or 0.0
                 )
-                event_confirmation_map = {trigger_name: "confirmed"}
-                total_event_count = int(strategy_signal_context.get("event_count", 1) or 1)
+                event_strength_score = float(snapshot.get("event_strength_score", event_score) or event_score)
+                phase_score = float(snapshot.get("phase_score", entry_quality_score) or entry_quality_score)
+                structure_score = float(snapshot.get("structure_score", entry_quality_score) or entry_quality_score)
+                trend_score = float(snapshot.get("trend_score", entry_quality_score) or entry_quality_score)
+                volatility_score = float(snapshot.get("volatility_score", entry_quality_score) or entry_quality_score)
+                slope_stability = float(snapshot.get("slope_stability", 0.0) or 0.0)
+                volatility_stability = float(snapshot.get("volatility_stability", 0.0) or 0.0)
+                pullback_quality = float(snapshot.get("pullback_quality", 0.0) or 0.0)
+                event_background_score = float(snapshot.get("event_background_score", 0.0) or 0.0)
+                event_position_score = float(snapshot.get("event_position_score", 0.0) or 0.0)
+                event_vol_price_score = float(snapshot.get("event_vol_price_score", 0.0) or 0.0)
+                event_confirmation_score = float(snapshot.get("event_confirmation_score", 0.0) or 0.0)
+                candle_quality_score = float(snapshot.get("candle_quality_score", 0.0) or 0.0)
+                cost_center_shift_score = float(snapshot.get("cost_center_shift_score", 0.0) or 0.0)
+                weekly_context_score = float(snapshot.get("weekly_context_score", 0.0) or 0.0)
+                weekly_context_multiplier = float(snapshot.get("weekly_context_multiplier", 1.0) or 1.0)
+                event_recency_score = float(snapshot.get("event_recency_score", 0.0) or 0.0)
+                phase_context_score = float(snapshot.get("phase_context_score", 0.0) or 0.0)
+                risk_score = float(snapshot.get("risk_score", 0.0) or 0.0)
+                confirmation_status = self._normalize_confirmation_status(snapshot.get("confirmation_status", "unconfirmed"))
+                event_grade = self._normalize_event_grade(snapshot.get("event_grade", "C"))
+                raw_event_confirmation_map = snapshot.get("event_confirmation_map")
+                event_confirmation_map: dict[str, str] = {}
+                if isinstance(raw_event_confirmation_map, dict):
+                    for event_name, status in raw_event_confirmation_map.items():
+                        name_text = str(event_name).strip()
+                        status_text = str(status).strip().lower()
+                        if not name_text or status_text not in {"confirmed", "pending", "failed"}:
+                            continue
+                        event_confirmation_map[name_text] = status_text
+                total_event_count = len(event_chain) if event_chain else len(events) + len(risk_events)
 
-            if total_event_count < min_event_count:
-                continue
-            if require_sequence and not sequence_ok:
-                continue
-            if entry_quality_score < min_score:
-                continue
-            if health_score < strategy_health_score_min:
-                continue
-            if event_score < strategy_event_score_min:
-                continue
-            if not self._event_grade_meets_threshold(grade=event_grade, minimum=strategy_event_grade_min):
-                continue
-            primary_event_name = (
-                str(strategy_signal_context["signal_name"]).strip()
-                if strategy_signal_context is not None
-                else str(snapshot.get("signal", "")).strip()
-            )
-            if (
-                strategy_require_key_event_confirmation
-                and primary_event_name in {"SOS", "LPS", "Spring", "JOC"}
-                and event_confirmation_map.get(primary_event_name, "pending") != "confirmed"
-            ):
-                continue
+                if strategy_signal_context is not None:
+                    trigger_name = str(strategy_signal_context["signal_name"])
+                    trigger_date = str(strategy_signal_context["trigger_date"])
+                    events = [trigger_name]
+                    risk_events = []
+                    event_dates = {trigger_name: trigger_date}
+                    event_chain = [{"event": trigger_name, "date": trigger_date, "category": "custom"}]
+                    sequence_ok = bool(strategy_signal_context.get("sequence_ok", True))
+                    entry_quality_score = float(strategy_signal_context.get("entry_quality_score", entry_quality_score) or 0.0)
+                    health_score = float(strategy_signal_context.get("health_score", entry_quality_score) or 0.0)
+                    event_score = float(strategy_signal_context.get("event_score", entry_quality_score) or 0.0)
+                    event_strength_score = float(strategy_signal_context.get("event_strength_score", entry_quality_score) or 0.0)
+                    phase_score = float(strategy_signal_context.get("phase_score", entry_quality_score) or 0.0)
+                    structure_score = float(strategy_signal_context.get("structure_score", entry_quality_score) or 0.0)
+                    trend_score = float(strategy_signal_context.get("trend_score", entry_quality_score) or 0.0)
+                    volatility_score = float(strategy_signal_context.get("volatility_score", entry_quality_score) or 0.0)
+                    candle_quality_score = entry_quality_score
+                    cost_center_shift_score = entry_quality_score
+                    weekly_context_score = entry_quality_score
+                    event_background_score = entry_quality_score
+                    event_position_score = entry_quality_score
+                    event_vol_price_score = entry_quality_score
+                    event_confirmation_score = entry_quality_score
+                    event_recency_score = entry_quality_score
+                    phase_context_score = entry_quality_score
+                    risk_score = 0.0
+                    event_grade = self._normalize_event_grade(strategy_signal_context.get("event_grade", "B"))
+                    confirmation_status = self._normalize_confirmation_status(
+                        strategy_signal_context.get("confirmation_status", "confirmed")
+                    )
+                    event_confirmation_map = {trigger_name: "confirmed"}
+                    total_event_count = int(strategy_signal_context.get("event_count", 1) or 1)
 
-            signal_tags: list[str] = []
-            if entry_quality_score >= 82:
-                signal_tags.append("B")
-            elif entry_quality_score >= 68:
-                signal_tags.append("A")
-            else:
-                signal_tags.append("C")
-            if risk_events:
-                signal_tags.append("C")
-            if str(snapshot["phase"]).startswith("吸筹D") or str(snapshot["phase"]).startswith("吸筹E"):
-                signal_tags.append("B")
+                if total_event_count < min_event_count:
+                    continue
+                if require_sequence and not sequence_ok:
+                    continue
+                if entry_quality_score < min_score:
+                    continue
+                if health_score < strategy_health_score_min:
+                    continue
+                if event_score < strategy_event_score_min:
+                    continue
+                if not self._event_grade_meets_threshold(grade=event_grade, minimum=strategy_event_grade_min):
+                    continue
+                primary_event_name = (
+                    str(strategy_signal_context["signal_name"]).strip()
+                    if strategy_signal_context is not None
+                    else str(snapshot.get("signal", "")).strip()
+                )
+                if (
+                    strategy_require_key_event_confirmation
+                    and primary_event_name in {"SOS", "LPS", "Spring", "JOC"}
+                    and event_confirmation_map.get(primary_event_name, "pending") != "confirmed"
+                ):
+                    continue
 
-            primary, secondary = self._resolve_signal_priority(signal_tags)
-            trigger_date = (
-                str(strategy_signal_context["trigger_date"])
-                if strategy_signal_context is not None
-                else str(snapshot["trigger_date"])
-            )
-            try:
-                trigger_dt = datetime.strptime(trigger_date, "%Y-%m-%d")
-            except ValueError:
-                trigger_dt = datetime.now()
-                trigger_date = trigger_dt.strftime("%Y-%m-%d")
-            signal_age_days, item_as_of_date = self._compute_signal_age_days(
-                symbol=row.symbol,
-                trigger_date=trigger_date,
-                as_of_date=resolved_as_of_date,
-            )
-            if resolved_signal_as_of_date is None and item_as_of_date:
-                resolved_signal_as_of_date = item_as_of_date
-            if signal_age_days < normalized_signal_age_min:
-                continue
-            if (
-                normalized_signal_age_max is not None
-                and signal_age_days > normalized_signal_age_max
-            ):
-                continue
-            expire_dt = trigger_dt + timedelta(days=2)
-            expire_date = expire_dt.strftime("%Y-%m-%d")
-            wyckoff_signal = (
-                str(strategy_signal_context.get("signal_name", ""))
-                if strategy_signal_context is not None
-                else str(snapshot["signal"])
-            )
-            phase = (
-                str(strategy_signal_context.get("phase", snapshot.get("phase", "阶段未明")))
-                if strategy_signal_context is not None
-                else str(snapshot["phase"])
-            )
-            phase_hint = (
-                str(strategy_signal_context.get("phase_hint", ""))
-                if strategy_signal_context is not None
-                else str(snapshot["phase_hint"])
-            )
-            reason = (
-                str(strategy_signal_context.get("reason") or "").strip()
-                if strategy_signal_context is not None
-                else ""
-            )
-            if not reason:
-                reason = f"{phase_hint} 关键事件={wyckoff_signal or '无'}"
-            if risk_events:
-                reason = f"{reason} 风险={','.join(risk_events)}"
-            event_grade_raw = str(event_grade).strip().upper()
-            event_grade = event_grade_raw if event_grade_raw in {"A", "B", "C"} else "C"
-            raw_event_grade_map = snapshot.get("event_grade_map")
-            event_grade_map: dict[str, str] = {}
-            if isinstance(raw_event_grade_map, dict):
-                for event_name, grade in raw_event_grade_map.items():
-                    name_text = str(event_name).strip()
-                    grade_text = str(grade).strip().upper()
-                    if not name_text or grade_text not in {"A", "B", "C"}:
-                        continue
-                    event_grade_map[name_text] = grade_text
-            if strategy_signal_context is not None:
-                event_grade_map = {wyckoff_signal: event_grade}
+                signal_tags: list[str] = []
+                if entry_quality_score >= 82:
+                    signal_tags.append("B")
+                elif entry_quality_score >= 68:
+                    signal_tags.append("A")
+                else:
+                    signal_tags.append("C")
+                if risk_events:
+                    signal_tags.append("C")
+                if str(snapshot["phase"]).startswith("吸筹D") or str(snapshot["phase"]).startswith("吸筹E"):
+                    signal_tags.append("B")
 
-            items.append(
-                SignalResult(
+                primary, secondary = self._resolve_signal_priority(signal_tags)
+                trigger_date = (
+                    str(strategy_signal_context["trigger_date"])
+                    if strategy_signal_context is not None
+                    else str(snapshot["trigger_date"])
+                )
+                try:
+                    trigger_dt = datetime.strptime(trigger_date, "%Y-%m-%d")
+                except ValueError:
+                    trigger_dt = datetime.now()
+                    trigger_date = trigger_dt.strftime("%Y-%m-%d")
+                signal_age_days, item_as_of_date = self._compute_signal_age_days(
                     symbol=row.symbol,
-                    name=row.name,
-                    primary_signal=primary,  # type: ignore[arg-type]
-                    secondary_signals=secondary,  # type: ignore[arg-type]
                     trigger_date=trigger_date,
-                    expire_date=expire_date,
-                    signal_age_days=signal_age_days,
-                    trigger_reason=reason,
-                    priority=3 if primary == "B" else 2 if primary == "A" else 1,
-                    wyckoff_phase=phase,
-                    wyckoff_signal=wyckoff_signal,
-                    structure_hhh=(
-                        str(strategy_signal_context.get("structure_hhh") or "FORCE|FLOW|SYNC")
-                        if strategy_signal_context is not None
-                        else str(snapshot["structure_hhh"])
-                    ),
-                    wy_event_count=total_event_count,
-                    wy_sequence_ok=sequence_ok,
-                    entry_quality_score=entry_quality_score,
-                    wy_events=[str(event) for event in events],
-                    wy_risk_events=[str(event) for event in risk_events],
-                    wy_event_dates=event_dates,
-                    wy_event_chain=event_chain,
-                    phase_hint=phase_hint,
-                    scan_mode=mode,
-                    event_strength_score=event_strength_score,
-                    phase_score=phase_score,
-                    structure_score=structure_score,
-                    trend_score=trend_score,
-                    volatility_score=volatility_score,
-                    health_score=health_score,
-                    slope_stability=slope_stability,
-                    volatility_stability=volatility_stability,
-                    pullback_quality=pullback_quality,
-                    event_score=event_score,
-                    event_grade=event_grade,  # type: ignore[arg-type]
-                    event_background_score=event_background_score,
-                    event_position_score=event_position_score,
-                    event_vol_price_score=event_vol_price_score,
-                    event_confirmation_score=event_confirmation_score,
-                    candle_quality_score=candle_quality_score,
-                    cost_center_shift_score=cost_center_shift_score,
-                    weekly_context_score=weekly_context_score,
-                    weekly_context_multiplier=weekly_context_multiplier,
-                    event_recency_score=event_recency_score,
-                    phase_context_score=phase_context_score,
-                    risk_score=risk_score,
-                    confirmation_status=confirmation_status,  # type: ignore[arg-type]
-                    event_confirmation_map=event_confirmation_map,
-                    event_grade_map=event_grade_map,
+                    as_of_date=resolved_as_of_date,
                 )
-            )
-            seen_symbols.add(row.symbol)
+                if resolved_signal_as_of_date is None and item_as_of_date:
+                    resolved_signal_as_of_date = item_as_of_date
+                if signal_age_days < normalized_signal_age_min:
+                    continue
+                if (
+                    normalized_signal_age_max is not None
+                    and signal_age_days > normalized_signal_age_max
+                ):
+                    continue
+                expire_dt = trigger_dt + timedelta(days=2)
+                expire_date = expire_dt.strftime("%Y-%m-%d")
+                wyckoff_signal = (
+                    str(strategy_signal_context.get("signal_name", ""))
+                    if strategy_signal_context is not None
+                    else str(snapshot["signal"])
+                )
+                phase = (
+                    str(strategy_signal_context.get("phase", snapshot.get("phase", "阶段未明")))
+                    if strategy_signal_context is not None
+                    else str(snapshot["phase"])
+                )
+                phase_hint = (
+                    str(strategy_signal_context.get("phase_hint", ""))
+                    if strategy_signal_context is not None
+                    else str(snapshot["phase_hint"])
+                )
+                reason = (
+                    str(strategy_signal_context.get("reason") or "").strip()
+                    if strategy_signal_context is not None
+                    else ""
+                )
+                if not reason:
+                    reason = f"{phase_hint} 关键事件={wyckoff_signal or '无'}"
+                if risk_events:
+                    reason = f"{reason} 风险={','.join(risk_events)}"
+                event_grade_raw = str(event_grade).strip().upper()
+                event_grade = event_grade_raw if event_grade_raw in {"A", "B", "C"} else "C"
+                raw_event_grade_map = snapshot.get("event_grade_map")
+                event_grade_map: dict[str, str] = {}
+                if isinstance(raw_event_grade_map, dict):
+                    for event_name, grade in raw_event_grade_map.items():
+                        name_text = str(event_name).strip()
+                        grade_text = str(grade).strip().upper()
+                        if not name_text or grade_text not in {"A", "B", "C"}:
+                            continue
+                        event_grade_map[name_text] = grade_text
+                if strategy_signal_context is not None:
+                    event_grade_map = {wyckoff_signal: event_grade}
+
+                items.append(
+                    SignalResult(
+                        symbol=row.symbol,
+                        name=row.name,
+                        primary_signal=primary,  # type: ignore[arg-type]
+                        secondary_signals=secondary,  # type: ignore[arg-type]
+                        trigger_date=trigger_date,
+                        expire_date=expire_date,
+                        signal_age_days=signal_age_days,
+                        trigger_reason=reason,
+                        priority=3 if primary == "B" else 2 if primary == "A" else 1,
+                        wyckoff_phase=phase,
+                        wyckoff_signal=wyckoff_signal,
+                        structure_hhh=(
+                            str(strategy_signal_context.get("structure_hhh") or "FORCE|FLOW|SYNC")
+                            if strategy_signal_context is not None
+                            else str(snapshot["structure_hhh"])
+                        ),
+                        wy_event_count=total_event_count,
+                        wy_sequence_ok=sequence_ok,
+                        entry_quality_score=entry_quality_score,
+                        wy_events=[str(event) for event in events],
+                        wy_risk_events=[str(event) for event in risk_events],
+                        wy_event_dates=event_dates,
+                        wy_event_chain=event_chain,
+                        phase_hint=phase_hint,
+                        scan_mode=mode,
+                        event_strength_score=event_strength_score,
+                        phase_score=phase_score,
+                        structure_score=structure_score,
+                        trend_score=trend_score,
+                        volatility_score=volatility_score,
+                        health_score=health_score,
+                        slope_stability=slope_stability,
+                        volatility_stability=volatility_stability,
+                        pullback_quality=pullback_quality,
+                        event_score=event_score,
+                        event_grade=event_grade,  # type: ignore[arg-type]
+                        event_background_score=event_background_score,
+                        event_position_score=event_position_score,
+                        event_vol_price_score=event_vol_price_score,
+                        event_confirmation_score=event_confirmation_score,
+                        candle_quality_score=candle_quality_score,
+                        cost_center_shift_score=cost_center_shift_score,
+                        weekly_context_score=weekly_context_score,
+                        weekly_context_multiplier=weekly_context_multiplier,
+                        event_recency_score=event_recency_score,
+                        phase_context_score=phase_context_score,
+                        risk_score=risk_score,
+                        confirmation_status=confirmation_status,  # type: ignore[arg-type]
+                        event_confirmation_map=event_confirmation_map,
+                        event_grade_map=event_grade_map,
+                    )
+                )
+                seen_symbols.add(row.symbol)
 
         def _base_signal_rank_score(item: SignalResult) -> float:
             return max(0.0, min(100.0, float(item.health_score) * 0.45 + float(item.event_score) * 0.55))
@@ -9521,54 +9703,116 @@ class InMemoryStore:
         source_rows_total = 0
         protect_limit = max(1, int(self._FULL_MARKET_SYSTEM_PROTECT_LIMIT))
         system_limit_hit_days = 0
+
+        tdx_dir = self._resolve_user_path(self._config.tdx_data_path) if self._config.tdx_data_path else None
+        use_fast_span_index = bool(tdx_dir and tdx_dir.is_dir() and len(refresh_dates_used) > 3)
+        anchor_dates = (
+            list(dict.fromkeys([refresh_dates_used[0], refresh_dates_used[-1]]))
+            if use_fast_span_index
+            else refresh_dates_used
+        )
+
         loaded_rows_by_date, loader_cache_stats = self._load_backtest_input_rows_by_dates(
             tdx_root=self._config.tdx_data_path,
             markets=markets,
             return_window_days=max(5, min(120, int(self._config.return_window_days))),
-            refresh_dates=refresh_dates_used,
+            refresh_dates=anchor_dates,
             progress_callback=_preload_progress,
         )
 
-        for idx, as_of_date in enumerate(refresh_dates_used, start=1):
-            input_rows, load_error = loaded_rows_by_date.get(as_of_date, ([], "LOADER_MISS"))
-            if load_error:
-                loader_error_counter[load_error] = loader_error_counter.get(load_error, 0) + 1
-            source_rows_total += len(input_rows)
+        if use_fast_span_index and tdx_dir is not None:
+            import struct as _struct
 
-            source = input_rows
-            if board_filters:
-                source = [row for row in source if self._row_matches_board_filters(row, board_filters)]
+            union_rows_by_sym: dict[str, ScreenerResult] = {}
+            for anchor_day in anchor_dates:
+                a_rows, a_err = loaded_rows_by_date.get(anchor_day, ([], "LOADER_MISS"))
+                if a_err:
+                    loader_error_counter[a_err] = loader_error_counter.get(a_err, 0) + 1
+                for r in a_rows:
+                    sym_k = str(r.symbol).strip().lower()
+                    if sym_k:
+                        union_rows_by_sym[sym_k] = r
 
-            day_symbols: list[str] = []
-            seen_symbols: set[str] = set()
-            for row in source:
-                symbol = str(row.symbol).strip().lower()
-                if not symbol or symbol in seen_symbols:
+            filtered_syms: list[str] = []
+            for sym_k, r in union_rows_by_sym.items():
+                if not board_filters or self._row_matches_board_filters(r, board_filters):
+                    filtered_syms.append(sym_k)
+            filtered_syms.sort()
+
+            span_by_sym: dict[str, tuple[str, str]] = {}
+            for sym_k in filtered_syms:
+                day_file = tdx_dir / sym_k[:2] / "lday" / f"{sym_k}.day"
+                try:
+                    sz = day_file.stat().st_size
+                    if sz >= 32:
+                        with day_file.open("rb") as fh:
+                            d0 = _struct.unpack("<I", fh.read(4))[0]
+                            fh.seek((sz // 32 - 1) * 32)
+                            d1 = _struct.unpack("<I", fh.read(4))[0]
+                        s0 = f"{d0 // 10000:04d}-{(d0 // 100) % 100:02d}-{d0 % 100:02d}"
+                        s1 = f"{d1 // 10000:04d}-{(d1 // 100) % 100:02d}-{d1 % 100:02d}"
+                        span_by_sym[sym_k] = (s0, s1)
+                except OSError:
                     continue
-                seen_symbols.add(symbol)
-                day_symbols.append(symbol)
 
-            day_symbols.sort()
-            if payload.max_symbols > 0 and len(day_symbols) > protect_limit:
-                day_symbols = day_symbols[:protect_limit]
-                system_limit_hit_days += 1
-            if payload.max_symbols > 0 and len(day_symbols) > payload.max_symbols:
-                day_symbols = day_symbols[: payload.max_symbols]
-
-            pool_by_refresh_date[as_of_date] = set(day_symbols)
-            if not day_symbols:
-                empty_refresh_days += 1
-
-            if progress_callback is not None:
-                progress_text = f"滚动筛选进度 {idx}/{len(refresh_dates_used)}"
+            for idx, as_of_date in enumerate(refresh_dates_used, start=1):
+                day_symbols = [
+                    sym_k
+                    for sym_k in filtered_syms
+                    if sym_k in span_by_sym and span_by_sym[sym_k][0] <= as_of_date <= span_by_sym[sym_k][1]
+                ]
+                source_rows_total += len(day_symbols)
+                if payload.max_symbols > 0 and len(day_symbols) > protect_limit:
+                    day_symbols = day_symbols[:protect_limit]
+                    system_limit_hit_days += 1
+                if payload.max_symbols > 0 and len(day_symbols) > payload.max_symbols:
+                    day_symbols = day_symbols[: payload.max_symbols]
+                pool_by_refresh_date[as_of_date] = set(day_symbols)
                 if not day_symbols:
-                    progress_text = f"{progress_text}（当日候选为空）"
-                progress_callback(
-                    as_of_date,
-                    idx,
-                    len(refresh_dates_used),
-                    progress_text,
-                )
+                    empty_refresh_days += 1
+                if progress_callback is not None:
+                    progress_callback(as_of_date, idx, len(refresh_dates_used), f"滚动筛选进度 {idx}/{len(refresh_dates_used)}")
+        else:
+            for idx, as_of_date in enumerate(refresh_dates_used, start=1):
+                input_rows, load_error = loaded_rows_by_date.get(as_of_date, ([], "LOADER_MISS"))
+                if load_error:
+                    loader_error_counter[load_error] = loader_error_counter.get(load_error, 0) + 1
+                source_rows_total += len(input_rows)
+
+                source = input_rows
+                if board_filters:
+                    source = [row for row in source if self._row_matches_board_filters(row, board_filters)]
+
+                day_symbols: list[str] = []
+                seen_symbols: set[str] = set()
+                for row in source:
+                    symbol = str(row.symbol).strip().lower()
+                    if not symbol or symbol in seen_symbols:
+                        continue
+                    seen_symbols.add(symbol)
+                    day_symbols.append(symbol)
+
+                day_symbols.sort()
+                if payload.max_symbols > 0 and len(day_symbols) > protect_limit:
+                    day_symbols = day_symbols[:protect_limit]
+                    system_limit_hit_days += 1
+                if payload.max_symbols > 0 and len(day_symbols) > payload.max_symbols:
+                    day_symbols = day_symbols[: payload.max_symbols]
+
+                pool_by_refresh_date[as_of_date] = set(day_symbols)
+                if not day_symbols:
+                    empty_refresh_days += 1
+
+                if progress_callback is not None:
+                    progress_text = f"滚动筛选进度 {idx}/{len(refresh_dates_used)}"
+                    if not day_symbols:
+                        progress_text = f"{progress_text}（当日候选为空）"
+                    progress_callback(
+                        as_of_date,
+                        idx,
+                        len(refresh_dates_used),
+                        progress_text,
+                    )
 
         allowed_symbols_by_date, symbols_union, empty_days = self._build_allowed_symbols_by_date(
             scan_dates=scan_dates,
@@ -10387,12 +10631,18 @@ class InMemoryStore:
         degraded_reason: str | None = None
         resolved_run_id: str | None = None
         trend_pool_run: ScreenerRunDetail | None = None
-        if payload.mode == "trend_pool":
-            trend_pool_run = self._require_backtest_trend_pool_run(payload.run_id)
-            resolved_run_id = trend_pool_run.run_id
-            degraded_reason = trend_pool_run.degraded_reason if trend_pool_run.degraded else None
-
         pool_notes: list[str] = []
+        if payload.mode == "trend_pool":
+            try:
+                trend_pool_run = self._require_backtest_trend_pool_run(payload.run_id)
+                resolved_run_id = trend_pool_run.run_id
+                degraded_reason = trend_pool_run.degraded_reason if trend_pool_run.degraded else None
+            except Exception:
+                if not str(payload.run_id or "").strip():
+                    payload = payload.model_copy(update={"mode": "full_market"})
+                    pool_notes.append("尚未生成选股漏斗快照，本次回测已自动切换为全市场扫描口径。")
+                else:
+                    raise
 
         rolling_start_ts = time.perf_counter()
         rolling_symbols, rolling_allowed_by_date, rolling_notes, scan_dates = self._resolve_matrix_rolling_universe(
@@ -12143,6 +12393,9 @@ class InMemoryStore:
         control_callback: Callable[[], None] | None = None,
     ) -> BacktestPlateauResponse:
         base = payload.base_payload.model_copy(deep=True)
+        strategy, _, _ = self._resolve_strategy_runtime(
+            strategy_id=base.strategy_id, strategy_params=base.strategy_params,
+        )
         window_axis = self._normalize_plateau_axis_int(
             payload.window_days_list,
             base=int(base.window_days),
@@ -12860,7 +13113,7 @@ class InMemoryStore:
         )
         return BacktestPlateauResponse(
             base_payload=base,
-            strategy_version=self._strategy_registry.get(base.strategy_id).version,
+            strategy_version=strategy["version"],
             total_combinations=int(total_combinations),
             evaluated_combinations=int(evaluated),
             points=points,
@@ -13917,12 +14170,18 @@ class InMemoryStore:
         degraded_reason: str | None = None
         resolved_run_id: str | None = None
         trend_pool_run: ScreenerRunDetail | None = None
-        if payload.mode == "trend_pool":
-            trend_pool_run = self._require_backtest_trend_pool_run(payload.run_id)
-            resolved_run_id = trend_pool_run.run_id
-            degraded_reason = trend_pool_run.degraded_reason if trend_pool_run.degraded else None
-
         pool_notes: list[str] = []
+        if payload.mode == "trend_pool":
+            try:
+                trend_pool_run = self._require_backtest_trend_pool_run(payload.run_id)
+                resolved_run_id = trend_pool_run.run_id
+                degraded_reason = trend_pool_run.degraded_reason if trend_pool_run.degraded else None
+            except Exception:
+                if not str(payload.run_id or "").strip():
+                    payload = payload.model_copy(update={"mode": "full_market"})
+                    pool_notes.append("尚未生成选股漏斗快照，本次回测已自动切换为全市场扫描口径。")
+                else:
+                    raise
         if capability_notes:
             pool_notes.extend(capability_notes)
         if matrix_fallback_note:
@@ -13933,14 +14192,116 @@ class InMemoryStore:
         scan_dates = self._build_backtest_scan_dates(payload.date_from, payload.date_to)
         rolling_start_ts = time.perf_counter()
 
-        engine = BacktestEngine(
-            get_candles=self._capture_candle_loader(),
-            build_row=feature_cache[0] if feature_cache else self._build_row_from_candles,
-            calc_snapshot=feature_cache[1] if feature_cache else lambda row, window_days, as_of_date: self._calc_wyckoff_snapshot(
+        raw_candle_loader = self._capture_candle_loader()
+        memo_candles: dict[str, list[CandlePoint]] = {}
+
+        def _memo_candle_loader(sym: str) -> list[CandlePoint]:
+            k = str(sym).strip().lower()
+            hit = memo_candles.get(k)
+            if hit is not None:
+                return hit
+            loaded = raw_candle_loader(k)
+            memo_candles[k] = loaded
+            return loaded
+
+        effective_build_row = feature_cache[0] if feature_cache else self._build_row_from_candles
+        effective_calc_snapshot = (
+            feature_cache[1]
+            if feature_cache
+            else lambda row, window_days, as_of_date: self._calc_wyckoff_snapshot(
                 row,
                 window_days=window_days,
                 as_of_date=as_of_date,
-            ),
+            )
+        )
+        sid_clean = str(payload.strategy_id or "").strip()
+        if (
+            feature_cache is None
+            and sid_clean in MASTER_ALPHA_STRATEGY_IDS
+            and not payload.entry_events
+            and not payload.exit_events
+        ):
+            from bisect import bisect_right
+            from types import SimpleNamespace
+            from .core.master_alpha_strategies import (
+                _board_of,
+                _limit_ratio,
+                calculate_master_alpha_signals_from_arrays,
+            )
+
+            arrays_cache: dict[
+                str,
+                tuple[list[CandlePoint], list[str], dict[str, int], list[float], list[float], list[float], list[float], list[float], list[float], str, float],
+            ] = {}
+            strat_params = payload.strategy_params if isinstance(payload.strategy_params, dict) else {}
+            probe_params = {**strat_params, "min_score": 0.0}
+            need_vcp = sid_clean == "vcp_contraction_v1"
+
+            def _fast_build_row(sym: str, as_of_date: str) -> Any:
+                return SimpleNamespace(symbol=str(sym).strip().lower())
+
+            def _fast_calc_snapshot(row: Any, window_days: int, as_of_date: str | None) -> dict[str, object]:
+                sym = str(getattr(row, "symbol", "") or "").strip().lower()
+                arr = arrays_cache.get(sym)
+                if arr is None:
+                    c_list = _memo_candle_loader(sym)
+                    t_list = [c.time for c in c_list]
+                    idx_map = {t: idx for idx, t in enumerate(t_list)}
+                    opens = [max(0.0, float(c.open)) for c in c_list]
+                    highs = [max(0.0, float(c.high)) for c in c_list]
+                    lows = [max(0.0, float(c.low)) for c in c_list]
+                    closes = [max(0.0, float(c.close)) for c in c_list]
+                    vols = [max(0.0, float(c.volume)) for c in c_list]
+                    amts = [max(0.0, float(c.amount)) for c in c_list]
+                    arr = (c_list, t_list, idx_map, opens, highs, lows, closes, vols, amts, _board_of(sym), _limit_ratio(sym))
+                    arrays_cache[sym] = arr
+                c_list, t_list, idx_map, opens, highs, lows, closes, vols, amts, brd, lim_r = arr
+                if not c_list:
+                    return {"master_alpha_signal": {"has_data": False}, "entry_quality_score": 0.0, "risk_events": []}
+                if as_of_date:
+                    exact_i = idx_map.get(as_of_date)
+                    end_idx = exact_i if exact_i is not None else (bisect_right(t_list, as_of_date) - 1)
+                else:
+                    end_idx = len(c_list) - 1
+                if end_idx < 29:
+                    return {"master_alpha_signal": {"has_data": False}, "entry_quality_score": 0.0, "risk_events": []}
+                ind = calculate_master_alpha_signals_from_arrays(
+                    t_list,
+                    opens,
+                    highs,
+                    lows,
+                    closes,
+                    vols,
+                    amts,
+                    end_idx,
+                    symbol=sym,
+                    board=brd,
+                    lim=lim_r,
+                    sector_data=None,
+                    need_vcp=need_vcp,
+                )
+                probe_res = evaluate_master_alpha_signal(sid_clean, ind, probe_params)
+                if probe_res.get("signal"):
+                    sec_data = self._resolve_sector_data(c_list[max(0, end_idx - 40) : end_idx + 1])
+                    if isinstance(sec_data, dict):
+                        ind["sector_rank"] = int(sec_data.get("sector_rank") or 99)
+                    eval_res = evaluate_master_alpha_signal(sid_clean, ind, strat_params)
+                    sig_score = float(eval_res.get("signal_score", 0.0) or 0.0) if eval_res.get("signal") else 0.0
+                else:
+                    sig_score = 0.0
+                return {
+                    "master_alpha_signal": ind,
+                    "entry_quality_score": sig_score,
+                    "risk_events": [],
+                }
+
+            effective_build_row = _fast_build_row
+            effective_calc_snapshot = _fast_calc_snapshot
+
+        engine = BacktestEngine(
+            get_candles=_memo_candle_loader,
+            build_row=effective_build_row,
+            calc_snapshot=effective_calc_snapshot,
             resolve_symbol_name=self._resolve_symbol_name,
             strategy_signal_filter=lambda strategy_id, row, snapshot, params: self._strategy_registry.generate_signals(
                 strategy_id=strategy_id,
@@ -14553,6 +14914,17 @@ class InMemoryStore:
                 event_grade = "C"
                 entry_quality_score = 0.0
 
+                ma_ind = snapshot.get("master_alpha_signal")
+                if isinstance(ma_ind, dict) and sid in MASTER_ALPHA_STRATEGY_IDS:
+                    evaluation = evaluate_master_alpha_signal(sid, ma_ind, params)
+                    if evaluation.get("signal"):
+                        entry_signal = str(evaluation.get("label") or sid)
+                        entry_phase = str(evaluation.get("phase") or "")
+                        entry_quality_score = float(evaluation.get("signal_score", 0.0) or 0.0)
+                        ev_grade = str(evaluation.get("event_grade") or "C")
+                        if ev_grade in ("A", "B", "C"):
+                            event_grade = ev_grade
+
                 ths_ind = snapshot.get("ths_main_retail_signal")
                 if isinstance(ths_ind, dict):
                     if ths_ind.get("golden_cross"):
@@ -14601,15 +14973,15 @@ class InMemoryStore:
                     entry_signal = "ScoreOnly"
 
                 wyckoff_phase = snapshot.get("wyckoff_phase", "")
-                if isinstance(wyckoff_phase, str) and wyckoff_phase:
+                if (not entry_phase) and isinstance(wyckoff_phase, str) and wyckoff_phase:
                     entry_phase = wyckoff_phase
 
                 score_val = snapshot.get("entry_quality_score")
-                if isinstance(score_val, (int, float)):
+                if entry_quality_score <= 0.0 and isinstance(score_val, (int, float)):
                     entry_quality_score = float(score_val)
 
                 grade_val = snapshot.get("event_grade")
-                if isinstance(grade_val, str) and grade_val in ("A", "B"):
+                if event_grade == "C" and isinstance(grade_val, str) and grade_val in ("A", "B"):
                     event_grade = grade_val
 
                 if not entry_signal:

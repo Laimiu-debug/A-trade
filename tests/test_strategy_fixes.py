@@ -17,24 +17,65 @@ atexit.register(TEMP.cleanup)
 configure_environment(TEMP.name)
 sys.path.insert(0, str(ROOT / 'vendor/finaltrade/backend'))
 from app.core.strategy_registry import StrategyRegistry
-from app.core.strategy_plugins import ForceRhythmPlugin
+from app.core.strategy_plugins import MasterAlphaStrategyPlugin
 from app.core.backtest_engine import BacktestEngine
 from app.models import BacktestRunRequest, CandlePoint, BacktestPlateauPoint, BacktestPlateauResponse, BacktestPlateauRunRequest
 from app.store import InMemoryStore, store
 from app.core.plateau_features import feature_readers
 
 
-def buy_indicator():
-    return dict(has_data=True, cycle_count=3, cycle_cv=.1, amplitude_cv=.1, autocorr=.8,
-                wave_swing_ratio=.6, main_force=10, retail_force=4, prev_retail_force=5,
-                main_force_state='rising', prev_main_force_state='falling', retail_force_state='falling',
-                trough_percentile=.45, retail_percentile=.2, signal_score=80)
+def wujiang_buy_indicator(trigger_date: str = '2024-02-05'):
+    return dict(
+        has_data=True,
+        trigger_date=trigger_date,
+        symbol='sh600000',
+        board='main',
+        limit_ratio=0.10,
+        close=11.0,
+        prev_close=10.0,
+        day_gain=10.0,
+        prev_gain=-2.0,
+        ret5=8.0,
+        ret20=12.0,
+        ret40=15.0,
+        ma5=10.5,
+        ma10=10.2,
+        ma20=10.0,
+        ma20_rising=True,
+        ma60=9.5,
+        ma60_rising=True,
+        above_ma5=True,
+        above_ma10=True,
+        above_ma20=True,
+        above_ma60=True,
+        ma_bullish=True,
+        vol_ratio_5=1.8,
+        vol_ratio_20=2.0,
+        vol_ratio_prev=1.5,
+        up_down_vol_ratio=1.6,
+        consec_zt=1,
+        is_zt=True,
+        prev_is_zt=False,
+        prev2_is_zt=True,
+        zt_in_5d=2,
+        zt_in_10d=2,
+        is_one_word=False,
+        close_strength=0.95,
+        upper_wick_ratio=0.02,
+        breakout_20=True,
+        breakout_40=True,
+        drawdown20=0.0,
+        dist_ma10_pct=7.8,
+        dist_ma20_pct=10.0,
+        amt_yi=6.5,
+        sector_rank=3,
+    )
 
 
 class StrategyRegistrationTests(unittest.TestCase):
     def test_corrected_runs_cannot_reuse_the_legacy_result_cache(self):
-        payload = BacktestRunRequest(strategy_id='ths_force_rhythm_v1', date_from='2024-01-01', date_to='2024-02-01')
-        kwargs = dict(strategy_version='1.0.1', strategy_params_hash='same-params', event_judgment_profile_hash='same-profile')
+        payload = BacktestRunRequest(strategy_id='wujiang_mainline_v1', date_from='2024-01-01', date_to='2024-02-01')
+        kwargs = dict(strategy_version='2.0.0', strategy_params_hash='same-params', event_judgment_profile_hash='same-profile')
         current = store._build_backtest_result_cache_key(payload, **kwargs)
         with patch.object(store, '_BACKTEST_RESULT_CACHE_VERSION', 'backtest-result-v6'):
             old = store._build_backtest_result_cache_key(payload, **kwargs)
@@ -42,40 +83,73 @@ class StrategyRegistrationTests(unittest.TestCase):
 
     def test_every_visible_strategy_has_its_own_plugin(self):
         registry = StrategyRegistry()
-        self.assertEqual(len(registry.list()), 16)
+        self.assertEqual(len(registry.list()), 9)
         for descriptor in registry.list():
             plugin = registry._get_plugin(descriptor.strategy_id)
             self.assertEqual(plugin.strategy_id, descriptor.strategy_id)
-        self.assertIsInstance(registry._get_plugin('ths_force_rhythm_v1'), ForceRhythmPlugin)
-        self.assertEqual(registry.get('ths_force_rhythm_v1').version, '1.0.1')
+        self.assertIsInstance(registry._get_plugin('wujiang_mainline_v1'), MasterAlphaStrategyPlugin)
+        self.assertEqual(registry.get('wujiang_mainline_v1').version, '2.1.0')
+        self.assertTrue(registry.get('wujiang_mainline_v1').is_default)
+        # Ensure pruned low-value legacy strategies are no longer exposed.
+        for removed in ('wyckoff_trend_v1', 'score_only_rank_v1', 'ths_force_rhythm_v1', 'trend_king_v1', 'limit_up_arb_v1'):
+            self.assertIsNone(registry.get(removed))
+
+    def test_all_six_master_modes_share_unified_mapping_and_regime_caps(self):
+        from app.core.master_alpha_strategies import resolve_master_regime_slot_and_scale
+        from service.master_advisor import STRATEGY_ID_TO_STYLE_KEY
+
+        registry = StrategyRegistry()
+        expected_ids = (
+            'wujiang_mainline_v1',
+            'mainline_halfway_v1',
+            'first_to_second_v1',
+            'highboard_sniper_v1',
+            'ruhan_halfway_v1',
+            'strong_trend_dip_v1',
+        )
+        for sid in expected_ids:
+            desc = registry.get(sid)
+            self.assertIsNotNone(desc, sid)
+            self.assertEqual(desc.version, '2.1.0')
+            self.assertIn(sid, STRATEGY_ID_TO_STYLE_KEY)
+            for key in ('use_regime_switch', 'use_fast_weak_cut', 'use_add_on_win', 'use_partial_trim'):
+                self.assertIn(key, desc.params_schema, f'{sid} missing {key}')
+
+        adv_slots, adv_pos, adv_cap = resolve_master_regime_slot_and_scale('wujiang_mainline_v1', 'advance', 4, 0.25, {'use_regime_switch': True})
+        dec_slots, dec_pos, dec_cap = resolve_master_regime_slot_and_scale('wujiang_mainline_v1', 'decline', 4, 0.25, {'use_regime_switch': True})
+        off_slots, off_pos, off_cap = resolve_master_regime_slot_and_scale('wujiang_mainline_v1', 'decline', 4, 0.25, {'use_regime_switch': False})
+        self.assertGreater(adv_slots, dec_slots)
+        self.assertGreater(adv_cap, dec_cap)
+        self.assertEqual((off_slots, off_pos, off_cap), (4, 0.25, 0.95))
 
     def test_missing_implementation_cannot_fall_back_to_permissive_plugin(self):
         registry = StrategyRegistry()
-        registry._plugins.pop('ths_force_rhythm_v1')
+        registry._plugins.pop('wujiang_mainline_v1')
         with self.assertRaises(ValueError):
-            registry.generate_signals(strategy_id='ths_force_rhythm_v1', row=None, snapshot={}, params={})
+            registry.generate_signals(strategy_id='wujiang_mainline_v1', row=None, snapshot={}, params={})
 
-    def test_rhythm_accepts_real_buy_conditions_and_rejects_missing_or_ineligible_context(self):
-        plugin = StrategyRegistry()._get_plugin('ths_force_rhythm_v1')
+    def test_master_alpha_accepts_real_buy_conditions_and_rejects_missing_or_ineligible_context(self):
+        plugin = StrategyRegistry()._get_plugin('wujiang_mainline_v1')
         self.assertFalse(plugin.generate_signals(row=None, snapshot={}, params={}))
-        snapshot = {'force_rhythm_signal': buy_indicator()}
+        snapshot = {'master_alpha_signal': wujiang_buy_indicator()}
         self.assertTrue(plugin.generate_signals(row=None, snapshot=snapshot, params={}))
-        self.assertFalse(plugin.generate_signals(row=None, snapshot=snapshot, params={'min_cycle_count': 4}))
+        self.assertFalse(plugin.generate_signals(row=None, snapshot=snapshot, params={'track_mode': 'growth_20cm'}))
+        self.assertFalse(plugin.generate_signals(row=None, snapshot=snapshot, params={'min_amount_yi': 10.0}))
 
-    def test_rhythm_sell_points_are_checked_after_buy_shape_disappears_and_after_leaving_pool(self):
+    def test_master_alpha_sell_points_are_checked_after_buy_shape_disappears_and_after_leaving_pool(self):
         days = [(dt.date(2024, 1, 1) + dt.timedelta(days=i)).isoformat() for i in range(40)]
         candles = [CandlePoint(time=day, open=100, high=101, low=99, close=100, volume=100000, amount=1e7) for day in days]
         registry = StrategyRegistry()
         def snapshot(_row, _window, date):
-            indicator = buy_indicator() if date == days[35] else {}
+            indicator = wujiang_buy_indicator(date) if date == days[35] else {'has_data': True, 'trigger_date': date, 'above_ma20': True, 'above_ma10': True, 'day_gain': 0.0, 'upper_wick_ratio': 0.1}
             if date == days[38]:
-                indicator = dict(has_data=True, main_force=10, retail_force=3, trough_percentile=.9, main_force_state='falling')
-            return {'force_rhythm_signal': indicator, 'entry_quality_score': 80, 'risk_events': []}
+                indicator = dict(has_data=True, trigger_date=date, above_ma20=False, above_ma10=False, day_gain=-4.2, upper_wick_ratio=0.1, vol_ratio_20=1.8, close_strength=0.1, dist_ma20_pct=-3.0)
+            return {'master_alpha_signal': indicator, 'entry_quality_score': 80, 'risk_events': []}
         engine = BacktestEngine(get_candles=lambda _: candles,
                                 build_row=lambda *_: SimpleNamespace(symbol='sh600000'),
                                 calc_snapshot=snapshot, resolve_symbol_name=lambda _: 'fixture',
                                 strategy_signal_filter=lambda sid, row, snap, params: registry.generate_signals(strategy_id=sid, row=row, snapshot=snap, params=params))
-        payload = BacktestRunRequest(strategy_id='ths_force_rhythm_v1', date_from=days[35], date_to=days[-1],
+        payload = BacktestRunRequest(strategy_id='wujiang_mainline_v1', date_from=days[35], date_to=days[-1],
                                      entry_events=[], exit_events=[], min_score=0, min_event_count=0,
                                      stop_loss=.5, take_profit=1.5, delay_invalidation_enabled=False,
                                      enable_advanced_analysis=False)
@@ -84,7 +158,7 @@ class StrategyRegistrationTests(unittest.TestCase):
                 trades, *_ = engine._build_candidates_for_symbol('sh600000', payload, days[35], days[-1], allowed)
                 self.assertEqual(len(trades), 1)
                 self.assertEqual(trades[0].exit_date, days[39])
-                self.assertIn('波峰', trades[0].exit_reason)
+                self.assertIn('MA20', trades[0].exit_reason)
 
 
 def point(profit=.1, passes=True):

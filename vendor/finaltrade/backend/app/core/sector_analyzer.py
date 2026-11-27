@@ -224,19 +224,59 @@ class SectorAnalysisCache:
     def __init__(self) -> None:
         self._sector_candles: dict[str, list[dict[str, Any]]] | None = None
         self._sector_scores: dict[str, dict[str, Any]] | None = None
+        self._sector_avg_units: np.ndarray | None = None
+        self._sector_names_fast: list[str] = []
         self._loaded_at: float = 0.0
+        self._loaded_path: str = ""
 
-    def is_expired(self) -> bool:
+    def is_expired(self, tdx_data_path: str | None = None) -> bool:
         if self._sector_candles is None:
+            return True
+        if tdx_data_path is not None and str(tdx_data_path) != self._loaded_path:
             return True
         return (time.monotonic() - self._loaded_at) > self._TTL_SECONDS
 
     def refresh(self, tdx_data_path: str) -> None:
         candles = load_sector_candles(tdx_data_path)
-        if candles:
-            self._sector_candles = candles
-            self._sector_scores = compute_sector_scores(candles)
-            self._loaded_at = time.monotonic()
+        self._sector_candles = candles or {}
+        self._sector_scores = compute_sector_scores(candles) if candles else {}
+        self._build_fast_index()
+        self._loaded_at = time.monotonic()
+        self._loaded_path = str(tdx_data_path or "")
+
+    def _build_fast_index(self) -> None:
+        self._sector_avg_units = None
+        self._sector_names_fast = []
+        candles = self._sector_candles
+        if not candles:
+            return
+        window = 41
+        avg_rows: list[np.ndarray] = []
+        names: list[str] = []
+        for name, codes in SECTOR_CODES.items():
+            unit_vecs: list[np.ndarray] = []
+            for code in codes:
+                bars = candles.get(code)
+                if not bars:
+                    continue
+                if len(bars) < window:
+                    if len(bars) >= 21:
+                        return
+                    continue
+                sec_arr = np.array([b["close"] for b in bars[-window:]], dtype=np.float64)
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    sec_ret = np.diff(sec_arr) / sec_arr[:-1]
+                sec_ret = np.nan_to_num(sec_ret, nan=0.0)
+                centered = sec_ret - sec_ret.mean()
+                norm = float(np.sqrt(np.sum(centered * centered)))
+                if norm > 0.0:
+                    unit_vecs.append(centered / norm)
+            if unit_vecs:
+                avg_rows.append(np.mean(unit_vecs, axis=0))
+                names.append(name)
+        if avg_rows:
+            self._sector_avg_units = np.vstack(avg_rows)
+            self._sector_names_fast = names
 
     @property
     def sector_candles(self) -> dict[str, list[dict[str, Any]]]:
@@ -253,6 +293,24 @@ class SectorAnalysisCache:
         """返回 (sector_name, sector_rank, sector_m5)"""
         if not self._sector_candles:
             return None, 99, 0.0
+        window = 41
+        if self._sector_avg_units is not None and len(stock_closes) >= window:
+            stock_arr = np.array(stock_closes[-window:], dtype=np.float64)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                stock_ret = np.diff(stock_arr) / stock_arr[:-1]
+            stock_ret = np.nan_to_num(stock_ret, nan=0.0)
+            centered = stock_ret - stock_ret.mean()
+            s_norm = float(np.sqrt(np.sum(centered * centered)))
+            if s_norm <= 0.0:
+                return None, 99, 0.0
+            avg_corrs = self._sector_avg_units @ (centered / s_norm)
+            best_idx = int(np.argmax(avg_corrs))
+            best_corr = float(avg_corrs[best_idx])
+            if best_corr < 0.3:
+                return None, 99, 0.0
+            best_sector = self._sector_names_fast[best_idx]
+            info = self.sector_scores.get(best_sector, {})
+            return best_sector, int(info.get("rank", 99)), float(info.get("m5", 0.0))
         return match_stock_sector(stock_closes, self._sector_candles, self.sector_scores)
 
 

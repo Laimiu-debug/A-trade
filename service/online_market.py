@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 
 from service import tdx
+from service.dev_dependencies import use_prepared_dependencies
 
 
 def now():
@@ -16,6 +17,7 @@ def now():
 
 class OnlineMarket:
     def __init__(self, owner):
+        use_prepared_dependencies("mcp", "pandas", "numpy")
         self.owner = owner
         self.client = None
         self.client_root = None
